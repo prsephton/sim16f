@@ -62,7 +62,7 @@ class CPU {
 
   public:
 	void reset() {
-		data.SP = 8;
+		data.SP = 7;
 		data.W = 0;
 		cycles = 0;
 		data.sram.set_PC(0);
