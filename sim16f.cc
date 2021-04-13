@@ -68,6 +68,7 @@ class CPU {
 		data.sram.write(data.sram.STATUS, 0);
 	}
 
+
 	void tests() {
 		int n = 0;
 		data.W = 0x7e;
