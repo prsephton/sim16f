@@ -8,13 +8,21 @@
 #include "smart_ptr.cc"
 
 
+std::string pad(const std::string &payload) {
+	std::string padded = std::string("\t") + payload + "                        ";
+	padded.resize(12);
+	return padded + " \t; ";
+}
+
 const std::string Instruction::disasm(WORD opcode, CPU_DATA &cpu) {
-	return mnemonic + "\t\t; " + description;
+	return mnemonic + pad("") + description;
 }
 
 WORD Instruction::assemble(WORD f, BYTE b, bool d) {
 	return opcode;  // best effort
+
 }
+// "\t" + cpu.register_name(idx) + std::string(to_file?",f":",w")  +"    \t; "
 
 class ADDWF: public Instruction {
 
@@ -32,7 +40,7 @@ class ADDWF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		return mnemonic + "\t" + cpu.register_name(idx) + std::string(to_file?",f":",w")  +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + std::string(to_file?",f":",w")) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -72,7 +80,7 @@ class ANDWF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		return mnemonic + "\t" + cpu.register_name(idx) + std::string(to_file?",f":",w")  +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + std::string(to_file?",f":",w")) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -106,7 +114,7 @@ class CLRF: public Instruction {
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
 		decode(opcode, idx);
-		return mnemonic + "\t" + cpu.register_name(idx) +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx)) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -127,7 +135,7 @@ class CLRW: public Instruction {
 		return opcode;
 	}
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
-		return mnemonic + "\t\t; " + description;
+		return mnemonic + pad("") + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE Z = true;
@@ -154,7 +162,7 @@ class COMF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		return mnemonic + "\t" + cpu.register_name(idx) + std::string(to_file?",f":",w")  +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + std::string(to_file?",f":",w")) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -191,7 +199,7 @@ class DECF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		return mnemonic + "\t" + cpu.register_name(idx) + std::string(to_file?",f":",w")  +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + std::string(to_file?",f":",w")) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -228,7 +236,7 @@ class DECFSZ: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		return mnemonic + "\t" + cpu.register_name(idx) + std::string(to_file?",f":",w")  +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + std::string(to_file?",f":",w")) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -265,7 +273,7 @@ class INCF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		return mnemonic + "\t" + cpu.register_name(idx) + std::string(to_file?",f":",w")  +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + std::string(to_file?",f":",w")) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -302,7 +310,7 @@ class INCFSZ: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		return mnemonic + "\t" + cpu.register_name(idx) + std::string(to_file?",f":",w")  +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + std::string(to_file?",f":",w")) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -339,7 +347,7 @@ class IORWF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		return mnemonic + "\t" + cpu.register_name(idx) + std::string(to_file?",f":",w")  +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + std::string(to_file?",f":",w")) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -377,7 +385,7 @@ class MOVF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		return mnemonic + "\t" + cpu.register_name(idx) + std::string(to_file?",f":",w")  +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + std::string(to_file?",f":",w")) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -412,7 +420,7 @@ class MOVWF: public Instruction {
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
 		decode(opcode, idx);
-		return mnemonic + "\t" + cpu.register_name(idx) +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx)) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -446,7 +454,7 @@ class RLF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		return mnemonic + "\t" + cpu.register_name(idx) + std::string(to_file?",f":",w")  +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + std::string(to_file?",f":",w")) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -484,7 +492,7 @@ class RRF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		return mnemonic + "\t" + cpu.register_name(idx) + std::string(to_file?",f":",w")  +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + std::string(to_file?",f":",w")) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -522,7 +530,7 @@ class SUBWF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		return mnemonic + "\t" + cpu.register_name(idx) + std::string(to_file?",f":",w")  +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + std::string(to_file?",f":",w")) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -566,7 +574,7 @@ class SWAPF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		return mnemonic + "\t" + cpu.register_name(idx) + std::string(to_file?",f":",w")  +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + std::string(to_file?",f":",w")) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -599,7 +607,7 @@ class XORWF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		return mnemonic + "\t" + cpu.register_name(idx) + std::string(to_file?",f":",w")  +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + std::string(to_file?",f":",w")) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -637,7 +645,7 @@ class BCF: public Instruction {
 		BYTE idx;
 		BYTE cbits;
 		decode(opcode, idx, cbits);
-		return mnemonic + "\t" + cpu.register_name(idx) + ", " + int_to_string(cbits)   +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -666,7 +674,7 @@ class BSF: public Instruction {
 		BYTE idx;
 		BYTE cbits;
 		decode(opcode, idx, cbits);
-		return mnemonic + "\t" + cpu.register_name(idx) + ", " + int_to_string(cbits)   +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -695,7 +703,7 @@ class BTFSC: public Instruction {
 		BYTE idx;
 		BYTE cbits;
 		decode(opcode, idx, cbits);
-		return mnemonic + "\t" + cpu.register_name(idx) + ", " + int_to_string(cbits)   +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -722,7 +730,7 @@ class BTFSS: public Instruction {
 		BYTE idx;
 		BYTE cbits;
 		decode(opcode, idx, cbits);
-		return mnemonic + "\t" + cpu.register_name(idx) + ", " + int_to_string(cbits)   +"\t; " + description;
+		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -747,7 +755,7 @@ class CALL: public Instruction {
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
 		WORD address;
 		decode(opcode, address);
-		return mnemonic + "\t" + int_to_hex(address)   +"\t; " + description;
+		return mnemonic + pad(int_to_hex(address)) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		WORD address;
@@ -772,7 +780,7 @@ class GOTO: public Instruction {
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
 		WORD address;
 		decode(opcode, address);
-		return mnemonic + "\t" + int_to_hex(address)   +"\t; " + description;
+		return mnemonic + pad(int_to_hex(address)) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		WORD address;
@@ -794,7 +802,7 @@ class MOVLW: public Instruction {
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
 		BYTE literal;
 		decode(opcode, literal);
-		return mnemonic + "\t" + int_to_hex(literal)  +"\t; " + description;
+		return mnemonic + pad(int_to_hex(literal)) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE literal;
@@ -816,7 +824,7 @@ class RETLW: public Instruction {
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
 		BYTE literal;
 		decode(opcode, literal);
-		return mnemonic + "\t" + int_to_hex(literal)  +"\t; " + description;
+		return mnemonic + pad(int_to_hex(literal)) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE literal;
@@ -840,7 +848,7 @@ class SUBLW: public Instruction {
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
 		BYTE literal;
 		decode(opcode, literal);
-		return mnemonic + "\t" + int_to_hex(literal)  +"\t; " + description;
+		return mnemonic + pad(int_to_hex(literal)) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE literal;
@@ -874,7 +882,7 @@ class ADDLW: public Instruction {
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
 		BYTE literal;
 		decode(opcode, literal);
-		return mnemonic + "\t" + int_to_hex(literal)  +"\t; " + description;
+		return mnemonic + pad(int_to_hex(literal)) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE literal;
@@ -907,7 +915,7 @@ class XORLW: public Instruction {
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
 		BYTE literal;
 		decode(opcode, literal);
-		return mnemonic + "\t" + int_to_hex(literal)  +"\t; " + description;
+		return mnemonic + pad(int_to_hex(literal)) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE literal;
@@ -934,7 +942,7 @@ class IORLW: public Instruction {
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
 		BYTE literal;
 		decode(opcode, literal);
-		return mnemonic + "\t" + int_to_hex(literal)  +"\t; " + description;
+		return mnemonic + pad(int_to_hex(literal)) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE literal;
@@ -961,7 +969,7 @@ class ANDLW: public Instruction {
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
 		BYTE literal;
 		decode(opcode, literal);
-		return mnemonic + "\t" + int_to_hex(literal)  +"\t; " + description;
+		return mnemonic + pad(int_to_hex(literal)) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE literal;
@@ -983,7 +991,7 @@ class RETURN: public Instruction {
 		return opcode;
 	}
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
-		return mnemonic + "\t"  +"\t; " + description;
+		return mnemonic + pad("") + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		WORD address = cpu.pop();
@@ -999,7 +1007,7 @@ class RETFIE: public Instruction {
 		return opcode;
 	}
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
-		return mnemonic + "\t"  +"\t; " + description;
+		return mnemonic + pad("") + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		WORD address = cpu.pop();
@@ -1018,7 +1026,7 @@ class SLEEP: public Instruction {
 		return opcode;
 	}
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
-		return mnemonic + "\t"  +"\t; " + description;
+		return mnemonic + pad("") + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		// WDT = 0, WDT Prescaler = 0, TO = 1, PD = 0
@@ -1033,7 +1041,7 @@ class CLRWDT: public Instruction {
 		return opcode;
 	}
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
-		return mnemonic + "\t "  +"\t; " + description;
+		return mnemonic + pad("") + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		// WDT = 0, WDT Prescaler = 0, TO = 1, PD = 1
@@ -1064,10 +1072,10 @@ const std::string &InstructionSet::find_tree(const tree_type &a_tree, WORD a_opc
 	a_opcode = a_opcode << 1;
 	bool rhs = a_opcode & 0x4000;   // test bit 14
 	if (rhs) {
-		if (!a_tree.right) throw("Invalid OP Code");
+		if (!a_tree.right) throw(std::string("Invalid OP Code: ") + int_to_hex(a_opcode));
 		return find_tree(*a_tree.right, a_opcode);
 	} else {
-		if (!a_tree.left) throw("Invalid OP Code");
+		if (!a_tree.left) throw(std::string("Invalid OP Code: ") + int_to_hex(a_opcode));
 		return find_tree(*a_tree.left, a_opcode);
 	}
 }
@@ -1078,8 +1086,8 @@ SmartPtr<Instruction>InstructionSet::find(WORD opcode) {
 		std::string mnemonic = find_tree(m_tree, opcode);
 		return operands[mnemonic];
 	} catch(std::string &error) {
-		std::cout << error << ": " << opcode;
-		return NULL;
+		std::cout << error << ": " << "\n";
+		throw(error);
 	}
 }
 

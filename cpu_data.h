@@ -50,6 +50,7 @@ class CPU_DATA {
 
 	PINS pins;
 	Clock clock;
+	EEPROM eeprom;
 
 	void push(WORD value) {
 		--SP;

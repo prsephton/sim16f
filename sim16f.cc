@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <map>
 #include <set>
@@ -104,7 +105,8 @@ class CPU {
 			execute();
 			fetch();
 		} catch (std::string &error) {
-			std::cout << error << "\n";
+			std::cout << "Terminating because: " << error << "\n";
+			active=false;
 		}
 	}
 
@@ -116,15 +118,51 @@ class CPU {
 		return active;
 	}
 
-	bool load_flash(const std::string &a_filename) {
-		try {
-			data.flash.load(a_filename);
-			return true;
-		} catch( std::string & error) {
-			active = false;
-			std::cout << error << "\n";
-			return false;
+	void configure(const std::string &data) {
+
+	}
+
+	bool load_hex(const std::string &a_filename) {
+		// :BBAAAATT[DDDDDDDD]CC
+		// BB = length
+		// AAAA = Address
+		// TT=0: data;  TT=01: EOF; TT=02: linear address; TT=04: extended address
+		// DD = data
+		// CC = checksum (2's complement of length+address+data)
+		FILE *f = fopen(a_filename.c_str(), "r");
+		char buf[128];
+
+		while (fgets(buf, sizeof(buf), f)) {
+			if (buf[0] != ':')
+				throw(std::string("Invalid file format. ") +a_filename+" is not a standard .hex file.");
+			int bb, aaaa, tt, cc;
+			char *p;
+			bb = strtoul(std::string(buf, 1, 2).c_str(), &p, 16);
+			aaaa = strtoul(std::string(buf, 3, 4).c_str(), &p, 16);
+			tt = strtoul(std::string(buf, 7, 2).c_str(), &p, 16);
+			cc = strtoul(std::string(buf, 9+bb*2, 2).c_str(), &p, 16);
+
+//			BYTE crc = 0;
+			char ds[bb+1]; ds[bb] = 0;
+			for (int n = 0; n < bb; ++n) {
+				BYTE d = strtoul(std::string(buf, 9+n*2, 2).c_str(), &p, 16);
+				ds[n] = d;
+			}
+
+			std::cout <<std::dec<<"bb="<<bb<<"; aaaa="<<std::hex<<aaaa<<"; tt="<<tt<<"; cc="<<cc<<"; data="<<std::string(buf+9,bb*2) << "\n";
+			if (tt==0) {
+				if (aaaa == 0x400e)                      // config word
+					configure(std::string(ds, bb));
+				else if (aaaa >= 0x4200)                 // eeprom
+					data.eeprom.set_data(aaaa - 0x4200, std::string(ds, bb));
+				else                                     // flash data
+					data.flash.set_data(aaaa, std::string(ds, bb));
+			} else if (tt==1) {                 // eof
+				break;
+			}
 		}
+		fclose(f);
+		return false;
 	}
 
 	void process_queue() {
@@ -148,14 +186,21 @@ class CPU {
 // Runtime thread for the machine
 void *run_machine(void *a_cpu) {
 	CPU &cpu = *((CPU *)(a_cpu));
-	while (cpu.running()) {
-		usleep(5);
-		try {
-			cpu.process_queue();
-		} catch (std::string &error) {
-			std::cout << error << "\n";
+	try {
+		while (cpu.running()) {
+			usleep(5);
+			try {
+				cpu.process_queue();
+			} catch (std::string &error) {
+				std::cout << error << "\n";
+			}
 		}
+	} catch(const char *message) {
+		std::cout << "Machine Exit: " << message << "\n";
+	} catch(const std::string &message) {
+		std::cout << "Machine Exit: " << message << "\n";
 	}
+
 	pthread_exit(NULL);
 }
 
@@ -171,13 +216,16 @@ int main(int argc, char *argv[]) {
 	pthread_t machine;
 	pthread_create(&machine, NULL, run_machine, &cpu);
 
-	cpu.load_flash("test.bin");
-	cpu.tests();
+	cpu.load_hex("test.hex");
+//	cpu.tests();
 
-	while (cpu.running()) {
-		usleep(delay_us);
-		cpu.toggle_clock();
+	try {
+		while (cpu.running()) {
+			usleep(delay_us);
+			cpu.toggle_clock();
+		}
+	} catch(const std::string &message) {
+		std::cout << "Exiting: " << message << "\n";
 	}
-
 	pthread_exit(NULL);
 }

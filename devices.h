@@ -45,9 +45,15 @@ class WDT: public Device {
 };
 
 class EEPROM: public Device {
+  public:
 	short data[EEPROM_SIZE];
 
 	void load(const std::string &a_file);
+
+	void set_data(WORD address, const std::string &ds) {
+		for(WORD n=0; n<ds.length() && n+address<EEPROM_SIZE; ++n)
+			data[n+address] = ds[n];
+	}
 };
 
 class PORTA: public Device {
@@ -154,6 +160,12 @@ class Flash {
 	WORD fetch(WORD PC) {
 		return data[PC % FLASH_SIZE];
 	}
+
+	void set_data(WORD address, const std::string &ds) {
+		for(WORD n=0; n<ds.length() && n+address<FLASH_SIZE; n += 2)
+			data[(n+address)/2] = (((WORD)ds[n+1]) << 8) | (BYTE)ds[n];
+	}
+
 };
 
 #endif
