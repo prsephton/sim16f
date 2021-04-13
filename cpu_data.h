@@ -44,9 +44,9 @@ class CPU_DATA {
 	WORD W;
 
 	WORD stack[STACK_SIZE];
+	std::string configuration;
 	std::map<std::string, SmartPtr<Register> > Registers;
 	std::map<BYTE, std::string> RegisterNames;
-
 
 	PINS pins;
 	Clock clock;

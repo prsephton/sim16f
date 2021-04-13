@@ -1,15 +1,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
-#include <map>
-#include <set>
-#include <vector>
+#include <cstring>
 #include <iostream>
 #include <unistd.h>
 #include <pthread.h>
-#include <queue>
-#include <sys/types.h>
-#include <fcntl.h>
 
 #include "constants.h"
 #include "devices.h"
@@ -118,8 +113,56 @@ class CPU {
 		return active;
 	}
 
-	void configure(const std::string &data) {
+	void configure(const std::string &config) {
+		data.configuration = config;
+	}
 
+	void write_hex_records(FILE *f, int bb, WORD aaaa, const char *data, int dlen) {
+		char buf[256];
+
+		for (int ofs=0; ofs<dlen; ofs += bb) {
+			WORD cc = 0, tt = 0;
+			if (ofs+bb > dlen) bb=dlen-ofs;
+
+			snprintf(buf, sizeof(buf), ":%02X%04X%02X", bb, aaaa, tt);
+			cc += bb; cc += aaaa >> 8; cc += aaaa & 0xff; cc += tt;
+			for (int n=0; n<bb; ++n) {
+				BYTE d=data[ofs+n]; cc += d;
+				snprintf(buf+9+2*n, 4, "%02X", d);
+			}
+			aaaa += bb;
+			cc = (~cc + 1) & 0xff;
+			snprintf(buf+9+bb*2, 4, "%02X\n", cc);
+			size_t written=fwrite(buf, 9+bb*2+3, 1, f);
+			if (written < 0)
+				throw(std::string("Cannot write to hex file"));
+		}
+	}
+
+
+	bool dump_hex(const std::string &a_filename) {
+		FILE *f = fopen(a_filename.c_str(), "w+");
+		char buf[256];
+
+		char *flash = (char *)data.flash.data;
+		int limit = FLASH_SIZE*sizeof(WORD);
+		while (limit>0 && flash[limit-1]==0) --limit;
+
+		write_hex_records(f, 0x10, 0, flash, limit);
+
+		char *eeprom = (char *)data.eeprom.data;
+		limit = EEPROM_SIZE;
+		while (limit>0 && eeprom[limit-1]==0) --limit;
+
+		write_hex_records(f, 0x10, 0x4200, eeprom, limit);
+
+		write_hex_records(f, 0x10, 0x400E, data.configuration.c_str(), data.configuration.length());
+
+		std::string eof(":00000001FF\n");
+		fwrite(eof.c_str(), eof.length(), 1, f);
+
+		fclose(f);
+		return false;
 	}
 
 	bool load_hex(const std::string &a_filename) {
@@ -142,14 +185,23 @@ class CPU {
 			tt = strtoul(std::string(buf, 7, 2).c_str(), &p, 16);
 			cc = strtoul(std::string(buf, 9+bb*2, 2).c_str(), &p, 16);
 
-//			BYTE crc = 0;
+			WORD sum = 0;
+			for (int n=0; n<4; ++n) {
+				BYTE d = strtoul(std::string(buf, 1+n*2, 2).c_str(), &p, 16);
+				sum += d;
+			}
+
 			char ds[bb+1]; ds[bb] = 0;
 			for (int n = 0; n < bb; ++n) {
 				BYTE d = strtoul(std::string(buf, 9+n*2, 2).c_str(), &p, 16);
+				sum += d;
 				ds[n] = d;
 			}
+			sum = (~sum+1) & 0xff;
+			if (sum != cc)
+				throw(std::string("Checksum failure while loading HEX file"));
 
-			std::cout <<std::dec<<"bb="<<bb<<"; aaaa="<<std::hex<<aaaa<<"; tt="<<tt<<"; cc="<<cc<<"; data="<<std::string(buf+9,bb*2) << "\n";
+			std::cout <<std::dec<<"bb="<<bb<<"; aaaa="<<std::hex<<aaaa<<"; tt="<<tt<<"; cc="<<cc<<"["<<(WORD)sum<< "]; data="<<std::string(buf+9,bb*2) << "\n";
 			if (tt==0) {
 				if (aaaa == 0x400e)                      // config word
 					configure(std::string(ds, bb));
@@ -162,7 +214,7 @@ class CPU {
 			}
 		}
 		fclose(f);
-		return false;
+		return true;
 	}
 
 	void process_queue() {
@@ -178,6 +230,8 @@ class CPU {
 	}
 
 	CPU(): active(true), debug(true), skip(false), cycles(0) {
+		memset(data.flash.data, 0, sizeof(data.flash.data));
+		memset(data.eeprom.data, 0, sizeof(data.eeprom.data));
 		reset();
 	}
 };
@@ -209,14 +263,14 @@ void *run_machine(void *a_cpu) {
 // Host thread.
 int main(int argc, char *argv[]) {
 	CPU cpu;
-	unsigned long clock_speed_hz = 8;
-//	unsigned long clock_speed_hz = 20000000;
+	unsigned long clock_speed_hz = 8;    // 2 cycles per second
 	unsigned long delay_us = 1000000 / clock_speed_hz;
 	std::cout << "delay is: " << delay_us << "\n";
 	pthread_t machine;
 	pthread_create(&machine, NULL, run_machine, &cpu);
 
 	cpu.load_hex("test.hex");
+	cpu.dump_hex("dumped.hex");
 //	cpu.tests();
 
 	try {
