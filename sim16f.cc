@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
 
 	CommandLine cmdline(argc, argv);
 	if (cmdline.cmdOptionExists("-h") || argc==1) {
-		std::cout << "A PIC16f6xxx emulator\n";
+		std::cout << "A PIC16f6xxx simulator\n";
 		std::cout << "   Disclaimer:  things may break.  It's not my fault.\n";
 		std::cout << "\n";
 		std::cout << "sim16f <options>\n";
