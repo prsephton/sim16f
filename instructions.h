@@ -20,7 +20,7 @@ public:
 			const std::string &a_mnemonic, const std::string & a_description):
 		opcode(a_opcode), bits(a_bits), mnemonic(a_mnemonic), description(a_description), cycles(a_cycles) {
 		description = description + "                                         ";
-		description.resize(25);
+		description.resize(27);
 	}
 	virtual ~Instruction() {}
 

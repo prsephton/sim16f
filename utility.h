@@ -4,8 +4,10 @@
 #define __utility_h__
 
 #include <string>
+#include <algorithm>
 
 const std::string int_to_string(int i);
 const std::string int_to_hex(int i);
+const std::string to_upper(std::string in);
 
 #endif

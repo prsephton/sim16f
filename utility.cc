@@ -14,3 +14,7 @@ const std::string int_to_hex(int i)  {
 	return std::string(buf);
 }
 
+const std::string to_upper(std::string in) {
+	 transform(in.begin(), in.end(), in.begin(), ::tolower);
+	 return in;
+}

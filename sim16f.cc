@@ -3,6 +3,7 @@
 #include <string>
 #include <cstring>
 #include <iostream>
+#include <iomanip>
 #include <unistd.h>
 #include <pthread.h>
 
@@ -38,7 +39,7 @@ class CPU {
 			}
 			if (current) cycles = current->cycles;
 			if (debug) {
-				std::cout << "PC: " << PC << ":\t";
+				std::cout << std::setfill('0') << std::hex << std::setw(4) <<  PC << "\t";
 			}
 			++PC; PC = PC % FLASH_SIZE;
 			data.sram.set_PC(PC);
@@ -50,7 +51,7 @@ class CPU {
 		if (current) {
 			skip = current->execute(opcode, data);
 			if (debug) {
-				std::cout << current->disasm(opcode, data) << "\t\t W:" << int_to_hex(data.W) << "\tSP:" << data.SP << "\n";
+				std::cout << current->disasm(opcode, data) << "\t W:" << int_to_hex(data.W) << "\tSP:" << data.SP << "\n";
 			}
 		}
 	}
@@ -162,7 +163,100 @@ class CPU {
 		fwrite(eof.c_str(), eof.length(), 1, f);
 
 		fclose(f);
+		return true;
+	}
+
+
+	bool translate(const char *in,
+			std::string &label,  std::string &mnemonic, std::string &address, std::string &arg) {
+		char *pt = (char *)in, *sep;
+		while (*pt && *pt <= 32) pt++;             // white space skip
+		if (*pt) {                                 // found something
+			if (*pt==';') return false;            // just a comment line
+
+		} else {
+			return false;                          // blank line
+		}
+		if ((sep = strchr(pt, ':')) != NULL) {
+			label = to_upper(std::string(pt, sep-pt-1)); pt = sep;
+		}
+		while (*pt && *pt <= 32) pt++;             // white space skip
+		if (*pt) {
+			if (*pt==';') return true;             // comment and label
+		} else {
+			return true;                           // just a label on a line.
+		}
+		for (sep=pt; *sep && *sep > 32; ++sep);    // look for next whitespace
+		if (sep > pt) {                            // either ws or zero terminator
+			mnemonic = std::string(pt, sep-pt-1);
+			pt = sep;
+			while (*pt && *pt <= 32) pt++;                 // white space skip
+			if (*pt) {                                     // found something
+				if ((sep = strchr(pt, ','))!=NULL) {
+					address = to_upper(std::string(pt, sep-pt-1)); pt = sep;
+					for (sep=pt; *sep && *sep > 32; ++sep);    // look for next whitespace
+					arg = to_upper(std::string(pt, sep-pt-1));
+					return true;
+				} else {  // no arg
+					for (sep=pt; *sep && *sep > 32; ++sep);    // look for next whitespace
+					if (sep > pt) {
+						address = to_upper(std::string(pt, sep-pt-1));
+						arg = "";
+						return true;
+					}
+				}
+			}
+		}
 		return false;
+	}
+
+
+	bool assemble(const std::string &a_filename) {   // assembly file read into flash
+		// expected format:
+		//     [label:] mnemonic [args] [; comments] \n
+		//
+		// <label> may be on the preceding line. and may be preceded by whitespace.
+		// <mnemonic> may be preceded by whitespace.
+		// The W or Flag register destination argument is separated by a comma and
+		// is the small letter 'w' or 'f'.  For example:  "ADDWF  0x33,f".
+		// Instead of ,w or ,f, ,0 or ,1 are also accepted.
+		// It is valid to use register names instead of values.  Eg. BTS TRISA,2
+		// anything on a line after a semicolon is considered to be a comment
+		// Case is not important. XORWF STATUS,w is equivalent to xorwf StaTus, W
+
+		FILE *f = fopen(a_filename.c_str(), "r");
+		memset(data.flash.data, 0, sizeof(data.flash.data));
+		char buf[256];
+		WORD address = 0;
+		std::map<std::string, WORD> labels;
+
+		while (fgets(buf, sizeof(buf), f)) {
+			std::string label, mnemonic, port, arg;
+			if (translate(buf, label, mnemonic, port, arg)) {
+				if (label.length()) {
+					if (labels.find(to_upper(label))==labels.end()) {
+						labels[label] = address;  // record current address as a label
+					} else {
+						throw(std::string("Format error: label already exists: ")+label);
+					}
+				}
+			} else {
+				throw(std::string("Cannot decode assembly line: ")+buf);
+			}
+		}
+		return false;
+	}
+
+	void disassemble(const std::string &a_filename) {
+		load_hex(a_filename);
+		int limit = FLASH_SIZE;
+		while (limit>0 && data.flash.data[limit-1]==0) --limit;
+		for (int pc=0; pc < limit; ++pc) {
+			WORD opcode = data.flash.data[pc];
+			current = instructions.find(opcode);
+			std::cout <<  std::setfill('0') << std::hex << std::setw(4) << pc << "\t" << current->disasm(opcode, data) << "\n";
+		}
+		active=false;
 	}
 
 	bool load_hex(const std::string &a_filename) {
@@ -173,7 +267,7 @@ class CPU {
 		// DD = data
 		// CC = checksum (2's complement of length+address+data)
 		FILE *f = fopen(a_filename.c_str(), "r");
-		char buf[128];
+		char buf[256];
 
 		while (fgets(buf, sizeof(buf), f)) {
 			if (buf[0] != ':')
@@ -270,7 +364,8 @@ int main(int argc, char *argv[]) {
 	pthread_create(&machine, NULL, run_machine, &cpu);
 
 	cpu.load_hex("test.hex");
-	cpu.dump_hex("dumped.hex");
+//	cpu.dump_hex("dumped.hex");
+//	cpu.disassemble("dumped.hex");
 //	cpu.tests();
 
 	try {

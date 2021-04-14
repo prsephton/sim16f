@@ -10,8 +10,8 @@
 
 std::string pad(const std::string &payload) {
 	std::string padded = std::string("\t") + payload + "                        ";
-	padded.resize(12);
-	return padded + " \t; ";
+	padded.resize(14);
+	return padded + "\t; ";
 }
 
 const std::string Instruction::disasm(WORD opcode, CPU_DATA &cpu) {
