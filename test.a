@@ -1,0 +1,283 @@
+0000:	CLRF	PCLATH       	; Clear f                    
+0001:	GOTO	0xAA         	; Go to address              
+0002:	NOP	             	; No Operation               
+0003:	NOP	             	; No Operation               
+0004:	MOVWF	0x7F         	; Move W to f                
+0005:	SWAPF	STATUS,w     	; Swap nibbles in f          
+0006:	CLRF	STATUS       	; Clear f                    
+0007:	MOVWF	0x22         	; Move W to f                
+0008:	MOVF	PCLATH,w     	; Move f                     
+0009:	MOVWF	0x23         	; Move W to f                
+000a:	CLRF	PCLATH       	; Clear f                    
+000b:	GOTO	0xE5         	; Go to address              
+000c:	NOP	             	; No Operation               
+000d:	INCF	0x25,f       	; Increment f                
+000e:	DECFSZ	0x25,w       	; Decrement f, Skip if 0     
+000f:	RETURN	             	; Return from Subroutine     
+0010:	MOVF	INTCON,w     	; Move f                     
+0011:	MOVWF	0x24         	; Move W to f                
+0012:	BCF	INTCON,7     	; Bit Clear f                
+0013:	RETURN	             	; Return from Subroutine     
+0014:	DECFSZ	0x25,f       	; Decrement f, Skip if 0     
+0015:	RETURN	             	; Return from Subroutine     
+0016:	BTFSC	0x24,7       	; Bit Test f, Skip if Clear  
+0017:	BSF	INTCON,7     	; Bit Set f                  
+0018:	RETURN	             	; Return from Subroutine     
+0019:	CALL	0xD          	; Call subroutine            
+001a:	MOVF	INDF,w       	; Move f                     
+001b:	BTFSC	STATUS,2     	; Bit Test f, Skip if Clear  
+001c:	GOTO	0x25         	; Go to address              
+001d:	MOVF	INDF,w       	; Move f                     
+001e:	INCF	FSR,f        	; Increment f                
+001f:	MOVWF	0x20         	; Move W to f                
+0020:	BCF	STATUS,0     	; Bit Clear f                
+0021:	RLF	INDF,f       	; Rotate Left f through Carry
+0022:	DECFSZ	0x20,f       	; Decrement f, Skip if 0     
+0023:	GOTO	0x20         	; Go to address              
+0024:	GOTO	0x26         	; Go to address              
+0025:	INCF	FSR,f        	; Increment f                
+0026:	GOTO	0x14         	; Go to address              
+0027:	BSF	STATUS,5     	; Bit Set f                  
+0028:	MOVWF	0x1B         	; Move W to f                
+0029:	BCF	0x1C,7       	; Bit Clear f                
+002a:	BSF	0x1C,0       	; Bit Set f                  
+002b:	MOVF	RCREG,w      	; Move f                     
+002c:	BCF	STATUS,5     	; Bit Clear f                
+002d:	DECF	FSR,f        	; Decrement f                
+002e:	MOVWF	INDF         	; Move W to f                
+002f:	RETURN	             	; Return from Subroutine     
+0030:	CLRF	CCP1CON      	; Clear f                    
+0031:	MOVF	INDF,w       	; Move f                     
+0032:	ANDLW	0x3          	; AND literal with W         
+0033:	DECF	FSR,f        	; Decrement f                
+0034:	MOVWF	INDF         	; Move W to f                
+0035:	SWAPF	INDF,f       	; Swap nibbles in f          
+0036:	MOVLW	0xF0         	; Move literal to W          
+0037:	ANDWF	INDF,f       	; AND W with f               
+0038:	MOVLW	0xC          	; Move literal to W          
+0039:	IORWF	INDF,w       	; Inclusive OR W with f      
+003a:	INCF	FSR,f        	; Increment f                
+003b:	MOVWF	CCP1CON      	; Move W to f                
+003c:	RRF	INDF,f       	; Rotate Right f through Carr
+003d:	RRF	INDF,f       	; Rotate Right f through Carr
+003e:	MOVLW	0x3F         	; Move literal to W          
+003f:	ANDWF	INDF,w       	; AND W with f               
+0040:	INCF	FSR,f        	; Increment f                
+0041:	MOVWF	CCPR1L       	; Move W to f                
+0042:	RETURN	             	; Return from Subroutine     
+0043:	MOVLW	0xC          	; Move literal to W          
+0044:	MOVWF	CCP1CON      	; Move W to f                
+0045:	MOVLW	0x4          	; Move literal to W          
+0046:	MOVWF	T2CON        	; Move W to f                
+0047:	MOVLW	0x3F         	; Move literal to W          
+0048:	BSF	STATUS,5     	; Bit Set f                  
+0049:	MOVWF	T2CON        	; Move W to f                
+004a:	BCF	STATUS,5     	; Bit Clear f                
+004b:	CLRF	0x28         	; Clear f                    
+004c:	DECF	FSR,f        	; Decrement f                
+004d:	CLRF	INDF         	; Clear f                    
+004e:	GOTO	0x30         	; Go to address              
+004f:	MOVF	0x28,w       	; Move f                     
+0050:	BTFSC	STATUS,2     	; Bit Test f, Skip if Clear  
+0051:	GOTO	0x54         	; Go to address              
+0052:	DECF	0x28,f       	; Decrement f                
+0053:	GOTO	0x67         	; Go to address              
+0054:	MOVF	0x27,w       	; Move f                     
+0055:	DECF	FSR,f        	; Decrement f                
+0056:	MOVWF	INDF         	; Move W to f                
+0057:	ADDLW	0xF8         	; Add literal and W          
+0058:	BTFSS	STATUS,0     	; Bit Test f, Skip if Set    
+0059:	GOTO	0x5C         	; Go to address              
+005a:	CLRF	INDF         	; Clear f                    
+005b:	CLRF	0x27         	; Clear f                    
+005c:	MOVF	INDF,w       	; Move f                     
+005d:	CALL	0x27         	; Call subroutine            
+005e:	MOVF	INDF,w       	; Move f                     
+005f:	INCF	FSR,f        	; Increment f                
+0060:	MOVWF	0x28         	; Move W to f                
+0061:	INCF	INDF,w       	; Increment f                
+0062:	INCF	FSR,f        	; Increment f                
+0063:	CALL	0x27         	; Call subroutine            
+0064:	CALL	0x30         	; Call subroutine            
+0065:	MOVLW	0x2          	; Move literal to W          
+0066:	ADDWF	0x27,f       	; Add W and f                
+0067:	RETURN	             	; Return from Subroutine     
+0068:	CLRF	0x27         	; Clear f                    
+0069:	CALL	0x43         	; Call subroutine            
+006a:	BSF	PORTB,2      	; Bit Set f                  
+006b:	BSF	PORTB,6      	; Bit Set f                  
+006c:	BCF	PORTB,0      	; Bit Clear f                
+006d:	BCF	PORTB,1      	; Bit Clear f                
+006e:	RETURN	             	; Return from Subroutine     
+006f:	BCF	PORTB,2      	; Bit Clear f                
+0070:	BCF	PORTB,6      	; Bit Clear f                
+0071:	CLRF	T2CON        	; Clear f                    
+0072:	CLRF	CCP1CON      	; Clear f                    
+0073:	BCF	PORTB,3      	; Bit Clear f                
+0074:	RETURN	             	; Return from Subroutine     
+0075:	MOVLW	0x7          	; Move literal to W          
+0076:	BSF	STATUS,5     	; Bit Set f                  
+0077:	MOVWF	TMR0         	; Move W to f                
+0078:	BCF	STATUS,5     	; Bit Clear f                
+0079:	CLRF	TMR0         	; Clear f                    
+007a:	BSF	INTCON,5     	; Bit Set f                  
+007b:	RETURN	             	; Return from Subroutine     
+007c:	MOVLW	0x5          	; Move literal to W          
+007d:	XORWF	INDF,w       	; Exclusive OR W with f      
+007e:	XORWF	INDF,f       	; Exclusive OR W with f      
+007f:	XORWF	INDF,w       	; Exclusive OR W with f      
+0080:	DECF	FSR,f        	; Decrement f                
+0081:	MOVWF	INDF         	; Move W to f                
+0082:	CALL	0x19         	; Call subroutine            
+0083:	MOVF	INDF,w       	; Move f                     
+0084:	INCF	FSR,f        	; Increment f                
+0085:	MOVWF	0x26         	; Move W to f                
+0086:	MOVLW	0x20         	; Move literal to W          
+0087:	MOVWF	0x29         	; Move W to f                
+0088:	BCF	PORTB,0      	; Bit Clear f                
+0089:	BCF	0x2B,0       	; Bit Clear f                
+008a:	BSF	PORTB,1      	; Bit Set f                  
+008b:	RETURN	             	; Return from Subroutine     
+008c:	BTFSC	PORTB,2      	; Bit Test f, Skip if Clear  
+008d:	CALL	0x6F         	; Call subroutine            
+008e:	BCF	PORTB,1      	; Bit Clear f                
+008f:	BCF	PORTB,4      	; Bit Clear f                
+0090:	BCF	PORTB,0      	; Bit Clear f                
+0091:	BCF	0x2B,0       	; Bit Clear f                
+0092:	RETURN	             	; Return from Subroutine     
+0093:	CALL	0x8C         	; Call subroutine            
+0094:	MOVLW	0x1          	; Move literal to W          
+0095:	DECF	FSR,f        	; Decrement f                
+0096:	MOVWF	INDF         	; Move W to f                
+0097:	GOTO	0x7C         	; Go to address              
+0098:	CLRF	PORTA        	; Clear f                    
+0099:	CLRF	PORTB        	; Clear f                    
+009a:	MOVLW	0x1F         	; Move literal to W          
+009b:	BSF	STATUS,5     	; Bit Set f                  
+009c:	MOVWF	PORTA        	; Move W to f                
+009d:	CLRF	PORTB        	; Clear f                    
+009e:	BCF	STATUS,5     	; Bit Clear f                
+009f:	MOVLW	0x7          	; Move literal to W          
+00a0:	MOVWF	CMCON        	; Move W to f                
+00a1:	BCF	0x2B,1       	; Bit Clear f                
+00a2:	CLRF	0x29         	; Clear f                    
+00a3:	CLRF	0x2A         	; Clear f                    
+00a4:	BSF	0x2A,1       	; Bit Set f                  
+00a5:	BSF	PORTB,5      	; Bit Set f                  
+00a6:	CALL	0x75         	; Call subroutine            
+00a7:	CALL	0x93         	; Call subroutine            
+00a8:	BSF	INTCON,7     	; Bit Set f                  
+00a9:	RETURN	             	; Return from Subroutine     
+00aa:	MOVLW	0x3C         	; Move literal to W          
+00ab:	MOVWF	FSR          	; Move W to f                
+00ac:	CLRF	0x25         	; Clear f                    
+00ad:	CALL	0x98         	; Call subroutine            
+00ae:	BTFSS	PORTA,4      	; Bit Test f, Skip if Set    
+00af:	GOTO	0xB3         	; Go to address              
+00b0:	BTFSC	0x2B,1       	; Bit Test f, Skip if Clear  
+00b1:	BCF	0x2B,1       	; Bit Clear f                
+00b2:	GOTO	0xC0         	; Go to address              
+00b3:	BTFSC	0x2B,1       	; Bit Test f, Skip if Clear  
+00b4:	GOTO	0xC0         	; Go to address              
+00b5:	MOVF	0x29,w       	; Move f                     
+00b6:	BTFSC	STATUS,2     	; Bit Test f, Skip if Clear  
+00b7:	GOTO	0xBC         	; Go to address              
+00b8:	MOVF	0x29,w       	; Move f                     
+00b9:	ADDLW	0xFF         	; Add literal and W          
+00ba:	MOVWF	0x29         	; Move W to f                
+00bb:	GOTO	0xC0         	; Go to address              
+00bc:	BSF	0x2B,0       	; Bit Set f                  
+00bd:	BSF	PORTB,0      	; Bit Set f                  
+00be:	BCF	PORTB,1      	; Bit Clear f                
+00bf:	BSF	0x2B,1       	; Bit Set f                  
+00c0:	BTFSC	PORTA,3      	; Bit Test f, Skip if Clear  
+00c1:	GOTO	0xDA         	; Go to address              
+00c2:	BTFSS	PORTA,3      	; Bit Test f, Skip if Set    
+00c3:	GOTO	0xC2         	; Go to address              
+00c4:	BCF	INTCON,7     	; Bit Clear f                
+00c5:	BTFSS	0x2A,1       	; Bit Test f, Skip if Set    
+00c6:	GOTO	0xCE         	; Go to address              
+00c7:	CALL	0x8C         	; Call subroutine            
+00c8:	BCF	PORTB,5      	; Bit Clear f                
+00c9:	BSF	PORTB,4      	; Bit Set f                  
+00ca:	BSF	PORTB,1      	; Bit Set f                  
+00cb:	CLRF	0x2A         	; Clear f                    
+00cc:	BSF	0x2A,0       	; Bit Set f                  
+00cd:	GOTO	0xD9         	; Go to address              
+00ce:	BTFSS	0x2A,0       	; Bit Test f, Skip if Set    
+00cf:	GOTO	0xD5         	; Go to address              
+00d0:	CALL	0x8C         	; Call subroutine            
+00d1:	BCF	PORTB,5      	; Bit Clear f                
+00d2:	CLRF	0x2A         	; Clear f                    
+00d3:	BSF	0x2A,2       	; Bit Set f                  
+00d4:	GOTO	0xD9         	; Go to address              
+00d5:	CLRF	0x2A         	; Clear f                    
+00d6:	BSF	0x2A,1       	; Bit Set f                  
+00d7:	BSF	PORTB,5      	; Bit Set f                  
+00d8:	CALL	0x93         	; Call subroutine            
+00d9:	BSF	INTCON,7     	; Bit Set f                  
+00da:	BTFSC	PORTA,2      	; Bit Test f, Skip if Clear  
+00db:	GOTO	0xE4         	; Go to address              
+00dc:	BTFSS	PORTA,2      	; Bit Test f, Skip if Set    
+00dd:	GOTO	0xDC         	; Go to address              
+00de:	BCF	INTCON,7     	; Bit Clear f                
+00df:	CLRF	0x2A         	; Clear f                    
+00e0:	BSF	0x2A,1       	; Bit Set f                  
+00e1:	CALL	0x93         	; Call subroutine            
+00e2:	BSF	PORTB,5      	; Bit Set f                  
+00e3:	BSF	INTCON,7     	; Bit Set f                  
+00e4:	GOTO	0xAE         	; Go to address              
+00e5:	BTFSS	INTCON,2     	; Bit Test f, Skip if Set    
+00e6:	GOTO	0x113        	; Go to address              
+00e7:	BCF	INTCON,2     	; Bit Clear f                
+00e8:	BTFSS	0x2A,1       	; Bit Test f, Skip if Set    
+00e9:	GOTO	0x100        	; Go to address              
+00ea:	BTFSS	0x2B,0       	; Bit Test f, Skip if Set    
+00eb:	GOTO	0xF0         	; Go to address              
+00ec:	DECF	FSR,f        	; Decrement f                
+00ed:	CLRF	INDF         	; Clear f                    
+00ee:	CALL	0x7C         	; Call subroutine            
+00ef:	GOTO	0xFF         	; Go to address              
+00f0:	BTFSC	PORTB,2      	; Bit Test f, Skip if Clear  
+00f1:	GOTO	0xFE         	; Go to address              
+00f2:	MOVF	0x26,w       	; Move f                     
+00f3:	BTFSC	STATUS,2     	; Bit Test f, Skip if Clear  
+00f4:	GOTO	0xFB         	; Go to address              
+00f5:	MOVLW	0x2          	; Move literal to W          
+00f6:	XORWF	PORTB,f      	; Exclusive OR W with f      
+00f7:	MOVF	0x26,w       	; Move f                     
+00f8:	ADDLW	0xFF         	; Add literal and W          
+00f9:	MOVWF	0x26         	; Move W to f                
+00fa:	GOTO	0xFD         	; Go to address              
+00fb:	CALL	0x68         	; Call subroutine            
+00fc:	CALL	0x4F         	; Call subroutine            
+00fd:	GOTO	0xFF         	; Go to address              
+00fe:	CALL	0x4F         	; Call subroutine            
+00ff:	GOTO	0x113        	; Go to address              
+0100:	BTFSS	0x2A,0       	; Bit Test f, Skip if Set    
+0101:	GOTO	0x110        	; Go to address              
+0102:	MOVLW	0x10         	; Move literal to W          
+0103:	XORWF	PORTB,f      	; Exclusive OR W with f      
+0104:	BTFSS	0x2B,0       	; Bit Test f, Skip if Set    
+0105:	GOTO	0x10C        	; Go to address              
+0106:	BSF	PORTB,4      	; Bit Set f                  
+0107:	BCF	0x2B,0       	; Bit Clear f                
+0108:	MOVLW	0x20         	; Move literal to W          
+0109:	MOVWF	0x29         	; Move W to f                
+010a:	BSF	PORTB,1      	; Bit Set f                  
+010b:	GOTO	0x10F        	; Go to address              
+010c:	BCF	PORTB,0      	; Bit Clear f                
+010d:	MOVLW	0x2          	; Move literal to W          
+010e:	XORWF	PORTB,f      	; Exclusive OR W with f      
+010f:	GOTO	0x113        	; Go to address              
+0110:	BCF	PORTB,1      	; Bit Clear f                
+0111:	BCF	0x2B,0       	; Bit Clear f                
+0112:	BCF	PORTB,0      	; Bit Clear f                
+0113:	MOVF	0x23,w       	; Move f                     
+0114:	MOVWF	PCLATH       	; Move W to f                
+0115:	SWAPF	0x22,w       	; Swap nibbles in f          
+0116:	MOVWF	STATUS       	; Move W to f                
+0117:	SWAPF	0x7F,f       	; Swap nibbles in f          
+0118:	SWAPF	0x7F,w       	; Swap nibbles in f          
+0119:	RETFIE	             	; Return from interrupt      
+011a:	RETURN	             	; Return from Subroutine     

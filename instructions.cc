@@ -20,14 +20,13 @@ const std::string Instruction::disasm(WORD opcode, CPU_DATA &cpu) {
 
 WORD Instruction::assemble(WORD f, BYTE b, bool d) {
 	return opcode;  // best effort
-
 }
 // "\t" + cpu.register_name(idx) + std::string(to_file?",f":",w")  +"    \t; "
 
 class ADDWF: public Instruction {
 
   public:
-	ADDWF(): Instruction(0b00011110000000, 6, 1, "ADDWF", "Add W and f") {}
+	ADDWF(): Instruction(0b00011100000000, 6, 1, "ADDWF", "Add W and f") {}
 	inline void decode(WORD opcode, BYTE &idx, bool &to_file) {
 		idx = opcode & 0x7f;
 		to_file = opcode & 0x80;
@@ -67,7 +66,7 @@ class ADDWF: public Instruction {
 
 class ANDWF: public Instruction {
   public:
-	ANDWF(): Instruction(0b00010110000000, 6, 1, "ANDWF", "AND W with f") {}
+	ANDWF(): Instruction(0b00010100000000, 6, 1, "ANDWF", "AND W with f") {}
 	inline void decode(WORD opcode, BYTE &idx, bool &to_file) {
 		idx = opcode & 0x7f;
 		to_file = opcode & 0x80;
@@ -109,7 +108,7 @@ class CLRF: public Instruction {
 		idx = opcode & 0x7f;
 	};
 	virtual WORD assemble(WORD f, BYTE b, bool d) {
-		return (opcode & 0x3f80) | (f & 0x7f);
+		return (opcode & 0x3f80) | (f & 0xff);
 	}
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -149,7 +148,7 @@ class CLRW: public Instruction {
 
 class COMF: public Instruction {
   public:
-	COMF(): Instruction(0b00100110000000, 6, 1, "COMF", "Complement f") {}
+	COMF(): Instruction(0b00100100000000, 6, 1, "COMF", "Complement f") {}
 	inline void decode(WORD opcode, BYTE &idx, bool &to_file) {
 		idx = opcode & 0x7f;
 		to_file = opcode & 0x80;
@@ -186,7 +185,7 @@ class COMF: public Instruction {
 
 class DECF: public Instruction {
   public:
-	DECF(): Instruction(0b00001110000000, 6, 1, "DECF", "Decrement f") {}
+	DECF(): Instruction(0b00001100000000, 6, 1, "DECF", "Decrement f") {}
 	inline void decode(WORD opcode, BYTE &idx, bool &to_file) {
 		idx = opcode & 0x7f;
 		to_file = opcode & 0x80;
@@ -223,7 +222,7 @@ class DECF: public Instruction {
 
 class DECFSZ: public Instruction {
   public:
-	DECFSZ(): Instruction(0b00101110000000, 6, 1, "DECFSZ", "Decrement f, Skip if 0") {}
+	DECFSZ(): Instruction(0b00101100000000, 6, 1, "DECFSZ", "Decrement f, Skip if 0") {}
 	inline void decode(WORD opcode, BYTE &idx, bool &to_file) {
 		idx = opcode & 0x7f;
 		to_file = opcode & 0x80;
@@ -260,10 +259,10 @@ class DECFSZ: public Instruction {
 
 class INCF: public Instruction {
   public:
-	INCF(): Instruction(0b00101010000000, 6, 1, "INCF", "Increment f") {}
+	INCF(): Instruction(0b00101000000000, 6, 1, "INCF", "Increment f") {}
 	inline void decode(WORD opcode, BYTE &idx, bool &to_file) {
 		idx = opcode & 0x7f;
-		to_file = opcode & 0x80;
+		to_file = (opcode & 0x80) != 0;
 	};
 	virtual WORD assemble(WORD f, BYTE b, bool d) {
 		if (d) f |= 0x80;
@@ -297,7 +296,7 @@ class INCF: public Instruction {
 
 class INCFSZ: public Instruction {
   public:
-	INCFSZ(): Instruction(0b00111110000000, 6, 1, "INCFSZ", "Increment f, Skip if 0") {}
+	INCFSZ(): Instruction(0b00111100000000, 6, 1, "INCFSZ", "Increment f, Skip if 0") {}
 	inline void decode(WORD opcode, BYTE &idx, bool &to_file) {
 		idx = opcode & 0x7f;
 		to_file = opcode & 0x80;
@@ -334,7 +333,7 @@ class INCFSZ: public Instruction {
 
 class IORWF: public Instruction {
   public:
-	IORWF(): Instruction(0b00010010000000, 6, 1, "IORWF", "Inclusive OR W with f") {}
+	IORWF(): Instruction(0b00010000000000, 6, 1, "IORWF", "Inclusive OR W with f") {}
 	inline void decode(WORD opcode, BYTE &idx, bool &to_file) {
 		idx = opcode & 0x7f;
 		to_file = opcode & 0x80;
@@ -372,7 +371,7 @@ class IORWF: public Instruction {
 
 class MOVF: public Instruction {
   public:
-	MOVF(): Instruction(0b00100010000000, 6, 1, "MOVF", "Move f") {}
+	MOVF(): Instruction(0b00100000000000, 6, 1, "MOVF", "Move f") {}
 	inline void decode(WORD opcode, BYTE &idx, bool &to_file) {
 		idx = opcode & 0x7f;
 		to_file = opcode & 0x80;
@@ -414,8 +413,7 @@ class MOVWF: public Instruction {
 		idx = opcode & 0x7f;
 	};
 	virtual WORD assemble(WORD f, BYTE b, bool d) {
-		if (d) f |= 0x80;
-		return (opcode & 0x3f00) | (f & 0xff);
+		return (opcode & 0x3f80) | (f & 0xff);
 	}
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -441,7 +439,7 @@ class NOP: public Instruction {
 
 class RLF: public Instruction {
   public:
-	RLF(): Instruction(0b00110110000000, 6, 1, "RLF", "Rotate Left f through Carry") {}
+	RLF(): Instruction(0b00110100000000, 6, 1, "RLF", "Rotate Left f through Carry") {}
 	inline void decode(WORD opcode, BYTE &idx, bool &to_file) {
 		idx = opcode & 0x7f;
 		to_file = opcode & 0x80;
@@ -479,7 +477,7 @@ class RLF: public Instruction {
 
 class RRF: public Instruction {
   public:
-	RRF(): Instruction(0b00110010000000, 6, 1, "RRF", "Rotate Right f through Carry") {}
+	RRF(): Instruction(0b00110000000000, 6, 1, "RRF", "Rotate Right f through Carry") {}
 	inline void decode(WORD opcode, BYTE &idx, bool &to_file) {
 		idx = opcode & 0x7f;
 		to_file = opcode & 0x80;
@@ -517,7 +515,7 @@ class RRF: public Instruction {
 
 class SUBWF: public Instruction {
   public:
-	SUBWF(): Instruction(0b00001010000000, 6, 1, "SUBWF", "Subtract W from f") {}
+	SUBWF(): Instruction(0b00001000000000, 6, 1, "SUBWF", "Subtract W from f") {}
 	inline void decode(WORD opcode, BYTE &idx, bool &to_file) {
 		idx = opcode & 0x7f;
 		to_file = opcode & 0x80;
@@ -561,7 +559,7 @@ class SUBWF: public Instruction {
 
 class SWAPF: public Instruction {
   public:
-	SWAPF(): Instruction(0b00111010000000, 6, 1, "SWAPF", "Swap nibbles in f") {}
+	SWAPF(): Instruction(0b00111000000000, 6, 1, "SWAPF", "Swap nibbles in f") {}
 	inline void decode(WORD opcode, BYTE &idx, bool &to_file) {
 		idx = opcode & 0x7f;
 		to_file = opcode & 0x80;
@@ -594,7 +592,7 @@ class SWAPF: public Instruction {
 
 class XORWF: public Instruction {
   public:
-	XORWF(): Instruction(0b00011010000000, 6, 1, "XORWF", "Exclusive OR W with f") {}
+	XORWF(): Instruction(0b00011000000000, 6, 1, "XORWF", "Exclusive OR W with f") {}
 	inline void decode(WORD opcode, BYTE &idx, bool &to_file) {
 		idx = opcode & 0x7f;
 		to_file = opcode & 0x80;
@@ -638,7 +636,7 @@ class BCF: public Instruction {
 		cbits = (opcode & 0x0380) >> 7;
 	};
 	virtual WORD assemble(WORD f, BYTE b, bool d) {
-		f = (f & 0x7f) | (b << 7);
+		f = (WORD)(f & 0xff) | ((WORD)b << 7);
 		return opcode | f;
 	}
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
@@ -667,7 +665,7 @@ class BSF: public Instruction {
 		cbits = (opcode & 0x0380) >> 7;
 	};
 	virtual WORD assemble(WORD f, BYTE b, bool d) {
-		f = (f & 0x7f) | (b << 7);
+		f = (f & 0xff) | (b << 7);
 		return opcode | f;
 	}
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
@@ -696,7 +694,7 @@ class BTFSC: public Instruction {
 		cbits = (opcode & 0x0380) >> 7;
 	};
 	virtual WORD assemble(WORD f, BYTE b, bool d) {
-		f = (f & 0x7f) | (b << 7);
+		f = (f & 0xff) | (b << 7);
 		return opcode | f;
 	}
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
@@ -723,7 +721,7 @@ class BTFSS: public Instruction {
 		cbits = (opcode & 0x0380) >> 7;
 	};
 	virtual WORD assemble(WORD f, BYTE b, bool d) {
-		f = (f & 0x7f) | (b << 7);
+		f = (f & 0xff) | (b << 7);
 		return opcode | f;
 	}
 	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
