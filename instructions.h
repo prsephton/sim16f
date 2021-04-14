@@ -1,3 +1,5 @@
+#ifndef __instructions_h__
+#define __instructions_h__
 #include <vector>
 #include <string>
 #include <map>
@@ -54,3 +56,4 @@ class InstructionSet {
 	WORD assemble(const std::string &mnemonic, WORD f, WORD b, bool d);
 };
 
+#endif
