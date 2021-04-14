@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <sys/stat.h>
 #include "utility.h"
 
 
@@ -29,4 +30,20 @@ bool is_hex(const std::string &in) {
 	char *p;
 	strtoul(in.c_str(), &p, 16);
 	return (p==NULL);
+}
+
+bool FileExists(const std::string &s)
+{
+  struct stat buffer;
+  return (stat (s.c_str(), &buffer) == 0);
+}
+
+
+ScopedRedirect::ScopedRedirect(std::ostream & inOriginal, std::ostream & inRedirect) :
+	mOriginal(inOriginal),
+	mOldBuffer(inOriginal.rdbuf(inRedirect.rdbuf()))
+{ }
+
+ScopedRedirect::~ScopedRedirect(){
+	mOriginal.rdbuf(mOldBuffer);
 }
