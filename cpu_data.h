@@ -48,9 +48,16 @@ class CPU_DATA {
 	std::map<std::string, SmartPtr<Register> > Registers;
 	std::map<BYTE, std::string> RegisterNames;
 
-	PINS pins;
-	Clock clock;
+	PINS   pins;
+	Clock  clock;
 	EEPROM eeprom;
+	WDT    wdt;     // watch dog timer
+	PORTA  porta;
+	PORTB  portb;
+	Timer0 tmr0;
+	Timer1 tmr1;
+	Timer2 tmr2;
+
 
 	void push(WORD value) {
 		--SP;
@@ -72,6 +79,10 @@ class CPU_DATA {
 		else
 			return RegisterNames[idx];
 	}
+
+	void process_option(const SRAM::Event &e);
+	void process_sram_event(const SRAM::Event &e);
+
 
 	CPU_DATA();
 };

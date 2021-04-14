@@ -51,15 +51,16 @@ class ADDWF: public Instruction {
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE C = data&0x100?Flags::STATUS::C:0;
 		BYTE DC = ldata&0x10?Flags::STATUS::DC:0;
+
 		BYTE &status = cpu.sram.status();
 		BYTE mask = Flags::STATUS::Z | Flags::STATUS::C | Flags::STATUS::DC;
-		status = (status & ~mask) | Z | C | DC ;
 
 		if (to_file) {
 			cpu.sram.write(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
+		status = (status & ~mask) | Z | C | DC ;
 		return false;
 	}
 };
@@ -90,13 +91,13 @@ class ANDWF: public Instruction {
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE &status = cpu.sram.status();
 		BYTE mask = Flags::STATUS::Z;
-		status = (status & ~mask) | Z;
 
 		if (to_file) {
 			cpu.sram.write(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
+		status = (status & ~mask) | Z;
 		return false;
 	}
 };
@@ -121,8 +122,8 @@ class CLRF: public Instruction {
 		BYTE Z = true;
 		BYTE &status = cpu.sram.status();
 		BYTE mask = Flags::STATUS::Z;
-		status = (status & ~mask) | Z;
 		cpu.sram.write(idx, (BYTE)0);
+		status = (status & ~mask) | Z;
 		return false;
 	}
 };
@@ -172,13 +173,13 @@ class COMF: public Instruction {
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE &status = cpu.sram.status();
 		BYTE mask = Flags::STATUS::Z;
-		status = (status & ~mask) | Z;
 
 		if (to_file) {
 			cpu.sram.write(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
+		status = (status & ~mask) | Z;
 		return false;
 	}
 };
@@ -209,13 +210,13 @@ class DECF: public Instruction {
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE &status = cpu.sram.status();
 		BYTE mask = Flags::STATUS::Z;
-		status = (status & ~mask) | Z;
 
 		if (to_file) {
 			cpu.sram.write(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
+		status = (status & ~mask) | Z;
 		return false;
 	}
 };
@@ -246,13 +247,13 @@ class DECFSZ: public Instruction {
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE &status = cpu.sram.status();
 		BYTE mask = Flags::STATUS::Z;
-		status = (status & ~mask) | Z;
 
 		if (to_file) {
 			cpu.sram.write(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
+		status = (status & ~mask) | Z;
 		return Z != 0;
 	}
 };
@@ -283,13 +284,13 @@ class INCF: public Instruction {
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE &status = cpu.sram.status();
 		BYTE mask = Flags::STATUS::Z;
-		status = (status & ~mask) | Z;
 
 		if (to_file) {
 			cpu.sram.write(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
+		status = (status & ~mask) | Z;
 		return false;
 	}
 };
@@ -320,13 +321,13 @@ class INCFSZ: public Instruction {
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE &status = cpu.sram.status();
 		BYTE mask = Flags::STATUS::Z;
-		status = (status & ~mask) | Z;
 
 		if (to_file) {
 			cpu.sram.write(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
+		status = (status & ~mask) | Z;
 		return Z != 0;
 	}
 };
@@ -357,13 +358,13 @@ class IORWF: public Instruction {
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE &status = cpu.sram.status();
 		BYTE mask = Flags::STATUS::Z;
-		status = (status & ~mask) | Z;
 
 		if (to_file) {
 			cpu.sram.write(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
+		status = (status & ~mask) | Z;
 		return false;
 	}
 };
@@ -394,13 +395,13 @@ class MOVF: public Instruction {
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE &status = cpu.sram.status();
 		BYTE mask = Flags::STATUS::Z;
-		status = (status & ~mask) | Z;
 
 		if (to_file) {
 			cpu.sram.write(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
+		status = (status & ~mask) | Z;
 		return false;
 	}
 };
@@ -464,13 +465,13 @@ class RLF: public Instruction {
 		if (status & Flags::STATUS::C) data |= 1;
 
 		BYTE C = data&0x100?Flags::STATUS::C:0;
-		status = (status & ~Flags::STATUS::C) | C;
 
 		if (to_file) {
 			cpu.sram.write(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
+		status = (status & ~Flags::STATUS::C) | C;
 		return false;
 	}
 };
@@ -502,13 +503,13 @@ class RRF: public Instruction {
 		data = data >> 1;
 
 		if (status & Flags::STATUS::C) data |= 0x80;
-		status = (status & ~Flags::STATUS::C) | C;
 
 		if (to_file) {
 			cpu.sram.write(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
+		status = (status & ~Flags::STATUS::C) | C;
 		return false;
 	}
 };
@@ -545,13 +546,13 @@ class SUBWF: public Instruction {
 		BYTE DC = lborrow?Flags::STATUS::DC:0;
 		BYTE &status = cpu.sram.status();
 		BYTE mask = Flags::STATUS::Z | Flags::STATUS::C | Flags::STATUS::DC;
-		status = (status & ~mask) | Z | C | DC ;
 
 		if (to_file) {
 			cpu.sram.write(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
+		status = (status & ~mask) | Z | C | DC ;
 		return false;
 	}
 };
@@ -617,13 +618,13 @@ class XORWF: public Instruction {
 
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE mask = Flags::STATUS::Z;
-		status = (status & ~mask) | Z;
 
 		if (to_file) {
 			cpu.sram.write(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
+		status = (status & ~mask) | Z;
 		return false;
 	}
 };
@@ -862,9 +863,9 @@ class SUBLW: public Instruction {
 		BYTE DC = lborrow?Flags::STATUS::DC:0;
 		BYTE &status = cpu.sram.status();
 		BYTE mask = Flags::STATUS::Z | Flags::STATUS::C | Flags::STATUS::DC;
-		status = (status & ~mask) | Z | C | DC ;
 
 		return false;
+		status = (status & ~mask) | Z | C | DC ;
 	}
 };
 
@@ -1028,6 +1029,10 @@ class SLEEP: public Instruction {
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		// WDT = 0, WDT Prescaler = 0, TO = 1, PD = 0
+		BYTE &status = cpu.sram.status();
+		BYTE mask = Flags::STATUS::TO | Flags::STATUS::PD;
+		status = (status & ~mask) | Flags::STATUS::TO;
+		cpu.wdt.sleep();
 		return false;
 	}
 };
@@ -1043,10 +1048,17 @@ class CLRWDT: public Instruction {
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		// WDT = 0, WDT Prescaler = 0, TO = 1, PD = 1
+		BYTE &status = cpu.sram.status();
+		BYTE mask = Flags::STATUS::TO | Flags::STATUS::PD;
+		status = (status & ~mask) | Flags::STATUS::TO | Flags::STATUS::PD;
+		cpu.wdt.clear();
 		return false;
 	}
 };
 
+
+//______________________________________________________________________________________________________________________
+// The instruction set represents the complete set of individual CPU instructions
 void InstructionSet::add_tree(struct tree_struct &a_tree, const std::string &a_mnemonic, short a_bits, WORD a_opcode) {
 	if (!a_bits) {
 		if (a_tree.mnemonic.length())
@@ -1084,7 +1096,7 @@ SmartPtr<Instruction>InstructionSet::find(WORD opcode) {
 		std::string mnemonic = find_tree(m_tree, opcode);
 		return operands[mnemonic];
 	} catch(std::string &error) {
-		std::cout << error << ": " << "\n";
+		std::cerr << error << ": " << "\n";
 		throw(error);
 	}
 }

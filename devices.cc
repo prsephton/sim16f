@@ -23,6 +23,11 @@ void Clock::toggle(PINS &pins) {
 	}
 //	std::cout << "toggle clock; high:" << high << "; phase:" << (int)phase << "\n";
 	pins.set_pin(PINS::CLKIN, high? 5.0 : 0.0);
+	if (high) {
+		PINS::Event event = PINS::Event(PINS::CLKIN, "oscillator", 5.0, 0.0);
+		pins.events.push(event);
+	}
+
 	Q1 = phase == 0;
 	Q2 = phase == 1;
 	Q3 = phase == 2;

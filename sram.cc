@@ -46,3 +46,19 @@ const BYTE SRAM::read(const WORD a_idx, bool indirect) const {
 	if (!calc_bank_ofs(a_idx, bank, ofs, indirect)) return 0;
 	return(m_bank[bank][ofs]);    // Reading from undefined address returns 0
 }
+
+
+SRAM::SRAM() {
+	WORD all_banks[] = {INDF, PCL, STATUS, FSR, PCLATH, INTCON};
+	WORD even_banks[] = {TMR0, PORTB};
+	WORD odd_banks[] = {OPTION, TRISB};
+	WORD bank_0[] = {PORTA, PIR1, TMR1L, TMR1H, T1CON, TMR2, T2CON, CCPR1L, CCPR1H, CCP1CON, RCSTA, TXREG, RCREG, CMCON};
+	WORD bank_1[] = {TRISA, PIE1, PCON, PR2, TXSTA, SPBRG, EEDATA, EEADR, EECON1, EECON2, VRCON};
+	ALL_BANK = std::set<WORD>(all_banks, all_banks+6);
+	EVEN_BANK = std::set<WORD>(even_banks, even_banks+2);
+	ODD_BANK = std::set<WORD>(odd_banks, odd_banks+2);
+	BANK_0 = std::set<WORD>(bank_0, bank_0+14);
+	BANK_1 = std::set<WORD>(bank_1, bank_1+11);
+}
+
+

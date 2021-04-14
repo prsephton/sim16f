@@ -3,8 +3,8 @@
 
 #include <set>
 #include <iostream>
+#include <queue>
 #include "constants.h"
-
 
 class SRAM {
 	BYTE m_bank[RAM_BANKS][BANK_SIZE];
@@ -69,19 +69,16 @@ class SRAM {
 	std::set<WORD> BANK_0;
 	std::set<WORD> BANK_1;
 
+	class Event {
+  	  public:
+		std::string name;
+		BYTE old_value, changed, new_value;
+		Event(std::string a_name, BYTE a_old, BYTE a_changed, BYTE a_new)
+		: name(a_name), old_value(a_old), changed(a_changed), new_value(a_new){}
+	};
+	std::queue<Event> events;
 
-	SRAM() {
-		WORD all_banks[] = {INDF, PCL, STATUS, FSR, PCLATH, INTCON};
-		WORD even_banks[] = {TMR0, PORTB};
-		WORD odd_banks[] = {OPTION, TRISB};
-		WORD bank_0[] = {PORTA, PIR1, TMR1L, TMR1H, T1CON, TMR2, T2CON, CCPR1L, CCPR1H, CCP1CON, RCSTA, TXREG, RCREG, CMCON};
-		WORD bank_1[] = {TRISA, PIE1, PCON, PR2, TXSTA, SPBRG, EEDATA, EEADR, EECON1, EECON2, VRCON};
-		ALL_BANK = std::set<WORD>(all_banks, all_banks+6);
-		EVEN_BANK = std::set<WORD>(even_banks, even_banks+2);
-		ODD_BANK = std::set<WORD>(odd_banks, odd_banks+2);
-		BANK_0 = std::set<WORD>(bank_0, bank_0+14);
-		BANK_1 = std::set<WORD>(bank_1, bank_1+11);
-	}
+	SRAM();
 
 	BYTE fsr() const {
 		return (m_bank[0][FSR]);
@@ -95,7 +92,7 @@ class SRAM {
 		return (m_bank[0][STATUS]);
 	}
 
-	BYTE &status() {
+	BYTE &status() {     // only way to set special bits is by this reference
 		return (m_bank[0][STATUS]);
 	}
 

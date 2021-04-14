@@ -9,7 +9,6 @@ class INDF: public Register {
   public:
 	INDF() : Register(SRAM::INDF,  "Addressing this location uses contents of FSR to address data memory") {}
 
-
 	WORD indirect_address(const SRAM &a_sram) {
 		BYTE fsr = a_sram.fsr();
 		BYTE sts = a_sram.status();
@@ -25,12 +24,53 @@ class INDF: public Register {
 	}
 };
 
+class STATUS: public Register {
+	// IRP- Register Bank Select bit (used for indirect addressing)
+	// RP<1:0>: Register Bank Select bits (used for direct addressing)
+	// TO - Timeout Bit.  1 = After power-up, CLRWDT instruction or SLEEP instruction.  0 = A WDT time out occurred
+	// PD - Power down bit. 1 = After power-up or by the CLRWDT instruction. 0 = By execution of the SLEEP instruction.
+	// Z: Zero bit
+	// DC: Digit Carry/Borrow bit
+	// C: Carry/Borrow bit
+	// Instructions which change Z,DC,C cannot change these bits on write to the register.
+	//
+
+  public:
+	STATUS() : Register(SRAM::STATUS,  "IRP RP1 RP0 TO PD Z DC C") {}
+
+	virtual void write(SRAM &a_sram, const BYTE value) {  // cannot overwrite some fields,
+		BYTE sts = a_sram.status();
+		BYTE mask = Flags::STATUS::TO | Flags::STATUS::PD;  // read only bits
+		a_sram.write(index(), (value & (!mask)) | (sts & mask));
+	}
+};
+
+
+class OPTION: public Register {
+	// RBPU: PORTB Pull-up Enable bit.  1 = PORTB pull-ups are disabled. 0 = PORTB pull-ups are enabled by individual port latch values.
+	// INTEDG: Interrupt Edge Select bit. 1 = Interrupt on rising edge of RB0/INT pin. 0 = Interrupt on falling edge of RB0/INT pin.
+	// T0CS: TMR0 Clock Source Select bit. 1 = Transition on RA4/T0CKI/CMP2 pin. 0 = Internal instruction cycle clock (CLKOUT).
+	// T0SE: TMR0 Source Edge Select bit. 1 = Increment on high-to-low transition on RA4/T0CKI/CMP2 pin. 0 = Increment on low-to-high transition.
+	// PSA: Prescaler Assignment bit. 1 = Prescaler is assigned to the WDT. 0 = Prescaler is assigned to the Timer0 module.
+	// PS<2:0>: Prescaler Rate Select bits.
+
+  public:
+	OPTION() : Register(SRAM::OPTION,  "RBPU INTEDG T0CS T0SE PSA PS2 PS1 PS0") {}
+
+	virtual void write(SRAM &a_sram, const BYTE value) {
+		BYTE options = a_sram.read(index());
+		BYTE changed = options ^ value; // all changing bits.
+		if (changed) a_sram.events.push(SRAM::Event("OPTION", options, changed, value));
+		a_sram.write(index(), value);
+	}
+};
+
 
 CPU_DATA::CPU_DATA(): SP(0), W(0) {
 	Registers["INDF"]   = new INDF();
 	Registers["TMR0"]   = new Register(SRAM::TMR0, "Timer 0");  // bank 0 and 2
 	Registers["PCL"]    = new Register(SRAM::PCL, "Program Counters Low  Byte");  // all banks
-	Registers["STATUS"] = new Register(SRAM::STATUS, "IRP RP1 RP0 TO PD Z DC C");  // all banks
+	Registers["STATUS"] = new STATUS();
 	Registers["FSR"]    = new Register(SRAM::FSR, "Indirect Data Memory Address Pointer");  // all banks
 	Registers["PORTA"]  = new Register(SRAM::PORTA, "RA7 RA6 RA5 RA4 RA3 RA2 RA1 RA0");  // bank 0 and 2
 	Registers["PORTB"]  = new Register(SRAM::PORTB, "RB7 RB6 RB5 RB4 RB3 RB2 RB1 RB0");  // bank 0 and 2
@@ -79,3 +119,30 @@ CPU_DATA::CPU_DATA(): SP(0), W(0) {
 		RegisterNames[r->second->index()] = r->first;
 	}
 }
+
+
+void CPU_DATA::process_option(const SRAM::Event &e) {
+	if (e.changed & Flags::OPTION::RBPU) {
+		portb.recalc_pullups(pins, e.new_value & Flags::OPTION::RBPU);
+	}
+	if (e.changed & Flags::OPTION::INTEDG) {
+		portb.rising_rb0_interrupt(pins, e.new_value & Flags::OPTION::INTEDG);
+	}
+	if (e.changed & Flags::OPTION::T0CS) {
+		tmr0.clock_source_select(e.new_value & Flags::OPTION::T0CS);
+	}
+	if (e.changed & Flags::OPTION::T0SE) {
+		tmr0.clock_transition(e.new_value & Flags::OPTION::T0SE);
+	}
+	if (e.changed & Flags::OPTION::PSA) {
+		tmr0.prescaler(e.new_value & Flags::OPTION::PSA);
+	}
+	if (e.changed & (Flags::OPTION::PS0 | Flags::OPTION::PS1 | Flags::OPTION::PS2)) {
+		tmr0.prescaler_rate_select(e.new_value & 0x7);
+	}
+}
+
+void CPU_DATA::process_sram_event(const SRAM::Event &e) {
+	if (e.name == "OPTION") process_option(e);
+}
+

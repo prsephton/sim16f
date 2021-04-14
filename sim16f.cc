@@ -91,11 +91,25 @@ class CPU {
 
 
 	void process_queue() {
+
+		while (!data.sram.events.empty()) {
+			SRAM::Event e = data.sram.events.front(); data.pins.events.pop();
+			std::cout << "SRAM: " << e.name << "\n";
+			data.process_sram_event(e);
+		}
+
+		while (!data.wdt.events.empty()) {
+			WDT::Event e = data.wdt.events.front(); data.pins.events.pop();
+			std::cout << "WDT: " << e.name << "\n";
+		}
+
 		while (!data.pins.events.empty()) {
 			PINS::Event e = data.pins.events.front(); data.pins.events.pop();
-			if (e.name == "cycle")
+			if (e.name == "oscillator") {     // positive edge.  4 of these per cycle.
+
+			} else if (e.name == "cycle") {   // an instruction cycle.
 				cycle();
-			else {
+			} else {
 				throw(std::string("Unhandled pin event: ") + e.name);
 				active = false;
 			}
@@ -151,6 +165,15 @@ int main(int argc, char *argv[]) {
 	CPU cpu;
 	std::string outfile = "-";
 	unsigned long frequency = 8;
+
+	cpu.load_hex("test.hex");
+	pthread_t machine;
+	pthread_create(&machine, NULL, run_machine, &cpu);
+	unsigned long clock_speed_hz = frequency;
+	unsigned long delay_us = 1000000 / clock_speed_hz;
+	std::cout << "Running CPU clock: delay is: " << delay_us << "\n";
+	cpu.run(delay_us, true);
+	return 0;
 
 	CommandLine cmdline(argc, argv);
 	if (cmdline.cmdOptionExists("-h") || argc==1) {
