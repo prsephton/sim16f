@@ -7,6 +7,7 @@
 #include "cpu_data.h"
 #include "utility.h"
 #include "hex.h"
+#include "smart_ptr.cc"
 
 bool translate(const char *in,
 		std::string &label,  std::string &mnemonic, std::string &address, std::string &arg) {
@@ -84,7 +85,7 @@ bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &inst
 			memset(cpu.flash.data, 0, sizeof(cpu.flash.data));
 		while (fgets(buf, sizeof(buf), f)) {
 			std::string label, mnemonic, address, arg;
-			WORD waddr;
+			WORD waddr=0;
 			BYTE warg=0;
 			bool to_file=false;
 
@@ -156,12 +157,23 @@ bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &inst
 	return false;
 }
 
+void disassemble(CPU_DATA &cpu, InstructionSet &instructions, std::vector<Disasm> &listing) {
+	int limit = FLASH_SIZE;
+	while (limit>0 && cpu.flash.data[limit-1]==0) --limit;
+	for (int pc=0; pc < limit; ++pc) {
+		WORD opcode = cpu.flash.data[pc];
+		SmartPtr<Instruction> op = instructions.find(opcode);
+		listing.push_back(Disasm(pc, opcode, op->disasm(opcode, cpu)));
+	}
+}
+
 void disassemble(CPU_DATA &cpu, InstructionSet &instructions) {
 	int limit = FLASH_SIZE;
 	while (limit>0 && cpu.flash.data[limit-1]==0) --limit;
 	for (int pc=0; pc < limit; ++pc) {
 		WORD opcode = cpu.flash.data[pc];
 		SmartPtr<Instruction> op = instructions.find(opcode);
+
 		std::cout <<  std::setfill('0') << std::hex << std::setw(4) << pc << ":\t" << op->disasm(opcode, cpu) << "\n";
 	}
 }

@@ -9,8 +9,6 @@
 class SRAM {
 	BYTE m_bank[RAM_BANKS][BANK_SIZE];
 
-	bool calc_bank_ofs(const WORD a_idx, BYTE &bank, BYTE &ofs, bool indirect) const;
-
 
   public:
 	static const WORD INDF    = 0x00;
@@ -80,6 +78,8 @@ class SRAM {
 
 	SRAM();
 
+	bool calc_bank_ofs(WORD a_idx, BYTE &bank, BYTE &ofs, bool indirect) const;
+
 	BYTE fsr() const {
 		return (m_bank[0][FSR]);
 	}
@@ -124,6 +124,8 @@ class SRAM {
 		m_bank[0][PCLATH] = (BYTE)(PC >> 8) & 0x1f;
 		m_bank[0][PCL] = (BYTE)(PC & 0xff);
 	}
+
+	void reset();
 
 	void write(const WORD a_idx, const BYTE value, bool indirect=false);
 

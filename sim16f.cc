@@ -1,144 +1,21 @@
-#include <cstdio>
-#include <cstdlib>
-#include <string>
-#include <cstring>
-#include <iostream>
-#include <iomanip>
-#include <unistd.h>
-#include <pthread.h>
+#include "cpu.h"
+#include "application.h"
 
-#include "constants.h"
-#include "devices.h"
-#include "cpu_data.h"
-#include "instructions.h"
-#include "utility.h"
-#include "hex.h"
-#include "assembler.h"
 
 //___________________________________________________________________________________
-// Models the 16fxxx CPU
-class CPU {
-	CPU_DATA data;
-	InstructionSet instructions;
-	SmartPtr<Instruction>current;
-	WORD opcode;
-	bool active;
+// Some runtime parameters
+typedef struct run_params {
+	CPU cpu;
+	unsigned long delay_us;
 	bool debug;
-	bool skip;
-	int  cycles;
-
-	void fetch() {
-		if (cycles > 0) {
-			current = NULL;
-		} else {
-			WORD PC = data.sram.get_PC();
-			if (skip)
-				current = instructions.find(0);
-			else {
-				opcode = data.flash.fetch(PC);
-				current = instructions.find(opcode);
-			}
-			if (current) cycles = current->cycles;
-			if (debug) {
-				std::cout << std::setfill('0') << std::hex << std::setw(4) <<  PC << "\t";
-			}
-			++PC; PC = PC % FLASH_SIZE;
-			data.sram.set_PC(PC);
-		}
-	}
-
-	void execute() {
-		if (cycles) --cycles;
-		if (current) {
-			skip = current->execute(opcode, data);
-			if (debug) {
-				std::cout << current->disasm(opcode, data) << "\t W:" << int_to_hex(data.W) << "\tSP:" << data.SP << "\n";
-			}
-		}
-	}
-
-  public:
-	void reset() {
-		data.SP = 7;
-		data.W = 0;
-		cycles = 0;
-		data.sram.set_PC(0);
-		data.sram.write(data.sram.STATUS, 0);
-	}
-
-	void cycle() {
-		try {
-			execute();
-			fetch();
-		} catch (std::string &error) {
-			std::cerr << "Terminating because: " << error << "\n";
-			active=false;
-		}
-	}
-
-	void toggle_clock() { data.clock.toggle(data.pins); }
-
-	bool running() const { return active; }
-
-	void configure(const std::string &a_filename) {};
-	void load_eeprom(const std::string &a_filename) {};
-	bool load_hex(const std::string &a_filename) { return ::load_hex(a_filename, data); };
-	bool dump_hex(const std::string &a_filename) { return ::dump_hex(a_filename, data); };
-
-	bool assemble(const std::string &a_filename) { return ::assemble(a_filename, data, instructions); }
-	void disassemble(const std::string &a_filename) { ::disassemble(a_filename, data, instructions); }
-	void disassemble() { ::disassemble(data, instructions); }
-
-
-	void process_queue() {
-
-		while (!data.sram.events.empty()) {
-			SRAM::Event e = data.sram.events.front(); data.pins.events.pop();
-			std::cout << "SRAM: " << e.name << "\n";
-			data.process_sram_event(e);
-		}
-
-		while (!data.wdt.events.empty()) {
-			WDT::Event e = data.wdt.events.front(); data.pins.events.pop();
-			std::cout << "WDT: " << e.name << "\n";
-		}
-
-		while (!data.pins.events.empty()) {
-			PINS::Event e = data.pins.events.front(); data.pins.events.pop();
-			if (e.name == "oscillator") {     // positive edge.  4 of these per cycle.
-
-			} else if (e.name == "cycle") {   // an instruction cycle.
-				cycle();
-			} else {
-				throw(std::string("Unhandled pin event: ") + e.name);
-				active = false;
-			}
-		}
-	}
-
-	void run(unsigned long delay_us, bool a_debug=false) {
-		debug = a_debug;
-		try {
-			while (running()) {
-				usleep(delay_us);
-				toggle_clock();
-			}
-		} catch(const std::string &message) {
-			std::cerr << "Exiting: " << message << "\n";
-		}
-	}
-
-	CPU(): active(true), debug(true), skip(false), cycles(0) {
-		memset(data.flash.data, 0, sizeof(data.flash.data));
-		memset(data.eeprom.data, 0, sizeof(data.eeprom.data));
-		reset();
-	}
-};
+} Params;
 
 //___________________________________________________________________________________
-// Runtime thread for the machine
-void *run_machine(void *a_cpu) {
-	CPU &cpu = *((CPU *)(a_cpu));
+// Runtime thread for the machine.  This deals with iterating device queues and
+// processing instructions.  As fast as possible.
+void *run_machine(void *a_params) {
+	Params &params = *(Params *)a_params;
+	CPU &cpu = params.cpu;
 	try {
 		while (cpu.running()) {
 			usleep(5);
@@ -155,24 +32,50 @@ void *run_machine(void *a_cpu) {
 	}
 
 	pthread_exit(NULL);
+	return 0;
 }
 
-#include <cstdlib>
+//___________________________________________________________________________________
+// Implement the clock device by using a microsecond sleep which generates queue
+// events at the appropriate frequency.
+void *run_clock(void *a_params) {
+	Params &params = *(Params *)a_params;
+	CPU &cpu = params.cpu;
+	std::cout << "Running CPU clock: delay is: " << params.delay_us << "\n";
+	try {
+		cpu.run(params.delay_us, params.debug);
+	} catch(const std::string &message) {
+		std::cerr << "CPU Exit: " << message << "\n";
+	}
+
+	pthread_exit(NULL);
+	return 0;
+}
+
+
 #include "cmdline.h"
 //___________________________________________________________________________________
 // Host thread.
 int main(int argc, char *argv[]) {
-	CPU cpu;
+	Params params;
+	CPU &cpu = params.cpu;
+
 	std::string outfile = "-";
 	unsigned long frequency = 8;
 
 	cpu.load_hex("test.hex");
-	pthread_t machine;
-	pthread_create(&machine, NULL, run_machine, &cpu);
+	pthread_t machine, clock;
 	unsigned long clock_speed_hz = frequency;
-	unsigned long delay_us = 1000000 / clock_speed_hz;
-	std::cout << "Running CPU clock: delay is: " << delay_us << "\n";
-	cpu.run(delay_us, true);
+	params.delay_us = 1000000 / clock_speed_hz;
+	params.debug = true;
+	pthread_create(&machine, 0, run_machine, &params);
+	pthread_create(&clock, 0, run_clock, &params);
+
+	run_application(cpu.cpu_data());
+	cpu.stop();
+
+	pthread_exit(NULL);
+
 	return 0;
 
 	CommandLine cmdline(argc, argv);
@@ -249,12 +152,12 @@ int main(int argc, char *argv[]) {
 
 		if (cmdline.cmdOptionExists("-r") || cmdline.cmdOptionExists("-g")) {
 			pthread_t machine;
-			pthread_create(&machine, NULL, run_machine, &cpu);
+			pthread_create(&machine, 0, run_machine, &cpu);
 			unsigned long clock_speed_hz = frequency;
 			unsigned long delay_us = 1000000 / clock_speed_hz;
 			std::cout << "Running CPU clock: delay is: " << delay_us << "\n";
-			bool debug = cmdline.cmdOptionExists("-g");
-			cpu.run(delay_us, debug);
+			params.debug = cmdline.cmdOptionExists("-g");
+			// run it here
 		}
 	} catch (std::string &err) {
 		std::cerr << "Error: " << err << "\n";

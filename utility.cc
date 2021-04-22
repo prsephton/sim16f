@@ -9,9 +9,9 @@ const std::string int_to_string(int i)  {
 	return std::string(buf);
 }
 
-const std::string int_to_hex(int i)  {
+const std::string int_to_hex(int i, const char *prefix, const char *suffix)  {
 	char buf[32];
-	snprintf(buf, sizeof(buf), "0x%X", i);
+	snprintf(buf, sizeof(buf), "%s%X%s", prefix, i, suffix);
 	return std::string(buf);
 }
 

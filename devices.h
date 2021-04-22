@@ -1,15 +1,15 @@
-#ifndef __devices_h__
-#define __devices_h__
+#pragma once
 
 #include <queue>
 #include <string>
 
 #include "constants.h"
 
-
 //__________________________________________________________________________________________________
 // Device definitions
 class Device {
+  public:
+	virtual ~Device() {};
 };
 
 class Comparator: public Device {
@@ -187,7 +187,7 @@ class Clock: public Device {
 };
 
 
-class Flash {
+class Flash: public Device {
   public:
 	WORD data[FLASH_SIZE];
 
@@ -204,4 +204,3 @@ class Flash {
 
 };
 
-#endif

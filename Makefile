@@ -1,6 +1,10 @@
 CC=gcc
+CPP=gcc
 
-CFLAGS=-I. -Wall
+GTKCFLAGS=$(shell pkg-config --cflags gtk+-3.0 gtkmm-3.0)
+GTKLFLAGS=$(shell pkg-config --libs gtk+-3.0 gtkmm-3.0)
+CFLAGS=-I. -Wall $(GTKCFLAGS)
+LFLAGS=$(GTKLFLAGS)
 LIBS=-lpthread -lstdc++
 SOURCE=$(wildcard *.cc)
 HDRS=$(wildcard *.h)
@@ -17,7 +21,7 @@ $(TARGET): $(OBJS) $(HDRS)
 
 -include $(DEPENDS)
 
-%o: %.cc Makefile
+%.o: %.cc
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
 clean:

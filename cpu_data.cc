@@ -66,7 +66,7 @@ class OPTION: public Register {
 };
 
 
-CPU_DATA::CPU_DATA(): SP(0), W(0) {
+CPU_DATA::CPU_DATA(): execPC(0), SP(0), W(0) {
 	Registers["INDF"]   = new INDF();
 	Registers["TMR0"]   = new Register(SRAM::TMR0, "Timer 0");  // bank 0 and 2
 	Registers["PCL"]    = new Register(SRAM::PCL, "Program Counters Low  Byte");  // all banks
@@ -145,4 +145,7 @@ void CPU_DATA::process_option(const SRAM::Event &e) {
 void CPU_DATA::process_sram_event(const SRAM::Event &e) {
 	if (e.name == "OPTION") process_option(e);
 }
+
+// static definition
+CpuEvent::registry CpuEvent::subscribers;
 
