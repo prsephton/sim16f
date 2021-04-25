@@ -1,5 +1,6 @@
 #include "cpu_data.h"
-#include "smart_ptr.cc"
+
+#include "utils/smart_ptr.cc"
 
 //___________________________________________________________________________________
 // Many registers interact directly with hardware, or are used to control features

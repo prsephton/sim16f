@@ -2,13 +2,12 @@
 #define __cpu_data_h__
 #include <map>
 
-#include "constants.h"
-#include "flags.h"
-#include "devices.h"
-#include "flags.h"
-#include "sram.h"
-#include "utility.h"
-#include "smart_ptr.h"
+#include "devices/constants.h"
+#include "devices/flags.h"
+#include "devices/devices.h"
+#include "devices/sram.h"
+#include "utils/smart_ptr.h"
+#include "utils/utility.h"
 
 
 //___________________________________________________________________________________

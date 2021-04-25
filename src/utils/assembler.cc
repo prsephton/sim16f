@@ -3,11 +3,11 @@
 #include <iostream>
 #include <iomanip>
 
+#include "../cpu_data.h"
 #include "assembler.h"
-#include "cpu_data.h"
-#include "utility.h"
 #include "hex.h"
 #include "smart_ptr.cc"
+#include "utility.h"
 
 bool translate(const char *in,
 		std::string &label,  std::string &mnemonic, std::string &address, std::string &arg) {

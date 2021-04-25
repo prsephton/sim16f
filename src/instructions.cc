@@ -2,10 +2,10 @@
 #include <cstdio>
 #include "cpu_data.h"
 #include "instructions.h"
-#include "constants.h"
-#include "flags.h"
-#include "utility.h"
-#include "smart_ptr.cc"
+#include "utils/smart_ptr.cc"
+#include "utils/utility.h"
+#include "devices/constants.h"
+#include "devices/flags.h"
 
 
 std::string pad(const std::string &payload) {

@@ -1,8 +1,8 @@
 #pragma once
 
 #include <vector>
-#include "cpu_data.h"
-#include "instructions.h"
+#include "../cpu_data.h"
+#include "../instructions.h"
 
 bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &instructions);
 

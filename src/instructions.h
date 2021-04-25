@@ -4,9 +4,9 @@
 #include <string>
 #include <map>
 
-#include "constants.h"
+#include "utils/smart_ptr.h"
+#include "devices/constants.h"
 #include "cpu_data.h"
-#include "smart_ptr.h"
 
 //___________________________________________________________________________________
 // A CPU instruction.

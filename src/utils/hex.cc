@@ -1,5 +1,5 @@
 #include <cstdio>
-#include "cpu_data.h"
+#include "hex.h"
 
 
 bool load_hex(const std::string &a_filename, CPU_DATA &cpu) {

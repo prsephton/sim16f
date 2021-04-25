@@ -1,5 +1,5 @@
 #include "cpu.h"
-#include "application.h"
+#include "ui/application.h"
 
 
 //___________________________________________________________________________________
@@ -53,7 +53,7 @@ void *run_clock(void *a_params) {
 }
 
 
-#include "cmdline.h"
+#include "utils/cmdline.h"
 //___________________________________________________________________________________
 // Host thread.
 int main(int argc, char *argv[]) {

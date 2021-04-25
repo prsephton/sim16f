@@ -7,13 +7,13 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#include "constants.h"
-#include "devices.h"
+#include "devices/constants.h"
+#include "devices/devices.h"
+#include "utils/hex.h"
+#include "utils/assembler.h"
+#include "utils/utility.h"
 #include "cpu_data.h"
 #include "instructions.h"
-#include "utility.h"
-#include "hex.h"
-#include "assembler.h"
 
 //___________________________________________________________________________________
 // Models the 16fxxx CPU
@@ -28,6 +28,8 @@ class CPU {
 	bool skip;
 	int  cycles;
 	int  nsteps;
+
+	std::string disassembled;
 
 	void fetch() {
 		if (cycles > 0) {
@@ -52,9 +54,11 @@ class CPU {
 		if (cycles) --cycles;
 		if (current) {
 			skip = current->execute(opcode, data);
-			CpuEvent(data.execPC, data.SP, data.W, current->disasm(opcode, data));
-		} else {
-			CpuEvent(data.execPC, data.SP, data.W, std::string("->fetch ") + int_to_hex(data.sram.get_PC(), "0x") + "                  ");
+			disassembled = current->disasm(opcode, data);
+			CpuEvent(data.execPC, data.SP, data.W, disassembled);
+		} else if (disassembled.length()) {   // fetch/flush cycle
+			auto st = disassembled.substr(0, 10) + "*" + disassembled.substr(11);
+			CpuEvent(data.execPC, data.SP, data.W, st);
 		}
 	}
 

@@ -1,6 +1,6 @@
 #include <gtkmm.h>
 #include <map>
-#include "cpu_data.h"
+#include "../cpu_data.h"
 
 class Component: public Glib::ObjectBase {
   public:

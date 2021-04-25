@@ -2,6 +2,50 @@
 <!-- Generated with glade 3.18.3 -->
 <interface>
   <requires lib="gtk+" version="3.12"/>
+  <object class="GtkFileFilter" id="asm_chooser">
+    <patterns>
+      <pattern>*.asm</pattern>
+      <pattern>*.a</pattern>
+    </patterns>
+  </object>
+  <object class="GtkFileFilter" id="hex_chooser">
+    <patterns>
+      <pattern>*.hex</pattern>
+    </patterns>
+  </object>
+  <object class="GtkFileChooserDialog" id="file_chooser">
+    <property name="can_focus">False</property>
+    <property name="type">popup</property>
+    <property name="type_hint">normal</property>
+    <property name="filter">hex_chooser</property>
+    <child internal-child="vbox">
+      <object class="GtkBox" id="filechooserdialog-vbox1">
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">2</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox" id="filechooserdialog-action_area1">
+            <property name="can_focus">False</property>
+            <property name="layout_style">end</property>
+            <child>
+              <placeholder/>
+            </child>
+            <child>
+              <placeholder/>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <placeholder/>
+        </child>
+      </object>
+    </child>
+  </object>
   <object class="GtkListStore" id="liststore1"/>
   <object class="GtkMenu" id="menu1">
     <property name="visible">True</property>
@@ -8778,11 +8822,17 @@
           <object class="GtkBox" id="box7">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="opacity">0.95999999999999996</property>
+            <property name="halign">start</property>
             <property name="margin_left">20</property>
             <child>
               <object class="GtkBox" id="box10">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="margin_left">10</property>
+                <property name="margin_right">10</property>
+                <property name="margin_top">10</property>
+                <property name="margin_bottom">10</property>
                 <property name="orientation">vertical</property>
                 <property name="spacing">5</property>
                 <child>
@@ -8798,7 +8848,7 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkCheckButton" id="checkbutton1">
+                  <object class="GtkCheckButton" id="config_cp">
                     <property name="label" translatable="yes">CP: Flash Memory Code Protection</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
@@ -8813,7 +8863,7 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkCheckButton" id="checkbutton2">
+                  <object class="GtkCheckButton" id="config_cpd">
                     <property name="label" translatable="yes">CPD: Data code protection</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
@@ -8828,7 +8878,7 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkCheckButton" id="checkbutton3">
+                  <object class="GtkCheckButton" id="config_lvp">
                     <property name="label" translatable="yes">LVP: Low Voltage Programming Enable</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
@@ -8843,7 +8893,7 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkCheckButton" id="checkbutton4">
+                  <object class="GtkCheckButton" id="config_boren">
                     <property name="label" translatable="yes">BOREN: Brown-out Reset Enable Bit</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
@@ -8858,7 +8908,7 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkCheckButton" id="checkbutton5">
+                  <object class="GtkCheckButton" id="config_mclre">
                     <property name="label" translatable="yes">MCLRE: : RA5/MCLR/VPP Pin Function Select bit</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
@@ -8873,7 +8923,7 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkCheckButton" id="checkbutton6">
+                  <object class="GtkCheckButton" id="config_pwrte">
                     <property name="label" translatable="yes">PWRTE: Power-up Timer Enable bit</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
@@ -8888,8 +8938,8 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkCheckButton" id="checkbutton7">
-                    <property name="label" translatable="yes">PWRTE: Power-up Timer Enable bit</property>
+                  <object class="GtkCheckButton" id="config_wdte">
+                    <property name="label" translatable="yes">WDTE:  Watchdog Timer Enable bit</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
@@ -8911,7 +8961,7 @@
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="margin_right">6</property>
-                        <property name="label" translatable="yes">Oscillator Selection:</property>
+                        <property name="label" translatable="yes">Oscillator Selection:  </property>
                       </object>
                       <packing>
                         <property name="expand">False</property>
@@ -8920,7 +8970,7 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkComboBoxText" id="comboboxtext1">
+                      <object class="GtkComboBoxText" id="config_osc">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="active">0</property>
@@ -8953,7 +9003,7 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <child>
-                      <object class="GtkButton" id="button5">
+                      <object class="GtkButton" id="save_hex">
                         <property name="label" translatable="yes">Save Hex File</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
@@ -8966,7 +9016,7 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="button6">
+                      <object class="GtkButton" id="load_hex">
                         <property name="label" translatable="yes">Load Hex File</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
@@ -9005,9 +9055,6 @@
                 <property name="fill">True</property>
                 <property name="position">0</property>
               </packing>
-            </child>
-            <child>
-              <placeholder/>
             </child>
           </object>
           <packing>
@@ -9084,10 +9131,10 @@
                             <property name="orientation">vertical</property>
                             <property name="spacing">17</property>
                             <child>
-                              <object class="GtkLabel" id="label87">
+                              <object class="GtkLabel" id="pins_p1">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p1</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -9096,10 +9143,10 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label88">
+                              <object class="GtkLabel" id="pins_p2">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p2</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -9108,10 +9155,10 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label89">
+                              <object class="GtkLabel" id="pins_p3">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p3</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -9120,10 +9167,10 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label90">
+                              <object class="GtkLabel" id="pins_p4">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p4</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -9132,10 +9179,10 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label91">
+                              <object class="GtkLabel" id="pins_p5">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p5</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -9144,10 +9191,10 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label92">
+                              <object class="GtkLabel" id="pins_p6">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p6</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -9156,10 +9203,10 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label93">
+                              <object class="GtkLabel" id="pins_p7">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p7</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -9168,10 +9215,10 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label94">
+                              <object class="GtkLabel" id="pins_p8">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p8</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -9180,10 +9227,10 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label95">
+                              <object class="GtkLabel" id="pins_p9">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p9</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -9251,10 +9298,10 @@
                             <property name="orientation">vertical</property>
                             <property name="spacing">17</property>
                             <child>
-                              <object class="GtkLabel" id="label96">
+                              <object class="GtkLabel" id="pins_p18">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p18</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -9263,10 +9310,10 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label97">
+                              <object class="GtkLabel" id="pins_p17">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p17</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -9275,10 +9322,10 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label98">
+                              <object class="GtkLabel" id="pins_p16">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p16</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -9287,10 +9334,10 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label99">
+                              <object class="GtkLabel" id="pins_p15">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p15</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -9299,10 +9346,10 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label100">
+                              <object class="GtkLabel" id="pins_p14">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p14</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -9311,10 +9358,10 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label101">
+                              <object class="GtkLabel" id="pins_p13">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p13</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -9323,10 +9370,10 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label102">
+                              <object class="GtkLabel" id="pins_p12">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p12</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -9335,10 +9382,10 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label103">
+                              <object class="GtkLabel" id="pins_p11">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p11</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -9347,10 +9394,10 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label104">
+                              <object class="GtkLabel" id="pins_p10">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">label</property>
+                                <property name="label" translatable="yes">pins_p10</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>

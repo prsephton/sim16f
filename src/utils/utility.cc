@@ -1,6 +1,7 @@
+#include "utility.h"
+
 #include <cstdio>
 #include <sys/stat.h>
-#include "utility.h"
 
 
 const std::string int_to_string(int i)  {
