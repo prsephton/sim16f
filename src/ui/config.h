@@ -9,67 +9,9 @@
 #include <iomanip>
 #include "../devices/flags.h"
 #include "../cpu_data.h"
-#include "../utils/hex.h"
+#include "fileselection.h"
 
 namespace app {
-
-	class FileSelection: public Gtk::FileChooserDialog {
-		Glib::RefPtr<Gtk::Builder> m_builder;
-
-	protected:
-		Glib::RefPtr<Gtk::Button> m_ok_button;
-		Glib::RefPtr<Gtk::Button> m_cancel_button;
-		Glib::RefPtr<Gtk::Entry> m_filename;
-
-		void on_ok_clicked() {
-			response(Gtk::RESPONSE_OK);
-		}
-
-		void on_cancel_clicked() {
-			response(Gtk::RESPONSE_CANCEL);
-		}
-
-		void on_selection_changed() {
-			m_filename->set_text(get_filename());
-		}
-
-		void on_response(int a_response) {
-			hide();
-		}
-
-	  public:
-		FileSelection(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>& refBuilder):
-			FileChooserDialog(cobject), m_builder(refBuilder) {
-
-			m_ok_button = Glib::RefPtr<Gtk::Button>::cast_dynamic(m_builder->get_object("file_select_ok"));
-			m_cancel_button = Glib::RefPtr<Gtk::Button>::cast_dynamic(m_builder->get_object("file_select_cancel"));
-			m_filename = Glib::RefPtr<Gtk::Entry>::cast_dynamic(m_builder->get_object("file_select_filename"));
-
-			m_ok_button->signal_clicked().connect(sigc::mem_fun(*this, &FileSelection::on_ok_clicked));
-			m_cancel_button->signal_clicked().connect(sigc::mem_fun(*this, &FileSelection::on_cancel_clicked));
-			signal_selection_changed().connect(sigc::mem_fun(*this, &FileSelection::on_selection_changed));
-			this->signal_response().connect(sigc::mem_fun(*this, &FileSelection::on_response));
-
-		}
-
-		std::string save_hex_file(const std::string &a_filename) {
-			set_filename(a_filename);
-			set_title("Please select a destination file name");
- 			m_filename->set_can_focus(true);
-			int response = run();
-			if (response == Gtk::RESPONSE_OK) return m_filename->get_text();
-			return "";
-		}
-
-		std::string load_hex_file() {
- 			set_title("Please select a file to load");
- 			m_filename->set_can_focus(false);
-			int response = run();
-			if (response == Gtk::RESPONSE_OK) return m_filename->get_text();
-			return "";
-		}
-	};
-
 
 	class Config: public Component {
 		CPU_DATA &m_cpu;
