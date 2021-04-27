@@ -1,7 +1,7 @@
 # sim16f
 A PIC16f628 simulator
 
-#Why another PIC simulator?
+# Why another PIC simulator?
 
 If you are looking for a complete and fully functional PIC simulator, which fully implements a variety of PIC chip models, look no further than [PICSim and PicSimLab](https://sourceforge.net/projects/picsim/#:~:text=PICSimLab%20is%20a%20realtime%20emulator%20of%20development%20boards,MPLABX%2Favr%2Dgdb%20debugger.&text=PICSimLab%20have%20integration%20with%20MPLABX,to%20the%20boards%20for%20simulation).
 
@@ -9,7 +9,7 @@ The goals of this project are quite different.  The intention is to build a tool
 
 While this is admittedly an ambitious project, the reward is personal.  It has been over a decade since I have had an opportunity to play with C++ again, and this allows me to explore the numerous changes to the C++ specification.   My tinkering with microcontrollers in circuit design will also directly benefit from this project.
 
-#Why the PIC16f6xx series?
+# Why the PIC16f6xx series?
 
 No particular reason, other than that these are in my opinion small miracles of technology.  In an 18 pin DIP package, these chips implement an inbuilt 4MHz clock with the option of a 20MHz external oscillator, two analog comparators, a voltage reference, two bidirectional 8 bit ports, one CCP module, two analog comparators, three timers with interrupt support, up to 256 bytes of EEPROM, up to 4K programmable flash memory, advanced functions such as low voltage in circuit programming and brown out reset, and a built in serial USART.  The CCP module can easily be made to drive a PWM interface, amongst other uses.
 
