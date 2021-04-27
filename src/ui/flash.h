@@ -241,9 +241,5 @@ namespace app {
 			Flash *flash = (Flash *)(ob);
 			flash->cpu_event(e);
 		}
-
-
 	};
-
-
-}
+}				// namespace app

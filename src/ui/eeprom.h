@@ -1,3 +1,5 @@
+//______________________________________________________________________________________________________
+// Simple eeprom data editing view.
 #pragma once
 
 #include <gtkmm.h>
@@ -7,7 +9,6 @@
 #include "../cpu_data.h"
 
 namespace app {
-
 
 	class EEPROM: public Component {
 		CPU_DATA &m_cpu;

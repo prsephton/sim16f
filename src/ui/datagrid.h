@@ -1,3 +1,7 @@
+//______________________________________________________________________________________________________
+// A reasonably generic grid based hex editor.  Requires a "RandomAccess" adapter view for a
+// device.  Currently, this applies to flash and eeprom devices.
+
 #pragma once
 
 #include <gtkmm.h>

@@ -7,6 +7,18 @@
 
 class Flags {
   public:
+	struct CONFIG {
+		static const WORD CP    = (WORD)1 << 13;  // bit 13
+		static const WORD CPD   = (WORD)1 << 8;   // bit 8
+		static const WORD LVP   = (WORD)1 << 7;
+		static const WORD BOREN = (WORD)1 << 6;
+		static const WORD MCLRE = (WORD)1 << 5;
+		static const WORD PWRTE = (WORD)1 << 3;   // ...
+		static const WORD WDTE  = (WORD)1 << 2;
+		static const WORD FOSC2 = (WORD)1 << 4;
+		static const WORD FOSC1 = (WORD)1 << 1;
+		static const WORD FOSC0 = (WORD)1;        // bit 0
+	};
 	struct STATUS {
 		static const BYTE IRP = 0b10000000;
 		static const BYTE RP1 = 0b01000000;

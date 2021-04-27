@@ -92,9 +92,9 @@ class CPU_DATA {
 	WORD execPC;  // PC of currently executing instruction.
 	WORD SP;      // SP after execute
 	WORD W;       // W after execute
+	WORD Config;  // Configuration word
 
 	WORD stack[STACK_SIZE];
-	std::string configuration;
 	std::map<std::string, SmartPtr<Register> > Registers;
 	std::map<BYTE, std::string> RegisterNames;
 
@@ -109,6 +109,17 @@ class CPU_DATA {
 	Timer2 tmr2;
 
 	std::queue<ControlEvent> control;
+
+
+	void configure(const std::string &a_configuration) {
+		if (a_configuration.length() >= 2) {  // set configuration word
+			Config = *(WORD *)a_configuration.c_str();
+		}
+	}
+
+	const std::string configuration() {  // return config word as a string
+		return std::string((char *)&Config, sizeof(Config));
+	}
 
 	void push(WORD value) {
 		--SP;

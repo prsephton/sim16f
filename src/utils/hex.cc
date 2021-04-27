@@ -41,7 +41,7 @@ bool load_hex(const std::string &a_filename, CPU_DATA &cpu) {
 //			std::cout <<std::dec<<"bb="<<bb<<"; aaaa="<<std::hex<<aaaa<<"; tt="<<tt<<"; cc="<<cc<<"["<<(WORD)sum<< "]; data="<<std::string(buf+9,bb*2) << "\n";
 		if (tt==0) {
 			if (aaaa == 0x400e)                      // config word
-				cpu.configuration = std::string(ds, bb);
+				cpu.configure(std::string(ds, bb));
 			else if (aaaa >= 0x4200)                 // eeprom
 				cpu.eeprom.set_data(aaaa - 0x4200, std::string(ds, bb));
 			else                                     // flash data
@@ -92,8 +92,7 @@ bool dump_hex(const std::string &a_filename, CPU_DATA &cpu) {
 	while (limit>0 && eeprom[limit-1]==0) --limit;
 
 	write_hex_records(f, 0x10, 0x4200, eeprom, limit);
-
-	write_hex_records(f, 0x10, 0x400E, cpu.configuration.c_str(), cpu.configuration.length());
+	write_hex_records(f, 0x10, 0x400E, cpu.configuration().c_str(), cpu.configuration().length());
 
 	std::string eof(":00000001FF\n");
 	fwrite(eof.c_str(), eof.length(), 1, f);

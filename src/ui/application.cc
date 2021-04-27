@@ -1,12 +1,14 @@
 #include <iostream>
 #include <sstream>
 #include <queue>
+#include "../cpu.h"
+#include "../utils/utility.h"
+
 #include "application.h"
 #include "datagrid.h"
 #include "flash.h"
 #include "eeprom.h"
-#include "../cpu.h"
-#include "../utils/utility.h"
+#include "config.h"
 
 
 
@@ -18,6 +20,7 @@ void Sim16F::init_cpu(CPU_DATA &cpu) {
 	m_cpu = &cpu;
 	m_parts["EEPROM"] = new app::EEPROM(cpu, m_refGlade);
 	m_parts["Flash"] = new app::Flash(cpu, m_refGlade);
+	m_parts["Config"] = new app::Config(cpu, m_refGlade);
 	this->signal_delete_event().connect(sigc::mem_fun(*this, &Sim16F::delete_event));
 }
 
