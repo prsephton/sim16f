@@ -12,6 +12,8 @@ bool load_hex(const std::string &a_filename, CPU_DATA &cpu) {
 	FILE *f = fopen(a_filename.c_str(), "r");
 	char buf[256];
 
+	cpu.eeprom.clear();
+	cpu.flash.clear();
 	while (fgets(buf, sizeof(buf), f)) {
 		if (buf[0] != ':')
 			throw(std::string("Invalid file format. ") +a_filename+" is not a standard .hex file.");
@@ -91,8 +93,9 @@ bool dump_hex(const std::string &a_filename, CPU_DATA &cpu) {
 	limit = EEPROM_SIZE;
 	while (limit>0 && eeprom[limit-1]==0) --limit;
 
+	auto config = cpu.configuration();
 	write_hex_records(f, 0x10, 0x4200, eeprom, limit);
-	write_hex_records(f, 0x10, 0x400E, cpu.configuration().c_str(), cpu.configuration().length());
+	write_hex_records(f, 0x10, 0x400E, config.c_str(), config.length());
 
 	std::string eof(":00000001FF\n");
 	fwrite(eof.c_str(), eof.length(), 1, f);

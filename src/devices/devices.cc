@@ -5,14 +5,11 @@
 
 
 void EEPROM::load(const std::string &a_file) {
+	clear();
 	int fd = open(a_file.c_str(), O_RDONLY);
 	int c = read(fd, data, sizeof(data));
 	if (c < 0)
 		throw(std::string("Cannot read EEPROM data from file: ") + a_file);
-
-	while (c < (int)sizeof(data)) {
-		data[c++] = 0;
-	}
 }
 
 
@@ -41,13 +38,10 @@ void Clock::toggle(PINS &pins) {
 
 
 void Flash::load(const std::string &a_file) {
+	clear();
 	int fd = open(a_file.c_str(), O_RDONLY);
 	int c = read(fd, data, sizeof(data));
 	if (c < 0)
 		throw(std::string("Cannot read flash data from file: ") + a_file);
-	c /= sizeof(WORD);
-	while (c < FLASH_SIZE) {
-		data[c++] = 0;
-	}
 }
 

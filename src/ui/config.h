@@ -25,7 +25,10 @@ namespace app {
 
 			void on_signal_toggle() {
 				WORD &c = *m_config;
-				c = c ^ m_mask;
+				if (this->get_active())
+					c = c | m_mask ;
+				else
+					c = c & (~m_mask) ;
 			}
 
 		  public:
@@ -56,7 +59,7 @@ namespace app {
 
 		BitConfig *make_BitConfig(const std::string &a_name, WORD a_mask) {
 			BitConfig *bc;
-			m_refGlade->get_widget_derived(a_name, bc);  // This is a terrible pattern.  Why not just expose the underlying
+			m_refGlade->get_widget_derived(a_name, bc);  // This is a terrible pattern.  Why does builder not expose the underlying
 			if (bc) bc->set_up(m_cpu.Config, a_mask);    // GtkWidget?  Instead builder makes get_cwidget(name) a protected method.
 			return bc;
 		}

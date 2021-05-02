@@ -2,6 +2,7 @@
 
 #include <queue>
 #include <string>
+#include <cstring>
 
 #include "constants.h"
 
@@ -76,10 +77,13 @@ class WDT: public Device {
 
 class EEPROM: public Device {
   public:
-	short data[EEPROM_SIZE];
+	BYTE data[EEPROM_SIZE];
 
 	void load(const std::string &a_file);
 
+	void clear() {
+		memset(data, 0, sizeof(data));
+	}
 	void set_data(WORD address, const std::string &ds) {
 		for(WORD n=0; n<ds.length() && n+address<EEPROM_SIZE; ++n)
 			data[n+address] = ds[n];
@@ -195,6 +199,10 @@ class Flash: public Device {
 
 	WORD fetch(WORD PC) {
 		return data[PC % FLASH_SIZE];
+	}
+
+	void clear() {
+		memset(data, 0, sizeof(data));
 	}
 
 	void set_data(WORD address, const std::string &ds) {

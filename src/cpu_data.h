@@ -114,10 +114,12 @@ class CPU_DATA {
 	void configure(const std::string &a_configuration) {
 		if (a_configuration.length() >= 2) {  // set configuration word
 			Config = *(WORD *)a_configuration.c_str();
+			std::cout << "config loaded: " << std::hex << Config << "\n";
 		}
 	}
 
 	const std::string configuration() {  // return config word as a string
+		std::cout << "config now: " << std::hex << Config << "\n";
 		return std::string((char *)&Config, sizeof(Config));
 	}
 
