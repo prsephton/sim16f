@@ -28,9 +28,10 @@ template < class T > class SmartPtr
     SmartPtr(const SmartPtr<T>& sp);
     ~SmartPtr();
 
-    T& operator* ();
-    T* operator-> ();
-    const T& operator* () const;
+
+    const T& operator* () const { return *pData; }
+    T& operator* () { return *pData; }
+    T* operator-> () { return pData; }
     operator bool() const { return (pData != 0); }
 
     SmartPtr<T>& operator = (const SmartPtr<T>& sp);

@@ -113,6 +113,16 @@ class Flags {
 		static const BYTE RD    = 0b00000001;
 
 	};
+	struct CMCON {
+		static const BYTE C2OUT = 0b10000000;
+		static const BYTE C1OUT = 0b01000000;
+		static const BYTE C2INV = 0b00100000;
+		static const BYTE C1INV = 0b00010000;
+		static const BYTE CIS   = 0b00001000;
+		static const BYTE CM2   = 0b00000100;
+		static const BYTE CM1   = 0b00000010;
+		static const BYTE CM0   = 0b00000001;
+	};
 	struct VRCON {
 		static const BYTE VREN = 0b10000000;
 		static const BYTE VROE = 0b01000000;

@@ -1,14 +1,13 @@
-#ifndef __sram_h__
-#define __sram_h__
+#pragma once
 
 #include <set>
 #include <iostream>
 #include <queue>
 #include "constants.h"
+#include "device_base.h"
 
-class SRAM {
+class SRAM: public Device{
 	BYTE m_bank[RAM_BANKS][BANK_SIZE];
-
 
   public:
 	static const WORD INDF    = 0x00;
@@ -67,14 +66,14 @@ class SRAM {
 	std::set<WORD> BANK_0;
 	std::set<WORD> BANK_1;
 
-	class Event {
-  	  public:
-		std::string name;
-		BYTE old_value, changed, new_value;
-		Event(std::string a_name, BYTE a_old, BYTE a_changed, BYTE a_new)
-		: name(a_name), old_value(a_old), changed(a_changed), new_value(a_new){}
-	};
-	std::queue<Event> events;
+//	class Event {
+//  	  public:
+//		std::string name;
+//		BYTE old_value, changed, new_value;
+//		Event(std::string a_name, BYTE a_old, BYTE a_changed, BYTE a_new)
+//		: name(a_name), old_value(a_old), changed(a_changed), new_value(a_new){}
+//	};
+//	std::queue<Event> events;
 
 	SRAM();
 
@@ -131,5 +130,3 @@ class SRAM {
 
 	const BYTE read(const WORD a_idx, bool indirect=false) const;
 };
-
-#endif

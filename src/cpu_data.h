@@ -11,29 +11,6 @@
 
 
 //___________________________________________________________________________________
-// A file register is a memory location having special significance.
-class Register {
-	WORD m_idx;
-	std::string m_name;
-
-  public:
-	Register(const WORD a_idx, const std::string &a_name)
-  	  : m_idx(a_idx), m_name(a_name) {
-	}
-	WORD index() { return m_idx; }
-	virtual ~Register() {
-	}
-
-	virtual const BYTE read(const SRAM &a_sram) {         // default read for registers
-		return(a_sram.read(m_idx));
-	}
-
-	virtual void write(SRAM &a_sram, const unsigned char value) {  // default write
-		a_sram.write(m_idx, value);
-	}
-};
-
-//___________________________________________________________________________________
 // This implements a pub-sub pattern which provides current CPU execution status
 class CpuEvent {
 
@@ -71,6 +48,8 @@ class CpuEvent {
 	};
 };
 
+//____________________________________________________________________________________
+// A control event is initiated from the UI to change something in the CPU
 class ControlEvent {
   public:
 	std::string name;
@@ -109,7 +88,7 @@ class CPU_DATA {
 	Timer2 tmr2;
 
 	std::queue<ControlEvent> control;
-
+	DeviceEventQueue device_events;
 
 	void configure(const std::string &a_configuration) {
 		if (a_configuration.length() >= 2) {  // set configuration word
@@ -149,9 +128,9 @@ class CPU_DATA {
 			return RegisterNames[idx];
 	}
 
-	void process_option(const SRAM::Event &e);
-	void process_sram_event(const SRAM::Event &e);
-
+//	void process_option(const SRAM::Event &e);
+//	void process_sram_event(const SRAM::Event &e);
+//
 
 	CPU_DATA();
 };

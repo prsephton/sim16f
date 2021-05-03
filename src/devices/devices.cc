@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <iostream>
 #include "devices.h"
+#include "../utils/smart_ptr.cc"
 
 
 void EEPROM::load(const std::string &a_file) {
@@ -13,26 +14,25 @@ void EEPROM::load(const std::string &a_file) {
 }
 
 
-void Clock::toggle(PINS &pins) {
+void Clock::toggle() {
 	high = !high;
 	if (high) {
 		++phase; phase = phase % 4;
 	}
-//	std::cout << "toggle clock; high:" << high << "; phase:" << (int)phase << "\n";
-	pins.set_pin(PINS::CLKIN, high? 5.0 : 0.0);
-	if (high) {
-		PINS::Event event = PINS::Event(PINS::CLKIN, "oscillator", 5.0, 0.0);
-		pins.events.push(event);
-	}
 
-	Q1 = phase == 0;
-	Q2 = phase == 1;
-	Q3 = phase == 2;
-	Q4 = phase == 3;
-	pins.set_pin(PINS::CLKOUT, phase/2? 5.0 : 0.0);
+//	std::cout << "toggle clock; high:" << high << "; phase:" << (int)phase << "\n";
+	DeviceEventQueue eq;
+	eq.queue_event(new DeviceEvent<Clock>(*this, "oscillator", {(BYTE)high}));
+
+	Q1 = phase == 0; if (Q1) eq.queue_event(new DeviceEvent<Clock>(*this, "Q1"));
+	Q2 = phase == 1; if (Q2) eq.queue_event(new DeviceEvent<Clock>(*this, "Q2"));
+	Q3 = phase == 2; if (Q3) eq.queue_event(new DeviceEvent<Clock>(*this, "Q3"));
+	Q4 = phase == 3; if (Q4) eq.queue_event(new DeviceEvent<Clock>(*this, "Q4"));
+
+	eq.queue_event(new DeviceEvent<Clock>(*this, "CLKOUT", {(BYTE)(phase/2?1:0)}));
+
 	if (high and Q1) {
-		PINS::Event event = PINS::Event(PINS::CLKOUT, "cycle", 5.0, 0.0);
-		pins.events.push(event);
+		eq.queue_event(new DeviceEvent<Clock>(*this, "cycle"));
 	}
 }
 
@@ -44,4 +44,9 @@ void Flash::load(const std::string &a_file) {
 	if (c < 0)
 		throw(std::string("Cannot read flash data from file: ") + a_file);
 }
+
+std::queue< SmartPtr<QueueableEvent> >DeviceEventQueue::events;
+
+template <class Clock> class
+	DeviceEvent<Clock>::registry  DeviceEvent<Clock>::subscribers;
 

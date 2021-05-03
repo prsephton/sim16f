@@ -92,7 +92,7 @@ class CPU {
 		}
 	}
 
-	void toggle_clock() { data.clock.toggle(data.pins); }
+	void toggle_clock() { data.clock.toggle(); }
 
 	bool running() const { return active; }
 	void stop() { active = false; }
@@ -115,34 +115,29 @@ class CPU {
 			if (e.name == "pause") paused = true;
 			if (e.name == "play") paused = false;
 			if (e.name == "next" and paused) nsteps += 1;
-			if (e.name == "back") {
-				reset();
-			} else {
-				throw(std::string("Unhandled control event: ") + e.name);
-			}
+			if (e.name == "back") reset();
 		}
 
-		while (!data.sram.events.empty()) {
-			SRAM::Event e = data.sram.events.front(); data.pins.events.pop();
-			std::cout << "SRAM: " << e.name << "\n";
-			data.process_sram_event(e);
-		}
+		data.device_events.process_events();
 
-		while (!data.wdt.events.empty()) {
-			WDT::Event e = data.wdt.events.front(); data.pins.events.pop();
-			std::cout << "WDT: " << e.name << "\n";
-		}
+//		while (!data.sram.events.empty()) {
+//			SRAM::Event e = data.sram.events.front(); data.pins.events.pop();
+//			std::cout << "SRAM: " << e.name << "\n";
+//			data.process_sram_event(e);
+//		}
 
-		while (!data.pins.events.empty()) {
-			PINS::Event e = data.pins.events.front(); data.pins.events.pop();
-			if (e.name == "oscillator") {     // positive edge.  4 of these per cycle.
+//		while (!data.wdt.events.empty()) {
+//			WDT::Event e = data.wdt.events.front(); data.pins.events.pop();
+//			std::cout << "WDT: " << e.name << "\n";
+//		}
 
-			} else if (e.name == "cycle") {   // an instruction cycle.
-				cycle();
-			} else {
-				throw(std::string("Unhandled pin event: ") + e.name);
-				active = false;
-			}
+	}
+
+	void clock_event(Clock *device, const std::string &name, const std::vector<BYTE> &data){
+		if (name == "oscillator") {     // positive edge.  4 of these per cycle.
+
+		} else if (name == "cycle") {   // an instruction cycle.
+			cycle();
 		}
 	}
 
@@ -161,6 +156,8 @@ class CPU {
 	CPU(): active(true), debug(true), paused(false), skip(false), cycles(0), nsteps(0) {
 		memset(data.flash.data, 0, sizeof(data.flash.data));
 		memset(data.eeprom.data, 0, sizeof(data.eeprom.data));
+		DeviceEvent<Clock>::subscribe<CPU>(this, &CPU::clock_event);
+
 		if (debug) {
 			CpuEvent::subscribe((void *)this, &CPU::show_status);
 		}

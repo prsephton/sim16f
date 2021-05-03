@@ -2,6 +2,11 @@
 
 #include "utils/smart_ptr.cc"
 
+
+template <class Register> class
+	DeviceEvent<Register>::registry  DeviceEvent<Register>::subscribers;
+
+
 //___________________________________________________________________________________
 // Many registers interact directly with hardware, or are used to control features
 // directly.
@@ -42,7 +47,13 @@ class STATUS: public Register {
 	virtual void write(SRAM &a_sram, const BYTE value) {  // cannot overwrite some fields,
 		BYTE sts = a_sram.status();
 		BYTE mask = Flags::STATUS::TO | Flags::STATUS::PD;  // read only bits
-		a_sram.write(index(), (value & (!mask)) | (sts & mask));
+		BYTE nvalue = (value & (!mask)) | (sts & mask);
+
+		BYTE changed = sts ^ nvalue; // all changing bits.
+		if (changed)
+			eq.queue_event(new DeviceEvent<Register>(*this, "OPTION", {sts, changed, nvalue}));
+
+		a_sram.write(index(), value);
 	}
 };
 
@@ -61,13 +72,15 @@ class OPTION: public Register {
 	virtual void write(SRAM &a_sram, const BYTE value) {
 		BYTE options = a_sram.read(index());
 		BYTE changed = options ^ value; // all changing bits.
-		if (changed) a_sram.events.push(SRAM::Event("OPTION", options, changed, value));
+		if (changed)
+			eq.queue_event(new DeviceEvent<Register>(*this, "OPTION", {options, changed, value}));
+
 		a_sram.write(index(), value);
 	}
 };
 
 
-CPU_DATA::CPU_DATA(): execPC(0), SP(0), W(0) {
+CPU_DATA::CPU_DATA(): execPC(0), SP(0), W(0), Config(0) {
 	Registers["INDF"]   = new INDF();
 	Registers["TMR0"]   = new Register(SRAM::TMR0, "Timer 0");  // bank 0 and 2
 	Registers["PCL"]    = new Register(SRAM::PCL, "Program Counters Low  Byte");  // all banks
@@ -122,30 +135,30 @@ CPU_DATA::CPU_DATA(): execPC(0), SP(0), W(0) {
 }
 
 
-void CPU_DATA::process_option(const SRAM::Event &e) {
-	if (e.changed & Flags::OPTION::RBPU) {
-		portb.recalc_pullups(pins, e.new_value & Flags::OPTION::RBPU);
-	}
-	if (e.changed & Flags::OPTION::INTEDG) {
-		portb.rising_rb0_interrupt(pins, e.new_value & Flags::OPTION::INTEDG);
-	}
-	if (e.changed & Flags::OPTION::T0CS) {
-		tmr0.clock_source_select(e.new_value & Flags::OPTION::T0CS);
-	}
-	if (e.changed & Flags::OPTION::T0SE) {
-		tmr0.clock_transition(e.new_value & Flags::OPTION::T0SE);
-	}
-	if (e.changed & Flags::OPTION::PSA) {
-		tmr0.prescaler(e.new_value & Flags::OPTION::PSA);
-	}
-	if (e.changed & (Flags::OPTION::PS0 | Flags::OPTION::PS1 | Flags::OPTION::PS2)) {
-		tmr0.prescaler_rate_select(e.new_value & 0x7);
-	}
-}
-
-void CPU_DATA::process_sram_event(const SRAM::Event &e) {
-	if (e.name == "OPTION") process_option(e);
-}
+//void CPU_DATA::process_option(const SRAM::Event &e) {
+//	if (e.changed & Flags::OPTION::RBPU) {
+//		portb.recalc_pullups(pins, e.new_value & Flags::OPTION::RBPU);
+//	}
+//	if (e.changed & Flags::OPTION::INTEDG) {
+//		portb.rising_rb0_interrupt(pins, e.new_value & Flags::OPTION::INTEDG);
+//	}
+//	if (e.changed & Flags::OPTION::T0CS) {
+//		tmr0.clock_source_select(e.new_value & Flags::OPTION::T0CS);
+//	}
+//	if (e.changed & Flags::OPTION::T0SE) {
+//		tmr0.clock_transition(e.new_value & Flags::OPTION::T0SE);
+//	}
+//	if (e.changed & Flags::OPTION::PSA) {
+//		tmr0.prescaler(e.new_value & Flags::OPTION::PSA);
+//	}
+//	if (e.changed & (Flags::OPTION::PS0 | Flags::OPTION::PS1 | Flags::OPTION::PS2)) {
+//		tmr0.prescaler_rate_select(e.new_value & 0x7);
+//	}
+//}
+//
+//void CPU_DATA::process_sram_event(const SRAM::Event &e) {
+//	if (e.name == "OPTION") process_option(e);
+//}
 
 // static definition
 CpuEvent::registry CpuEvent::subscribers;

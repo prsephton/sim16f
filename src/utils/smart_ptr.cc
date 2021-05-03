@@ -41,24 +41,6 @@ template < class T >
  }
 
 template < class T >
-const T& SmartPtr<T>::operator* () const
-{
-    return *pData;
-}
-
-template < class T >
-T& SmartPtr<T>::operator* ()
- {
-     return *pData;
- }
-
-template < class T >
- T* SmartPtr<T>::operator-> ()
- {
-     return pData;
- }
-
-template < class T >
  SmartPtr<T>& SmartPtr<T>::operator = (const SmartPtr<T>& sp)
  {
      // Assignment operator
