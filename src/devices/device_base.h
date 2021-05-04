@@ -7,9 +7,9 @@
 #include <string>
 #include <cstring>
 #include <functional>
+#include <mutex>
 #include "../utils/smart_ptr.h"
 #include "constants.h"
-
 
 //__________________________________________________________________________________________________
 // Device definitions
@@ -24,6 +24,7 @@ class Device {
 
 	virtual ~Device() {};
 	const std::string &name() { return m_name; }
+	void name(const std::string &a_name) { m_name = a_name; }
 };
 
 
@@ -35,16 +36,18 @@ class QueueableEvent {
 	virtual void fire_event() = 0;
 };
 
-
 //___________________________________________________________________________________
 // We can have a single event queue for all devices, and process events
 // in sequence.  Events themselves are derived from a base class.
 class DeviceEventQueue {
 	static std::queue< SmartPtr<QueueableEvent> >events;
+	static std::mutex mtx;
 
   public:
 	void queue_event(QueueableEvent *event) {
+		mtx.lock();
 		events.push(event);
+		mtx.unlock();
 	}
 
 	void process_events() {
@@ -53,7 +56,9 @@ class DeviceEventQueue {
 			if (events.empty())
 				break;
 			else {
+				mtx.lock();
 				auto event = events.front(); events.pop();
+				mtx.unlock();
 				event->fire_event();
 			}
 		if (n == 100)
@@ -154,19 +159,19 @@ class Connection: public Device {
 		q.queue_event(new DeviceEvent<Connection>(*this, "Voltage Change"));
 	}
   public:
-	Connection(): m_V(Vss), m_impeded(true) {};
-	Connection(float V, bool impeded): m_V(V), m_impeded(impeded) {
+	Connection(): Device(), m_V(Vss), m_impeded(true) {};
+	Connection(float V, bool impeded, const std::string &a_name=""):
+		Device(a_name), m_V(V), m_impeded(impeded) {
 		queue_change();
 	};
-	Connection(bool on, bool impeded): m_V(on?Vdd:Vss), m_impeded(impeded) {
+	Connection(bool on, bool impeded, const std::string &a_name=""):
+		Device(a_name), m_V(on?Vdd:Vss), m_impeded(impeded) {
 		queue_change();
 	};
 
 	float rd() { return m_impeded?Vss:m_V; }
 	bool impeded() { return m_impeded; }
 	bool signal() { return m_V > Vdd/2.0; }
-
-
 	void set_value(float V, bool impeded) {
 		m_V = V, m_impeded = impeded;
 		queue_change();
@@ -178,10 +183,20 @@ class Connection: public Device {
 class Wire: public Device {
 	std::vector<Connection> connections;
 	bool indeterminate;
+
+	void on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data) {
+		const char *direction = " <-- ";
+		if (conn->impeded()) direction = " ->| ";
+		std::cout << this->name() << direction << name << " changed to " << conn->rd() << "V" << std::endl;
+		if (!conn->impeded()) // Not an impeded connection
+			assert();         // determine wire voltage and update impeded connections
+	}
+
   public:
-	Wire(): indeterminate(true) {}
+	Wire(const std::string &a_name=""): Device(a_name), indeterminate(true) {}
 	void connect(const Connection &connection) {
 		connections.push_back(connection);
+		DeviceEvent<Connection>::subscribe<Wire>(this, &Wire::on_connection_change, &connection);
 	}
 	float rd() {
 		float V = 50.0;
@@ -260,6 +275,12 @@ class Latch: public Device {
 			DeviceEvent<Connection>::subscribe<Latch>(this, &Latch::on_data_change, &m_D);
 	}
 
+	void set_name(const std::string &a_name) {
+		name(a_name);
+		m_Q.name(a_name+"::Q");
+		m_Qc.name(a_name+"::Qc");
+	}
+
 	Connection &Q() {return m_Q; }
 	Connection &Qc() {return m_Qc; }
 };
@@ -320,21 +341,51 @@ class Inverter: public ABuffer {
 };
 
 //___________________________________________________________________________________
+//  And gate, also nand for invert=true, or possibly doubles as buffer or inverter
+class AndGate: public Device {
+	std::vector<Connection> m_in;
+	Connection m_out;
+
+//	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+//		m_out.set_value(!(D->signal()) * Vdd, false);
+//	}
+
+  public:
+	AndGate(const std::vector<Connection> &in, bool inverted=false, const std::string &a_name=""):
+		Device(a_name), m_in(in), m_out(Vdd, false) {
+
+	}
+};
+
+//___________________________________________________________________________________
 // Prevents a jittering signal from toggling between high/low states.
 class Schmitt: public Device {
 	Connection &m_in;
+	Connection &m_enable;
 	Connection m_out;
-	bool  m_impeded;
+	bool       m_gate_invert;
+
 	const float m_lo = (float)1.5;
 	const float m_hi = (float)3.5;
 
 
+	void on_enable(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+		//  gi     s   o
+		//  0      0   0
+		//  0      1   1
+		//  1      0   1
+		//  1      1   0
+		if (m_gate_invert ^ D->signal()) {
+			m_out.set_value(m_out.rd(), false);
+		} else {
+			m_out.set_value(m_out.rd(), true);
+		}
+	}
+
 	void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
 		float in = m_in.rd();
 		float out = m_out.rd();
-		if (m_impeded)
-			m_out.set_value(in, true);   // High impedence output
-		else {
+		if (m_gate_invert ^ m_enable.signal()) {
 			if (out < m_lo) {
 				if (in < m_hi)
 					out = Vss;
@@ -351,14 +402,13 @@ class Schmitt: public Device {
 	}
 
   public:
-	Schmitt(Connection &in, bool impeded=false):
-		m_in(in), m_out(Vss, false), m_impeded(impeded) {
+	Schmitt(Connection &in, Connection &en, bool impeded=false, bool gate_invert=true):
+		m_in(in), m_enable(en), m_out(Vss, impeded), m_gate_invert(gate_invert) {
 		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, &m_in);
+		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_enable, &m_enable);
+		m_enable.set_value(Vss, true); // start enabled if gate_invert
 	}
-	void set_impeded(bool impeded) {
-		m_impeded = impeded;
-		m_out.set_value(m_out.rd(), false);
-	}
+
 	Connection &rd() { return m_out; }
 };
 

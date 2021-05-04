@@ -1,6 +1,7 @@
 #ifndef __smart_ptr_h__
 #define __smart_ptr_h__
 
+
 class RC
 {
     private:

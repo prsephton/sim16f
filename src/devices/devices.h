@@ -3,18 +3,20 @@
 #include "device_base.h"
 #include "sram.h"
 #include "flags.h"
+#include "../utils/utility.h"
 
 //___________________________________________________________________________________
 // A file register is a memory location having special significance.
 class Register : public Device {
 	WORD m_idx;
 	std::string m_name;
+	std::string m_doc;
 
   public:
 	DeviceEventQueue eq;
 
-	Register(const WORD a_idx, const std::string &a_name)
-  	  : m_idx(a_idx), m_name(a_name) {
+	Register(const WORD a_idx, const std::string &a_name, const std::string &a_doc = "")
+  	  : m_idx(a_idx), m_name(a_name), m_doc(a_doc) {
 	}
 	WORD index() { return m_idx; }
 	virtual ~Register() {
@@ -27,32 +29,100 @@ class Register : public Device {
 	virtual void write(SRAM &a_sram, const unsigned char value) {  // default write
 		BYTE old = a_sram.read(index());
 		BYTE changed = old ^ value; // all changing bits.
-		if (changed)
+		if (changed) {
 			eq.queue_event(new DeviceEvent<Register>(*this, m_name, {old, changed, value}));
+		}
 		a_sram.write(m_idx, value);
 	}
 };
 
+
+class SinglePort: public Device {
+
+protected:
+	Connection &Pin;
+	Connection Data;
+	Connection Port;
+	Connection Tris;
+	Connection S1;
+	Connection S1_en;
+	BYTE 	   port_mask;
+
+	std::map<std::string, SmartPtr<Device> > m_components;
+
+	void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+		if (name == "PORTA" || name == "PORTB") {
+			bool input = ((data[2] & port_mask) == port_mask);
+			Port.set_value(input * Vdd, true);
+		} else if (name == "TRISA" || name == "TRISB") {
+			bool input = ((data[2] & port_mask) == port_mask);
+			Tris.set_value(input * Vdd, true);
+		}
+	}
+
+	virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+		process_register_change(r, name, data);
+	}
+
+public:
+	SinglePort(Connection &a_Pin, const std::string &a_name, int port_bit_ofs):
+		Device(a_name), Pin(a_Pin), port_mask(1 << port_bit_ofs)
+	{
+		Wire *DataBus = new Wire(a_name+"::data");
+		Wire *PinWire = new Wire(a_name+"::pin");
+
+		Latch *DataLatch = new Latch(Data, Port); DataLatch->set_name(a_name+"::DataLatch");
+		Latch *TrisLatch = new Latch(Data, Tris); TrisLatch->set_name(a_name+"::TrisLatch");
+
+		Tristate *Tristate1 = new Tristate(DataLatch->Q(), TrisLatch->Q(), true); Tristate1->name(a_name+"::TS1");
+		Clamp * PinClamp = new Clamp(Pin);
+
+		PinWire->connect(Pin);
+		PinWire->connect(Tristate1->rd());
+
+		Schmitt *trigger = new Schmitt(S1, S1_en);
+
+		Inverter *not_port = new Inverter(Port);
+		Latch *SR1 = new Latch(trigger->rd(), not_port->rd(), true, false); SR1->set_name(a_name+"::SR1");
+		Tristate *Tristate2 = new Tristate(SR1->Q(), Port);  Tristate2->name(a_name+"::TS2");
+		DataBus->connect(Tristate2->rd());
+
+		Tristate *Tristate3 = new Tristate(TrisLatch->Qc(), Tris, false, true);  Tristate3->name(a_name+"::TS3");
+		DataBus->connect(Tristate3->rd());
+
+		m_components["Data bus"] = DataBus;
+		m_components["Pin wire"] = PinWire;
+		m_components["Pin clamp"] = PinClamp;
+		m_components["Data Latch"] = DataLatch;
+		m_components["Tris Latch"] = TrisLatch;
+		m_components["Tristate1"] = Tristate1;
+		m_components["Tristate2"] = Tristate2;
+		m_components["Tristate3"] = Tristate3;
+		m_components["Schmitt Trigger"] = trigger;
+		m_components["SR1"] = SR1;
+
+		DeviceEvent<Register>::subscribe<SinglePort>(this, &SinglePort::on_register_change);
+	}
+	Wire &bus_line() { return dynamic_cast<Wire &>(*m_components["Data bus"]); }
+	std::map<std::string, SmartPtr<Device> > &components() { return m_components; }
+};
+
 //___________________________________________________________________________________
 //  A model for a single port for pins RA0/AN0, RA1/AN1
-class SinglePortA_Analog: public Device {
-	Connection &Pin;
-	Connection Comparator;
-	Connection CMCON;
-	Schmitt *trigger;
-	Connection Data;
-	Connection PortA;
-	Connection TrisA;
+//  These are standard ports, but with a comparator output
+class SinglePortA_Analog: public SinglePort {
 
   protected:
+	Connection Comparator;
+
 	std::map<std::string, SmartPtr<Device> > components;
 
 	void set_comparator(bool on) {
 		if (on) {
-			trigger->set_impeded(true);
+			S1_en.set_value(Vss, true);
 			Comparator.set_value(Comparator.rd(), false);
 		} else {
-			trigger->set_impeded(false);
+			S1_en.set_value(Vdd, true);
 			Comparator.set_value(Comparator.rd(), true);
 		}
 	}
@@ -60,7 +130,7 @@ class SinglePortA_Analog: public Device {
 	void set_comparators_for_an0_and_an1(BYTE cmcon) {
 		switch (cmcon & 0b111) {
 		case 0b000 :    // Comparators reset
-			trigger->set_impeded(true);
+			S1_en.set_value(Vss, true);
 			Comparator.set_value(Vss, false);
 			break;
 		case 0b001 :    // 3 inputs Multiplexed 2 Comparators
@@ -91,71 +161,82 @@ class SinglePortA_Analog: public Device {
 		}
 	}
 
-	void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+	virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 		if        (name == "CMCON") {
 			BYTE cmcon = data[2];
 			set_comparators_for_an0_and_an1(cmcon);
-		} else if (name == "VRCON") {
-		} else if (name == "PORTA") {
-			if (name=="AN0" || name == "RA0") {
-				bool input = ((data[2] & Flags::PORTA::RA0) == Flags::PORTA::RA0);
-				PortA.set_value(input * Vdd, true);
-			} else {
-				bool input = ((data[2] & Flags::PORTA::RA1) == Flags::PORTA::RA1);
-				PortA.set_value(input * Vdd, true);
-			}
-		} else if (name == "TRISA") {
-			if (name=="AN0" || name == "RA0") {
-				bool input = ((data[2] & Flags::TRISA::TRISA0) == Flags::TRISA::TRISA0);
-				PortA.set_value(input * Vdd, true);
-			} else {
-				bool input = ((data[2] & Flags::TRISA::TRISA1) == Flags::TRISA::TRISA1);
-				PortA.set_value(input * Vdd, true);
-			}
+		} else {
+			process_register_change(r, name, data);
 		}
 	}
 
   public:
-	SinglePortA_Analog(Connection &a_Pin, const std::string &a_name): Device(a_name),
-		Pin(a_Pin), Comparator(Vss, true), CMCON(Vss, true), trigger(0)
+	SinglePortA_Analog(Connection &a_Pin, const std::string &a_name):
+		SinglePort(a_Pin, a_name, a_name=="RA0"?0:a_name=="RA1"?1:a_name=="RA3"?2:a_name=="RA4"?3:0),
+		Comparator(Vss, true, a_name+"::Comparator")
 	{
-		Wire *DataBus = new Wire();
-		Wire *PinWire = new Wire();
-
-		Latch *DataLatch = new Latch(Data, PortA);
-		Latch *TrisLatch = new Latch(Data, TrisA);
-
-		Tristate *Tristate1 = new Tristate(DataLatch->Q(), TrisLatch->Q(), true);
-		Clamp * PinClamp = new Clamp(Pin);
-
-		PinWire->connect(Pin);
-		PinWire->connect(Tristate1->rd());
-		PinWire->connect(Comparator);
-
-		Schmitt *trigger = new Schmitt(Comparator);
-
-		Inverter *not_porta = new Inverter(PortA);
-		Latch *SR1 = new Latch(trigger->rd(), not_porta->rd());
-		Tristate *Tristate2 = new Tristate(SR1->Q(), PortA);
-		DataBus->connect(Tristate2->rd());
-
-		Tristate *Tristate3 = new Tristate(TrisLatch->Qc(), TrisA, false, true);
-		DataBus->connect(Tristate3->rd());
-
-		components["Data bus"] = DataBus;
-		components["Pin wire"] = PinWire;
-		components["Pin clamp"] = PinClamp;
-		components["Data Latch"] = DataLatch;
-		components["Tris Latch"] = TrisLatch;
-		components["Tristate1"] = Tristate1;
-		components["Tristate2"] = Tristate2;
-		components["Tristate3"] = Tristate3;
-		components["Schmitt Trigger"] = trigger;
-		components["SR1"] = SR1;
-
 		DeviceEvent<Register>::subscribe<SinglePortA_Analog>(this, &SinglePortA_Analog::on_register_change);
 	}
+	Connection &comparator() { return Comparator; }
 };
+
+//___________________________________________________________________________________
+//  A model for a single port for pin AN2.  This looks like AN0/AN1 except that
+//  it also has a voltage reference.
+class SinglePortA_Analog_RA2: public  SinglePortA_Analog {
+	Connection VRef;
+
+	virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+		if        (name == "CMCON") {
+			BYTE cmcon = data[2];
+
+			switch (cmcon & 0b111) {
+			case 0b000 :    // Comparators reset
+				S1_en.set_value(Vss, true);
+				Comparator.set_value(Vss, false);
+				break;
+			case 0b010 :    // 4 inputs Multiplexed 2 Comparators
+				set_comparator((cmcon & Flags::CMCON::CIS) != 0);
+				break;
+			case 0b101 :    // One independent comparator
+			case 0b011 :    // 2 common reference comparators
+			case 0b100 :    // Two independent comparators
+			case 0b001 :    // 3 inputs Multiplexed 2 Comparators
+			case 0b110 :    // Two common reference comparators with outputs
+				set_comparator(true);
+				break;
+			case 0b111 :    // Comparators off
+				set_comparator(false);
+				break;
+			}
+		} else if (name == "VRCON") {
+			BYTE vrcon = data[2];
+			bool vren = (vrcon & Flags::VRCON::VREN) == Flags::VRCON::VREN;  // VRef enable
+			bool vroe = (vrcon & Flags::VRCON::VROE) == Flags::VRCON::VROE;  // VRef output enable
+			bool vrr  = (vrcon & Flags::VRCON::VRR)  == Flags::VRCON::VRR;   // VRef Range
+			float vref =  0;
+			if (vren) {
+				if (vrr) {
+					vref = ((vrcon & 0b111) / 24.0) * Vdd;
+				} else {
+					vref = ((vrcon & 0b111) / 32.0) * Vdd + Vdd/4;
+				}
+			}
+			VRef.set_value(vref, !vroe);
+		} else {
+			process_register_change(r, name, data);
+		}
+	}
+
+  public:
+	SinglePortA_Analog_RA2(Connection &a_Pin, const std::string &a_name) :
+		SinglePortA_Analog(a_Pin, a_name), VRef((float)0.35, true)
+	{
+		Wire &PinWire = dynamic_cast<Wire &>(*m_components["Data bus"]);
+		PinWire.connect(VRef);
+	}
+};
+
 
 //___________________________________________________________________________________
 class Comparator: public Device {
@@ -169,7 +250,30 @@ class Timer0: public Device {
 	bool use_RA4;
 	BYTE prescale_rate;
 
+	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+		if (name=="OPTION"){
+			BYTE changed = data[0];
+			BYTE new_value = data[2];
+
+			if (changed & Flags::OPTION::T0CS) {
+				clock_source_select(new_value & Flags::OPTION::T0CS);
+			}
+			if (changed & Flags::OPTION::T0SE) {
+				clock_transition(new_value & Flags::OPTION::T0SE);
+			}
+			if (changed & Flags::OPTION::PSA) {
+				prescaler(new_value & Flags::OPTION::PSA);
+			}
+			if (changed & (Flags::OPTION::PS0 | Flags::OPTION::PS1 | Flags::OPTION::PS2)) {
+				prescaler_rate_select(new_value & 0x7);
+			}
+		}
+	}
+
   public:
+	Timer0(): assigned_to_wdt(false), falling_edge(false), use_RA4(false), prescale_rate(0) {
+		DeviceEvent<Register>::subscribe<Timer0>(this, &Timer0::register_changed);
+	}
 	void clock_source_select(bool a_use_RA4){
 		use_RA4 = a_use_RA4;
 	};
@@ -208,16 +312,17 @@ class USART: public Device {
 };
 
 class WDT: public Device {
+	DeviceEventQueue eq;
   public:
-	class Event {
-  	  public:
-		std::string name;
-		Event(std::string a_name) : name(a_name){}
-	};
-	std::queue<Event> events;
+	void wdt_changed(WDT *r, const std::string &name, const std::vector<BYTE> &data) {
+	}
 
-	void clear() { events.push(Event("cleared")); }
-	void sleep() { events.push(Event("sleep")); }
+	WDT() {
+		DeviceEvent<WDT>::subscribe<WDT>(this, &WDT::wdt_changed);
+	}
+
+	void clear() { eq.queue_event(new DeviceEvent<WDT>(*this, "clear")); }
+	void sleep() { eq.queue_event(new DeviceEvent<WDT>(*this, "sleep")); }
 };
 
 
@@ -301,9 +406,11 @@ class PINS: public Device {
 	static const BYTE pin_AN1    = 18;   // Analog comparator input
 
 
-// These are the 'external signals' we configure this device to show for inputs or outputs.
-//	float get_pin(BYTE pin_no) { return pins[pin_no-1]; }
-//	void  set_pin(BYTE pin_no, bool high) { pins[pin_no-1] = high?5.0:0.0; }
+	Connection &operator[](BYTE idx) {
+		if (idx==0 or idx > 18)
+			throw(std::string("PIN Index is out of range: ") + int_to_string(idx));
+		return pins[idx-1];
+	}
 
 	void reset() {
 		for (unsigned int i = 0; i < sizeof(pins); ++i) {
@@ -320,10 +427,16 @@ class PINS: public Device {
 		}
 	}
 
+
 	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+//		std::cout << "Register changed " << name << std::endl;
 	}
 
 	PINS() {
+		for (int n = 0; n < PIN_COUNT; ++n) {
+			std::string name = "P"+int_to_string(n+1);
+			pins[n].name(name);
+		}
 		DeviceEvent<Clock>::subscribe<PINS>(this, &PINS::clock_event);
 		DeviceEvent<Register>::subscribe<PINS>(this, &PINS::register_changed);
 	}
@@ -332,11 +445,46 @@ class PINS: public Device {
 
 
 class PORTA: public Device {
+	PINS &pins;
+	std::vector< SmartPtr<Device> > RA;
 
+	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+	}
+
+  public:
+	PORTA(PINS &a_pins): pins(a_pins) {
+		RA.resize(8);
+		DeviceEvent<Register>::subscribe<PORTA>(this, &PORTA::register_changed);
+		RA[0] = new SinglePortA_Analog(pins[PINS::pin_RA0], "RA0");
+		RA[1] = new SinglePortA_Analog(pins[PINS::pin_RA1], "RA1");
+		RA[2] = new SinglePortA_Analog_RA2(pins[PINS::pin_RA2], "RA2");
+	}
 };
 
+
 class PORTB: public Device {
+	PINS &pins;
+
+	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+		if (name=="OPTION"){
+			BYTE changed = data[0];
+			BYTE new_value = data[2];
+
+			if (changed & Flags::OPTION::RBPU) {
+				recalc_pullups(pins, new_value & Flags::OPTION::RBPU);
+			}
+			if (changed & Flags::OPTION::INTEDG) {
+				rising_rb0_interrupt(pins, new_value & Flags::OPTION::INTEDG);
+			}
+		}
+	}
+
   public:
+	PORTB(PINS &a_pins): pins(a_pins) {
+		DeviceEvent<Register>::subscribe<PORTB>(this, &PORTB::register_changed);
+
+	}
+
 	void recalc_pullups(PINS &pins, bool RBPU) {}
 	void rising_rb0_interrupt(PINS &pins, bool rising) {}
 };

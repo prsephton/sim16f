@@ -56,7 +56,7 @@ class ADDWF: public Instruction {
 		BYTE mask = Flags::STATUS::Z | Flags::STATUS::C | Flags::STATUS::DC;
 
 		if (to_file) {
-			cpu.sram.write(idx, data & 0xff);
+			cpu.write_sram(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
@@ -93,7 +93,7 @@ class ANDWF: public Instruction {
 		BYTE mask = Flags::STATUS::Z;
 
 		if (to_file) {
-			cpu.sram.write(idx, data & 0xff);
+			cpu.write_sram(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
@@ -122,7 +122,7 @@ class CLRF: public Instruction {
 		BYTE Z = true;
 		BYTE &status = cpu.sram.status();
 		BYTE mask = Flags::STATUS::Z;
-		cpu.sram.write(idx, (BYTE)0);
+		cpu.write_sram(idx, (BYTE)0);
 		status = (status & ~mask) | Z;
 		return false;
 	}
@@ -175,7 +175,7 @@ class COMF: public Instruction {
 		BYTE mask = Flags::STATUS::Z;
 
 		if (to_file) {
-			cpu.sram.write(idx, data & 0xff);
+			cpu.write_sram(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
@@ -212,7 +212,7 @@ class DECF: public Instruction {
 		BYTE mask = Flags::STATUS::Z;
 
 		if (to_file) {
-			cpu.sram.write(idx, data & 0xff);
+			cpu.write_sram(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
@@ -249,7 +249,7 @@ class DECFSZ: public Instruction {
 		BYTE mask = Flags::STATUS::Z;
 
 		if (to_file) {
-			cpu.sram.write(idx, data & 0xff);
+			cpu.write_sram(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
@@ -286,7 +286,7 @@ class INCF: public Instruction {
 		BYTE mask = Flags::STATUS::Z;
 
 		if (to_file) {
-			cpu.sram.write(idx, data & 0xff);
+			cpu.write_sram(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
@@ -323,7 +323,7 @@ class INCFSZ: public Instruction {
 		BYTE mask = Flags::STATUS::Z;
 
 		if (to_file) {
-			cpu.sram.write(idx, data & 0xff);
+			cpu.write_sram(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
@@ -360,7 +360,7 @@ class IORWF: public Instruction {
 		BYTE mask = Flags::STATUS::Z;
 
 		if (to_file) {
-			cpu.sram.write(idx, data & 0xff);
+			cpu.write_sram(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
@@ -397,7 +397,7 @@ class MOVF: public Instruction {
 		BYTE mask = Flags::STATUS::Z;
 
 		if (to_file) {
-			cpu.sram.write(idx, data & 0xff);
+			cpu.write_sram(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
@@ -425,7 +425,7 @@ class MOVWF: public Instruction {
 		BYTE idx;
 		decode(opcode, idx);
 		WORD data = cpu.W;
-		cpu.sram.write(idx, data & 0xff);
+		cpu.write_sram(idx, data & 0xff);
 		return false;
 	}
 };
@@ -467,7 +467,7 @@ class RLF: public Instruction {
 		BYTE C = data&0x100?Flags::STATUS::C:0;
 
 		if (to_file) {
-			cpu.sram.write(idx, data & 0xff);
+			cpu.write_sram(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
@@ -505,7 +505,7 @@ class RRF: public Instruction {
 		if (status & Flags::STATUS::C) data |= 0x80;
 
 		if (to_file) {
-			cpu.sram.write(idx, data & 0xff);
+			cpu.write_sram(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
@@ -548,7 +548,7 @@ class SUBWF: public Instruction {
 		BYTE mask = Flags::STATUS::Z | Flags::STATUS::C | Flags::STATUS::DC;
 
 		if (to_file) {
-			cpu.sram.write(idx, data & 0xff);
+			cpu.write_sram(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
@@ -583,7 +583,7 @@ class SWAPF: public Instruction {
 		data = (data << 4) + (data >> 4);
 
 		if (to_file) {
-			cpu.sram.write(idx, data & 0xff);
+			cpu.write_sram(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
@@ -620,7 +620,7 @@ class XORWF: public Instruction {
 		BYTE mask = Flags::STATUS::Z;
 
 		if (to_file) {
-			cpu.sram.write(idx, data & 0xff);
+			cpu.write_sram(idx, data & 0xff);
 		} else {
 			cpu.W = data & 0xff;
 		}
@@ -653,7 +653,7 @@ class BCF: public Instruction {
 		cbits = 1 << cbits;
 		WORD data = cpu.sram.read(idx);
 		data = data & ~cbits;
-		cpu.sram.write(idx, data);
+		cpu.write_sram(idx, data);
 		return false;
 	}
 };
@@ -682,7 +682,7 @@ class BSF: public Instruction {
 		cbits = 1 << cbits;
 		WORD data = cpu.sram.read(idx);
 		data = data | cbits;
-		cpu.sram.write(idx, data);
+		cpu.write_sram(idx, data);
 		return false;
 	}
 };
@@ -1013,7 +1013,7 @@ class RETFIE: public Instruction {
 		cpu.sram.set_PC(address-1);
 		BYTE intcon = cpu.sram.read(cpu.sram.INTCON);
 		intcon |= Flags::INTCON::GIE;
-		cpu.sram.write(cpu.sram.INTCON, intcon);
+		cpu.write_sram(cpu.sram.INTCON, intcon);
 		return false;
 	}
 };

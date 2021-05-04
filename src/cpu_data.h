@@ -108,6 +108,8 @@ class CPU_DATA {
 		stack[SP] = value;
 	}
 
+	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data);
+
 	WORD pop() {
 		WORD value = stack[SP];
 		++SP;
@@ -128,9 +130,15 @@ class CPU_DATA {
 			return RegisterNames[idx];
 	}
 
-//	void process_option(const SRAM::Event &e);
-//	void process_sram_event(const SRAM::Event &e);
-//
+	void write_sram(BYTE idx, BYTE v) {
+		std::string regname = register_name(idx);
+		auto reg = Registers.find(regname);
+		if (reg == Registers.end()) {
+			sram.write(idx, v, false);
+		} else {
+			reg->second->write(sram, v);
+		}
+	}
 
 	CPU_DATA();
 };

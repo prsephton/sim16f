@@ -4,6 +4,7 @@
 #include "devices.h"
 #include "../utils/smart_ptr.cc"
 
+std::mutex DeviceEventQueue::mtx;
 
 void EEPROM::load(const std::string &a_file) {
 	clear();

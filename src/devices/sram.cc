@@ -54,8 +54,10 @@ bool SRAM::calc_bank_ofs(WORD a_idx, BYTE &bank, BYTE &ofs, bool indirect) const
 
 void SRAM::write(const WORD a_idx, const BYTE value, bool indirect) {
 	BYTE bank, ofs;
-	if (calc_bank_ofs(a_idx, bank, ofs, indirect))  // Cannot write invalid addresses
+	if (calc_bank_ofs(a_idx, bank, ofs, indirect)) { // Cannot write invalid addresses
+//		eq.queue_event(new DeviceEvent<SRAM>(*this, "SRAM", {bank, ofs, value}));
 		m_bank[bank][ofs] = value;
+	}
 }
 
 const BYTE SRAM::read(const WORD a_idx, bool indirect) const {

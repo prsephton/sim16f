@@ -18,7 +18,7 @@ void *run_machine(void *a_params) {
 	CPU &cpu = params.cpu;
 	try {
 		while (cpu.running()) {
-			usleep(5);
+			usleep(10);
 			try {
 				cpu.process_queue();
 			} catch (std::string &error) {

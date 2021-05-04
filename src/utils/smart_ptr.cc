@@ -33,7 +33,7 @@ template < class T >
      // Destructor
      // Decrement the reference count
      // if reference become zero delete the data
-     if(reference->Release() == 0)
+     if(reference && reference->Release() == 0)
      {
          delete pData;
          delete reference;
@@ -48,7 +48,7 @@ template < class T >
      {
          // Decrement the old reference count
          // if reference become zero delete the old data
-         if(reference->Release() == 0)
+         if(reference && reference->Release() == 0)
          {
              delete pData;
              delete reference;

@@ -66,16 +66,10 @@ class SRAM: public Device{
 	std::set<WORD> BANK_0;
 	std::set<WORD> BANK_1;
 
-//	class Event {
-//  	  public:
-//		std::string name;
-//		BYTE old_value, changed, new_value;
-//		Event(std::string a_name, BYTE a_old, BYTE a_changed, BYTE a_new)
-//		: name(a_name), old_value(a_old), changed(a_changed), new_value(a_new){}
-//	};
-//	std::queue<Event> events;
+	DeviceEventQueue eq;
 
 	SRAM();
+
 
 	bool calc_bank_ofs(WORD a_idx, BYTE &bank, BYTE &ofs, bool indirect) const;
 
