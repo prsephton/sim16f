@@ -42,6 +42,7 @@ class QueueableEvent {
   public:
 	virtual ~QueueableEvent() {}
 	virtual void fire_event() = 0;
+	virtual bool compare(Device *d) = 0;
 };
 
 //___________________________________________________________________________________
@@ -55,6 +56,20 @@ class DeviceEventQueue {
 	void queue_event(QueueableEvent *event) {
 		mtx.lock();
 		events.push(event);
+		mtx.unlock();
+	}
+
+	void remove_events_for(Device *d) {
+		mtx.lock();
+		static std::queue< SmartPtr<QueueableEvent> >tmp;
+		while (!events.empty()) {
+			auto event = events.front(); events.pop();
+			if (!event->compare(d)) tmp.push(event);
+		}
+		while (!tmp.empty()) {
+			auto event = tmp.front(); tmp.pop(); events.push(event);
+		}
+
 		mtx.unlock();
 	}
 
@@ -111,6 +126,7 @@ template <class T> class DeviceEvent: public QueueableEvent {
 
 	typedef std::tuple<void *, const T *, void *> KeyType;            // Object, Source
 
+	virtual bool compare(Device *d){ return d == m_device; }
 
   private:
 	typedef std::map<KeyType, Callback> registry;
@@ -127,8 +143,17 @@ template <class T> class DeviceEvent: public QueueableEvent {
 	virtual void fire_event() {
 		for(each_subscriber s = subscribers.begin(); s!= subscribers.end(); ++s) {
 			const T *instance = std::get<1>(s->first);
-			if (!instance || instance == m_device)
-				s->second(dynamic_cast<T *>(m_device), m_eventname, m_data);
+			if (!instance || instance == m_device) {
+				try {
+					T * device = dynamic_cast<T *>(m_device);
+					if (device == NULL) throw(std::string("Null device"));
+					s->second(device, m_eventname, m_data);
+				} catch (const std::string &e) {
+					std::cout << "An error occurred whle processing a device event: " << e << "\n";
+				} catch (std::exception &e) {
+					std::cout << "Exception raised whle processing a device event: " << e.what() << "\n";
+				}
+			}
 		}
 	}
 
@@ -176,19 +201,24 @@ class Connection: public Device {
 	Connection(): Device(), m_V(Vss), m_impeded(true) {};
 	Connection(float V, bool impeded, const std::string &a_name=""):
 		Device(a_name), m_V(V), m_impeded(impeded) {
-		queue_change();
 	};
 	Connection(bool on, bool impeded, const std::string &a_name=""):
 		Device(a_name), m_V(on?Vdd:Vss), m_impeded(impeded) {
-		queue_change();
 	};
+
+	virtual	~Connection() {
+		DeviceEventQueue q;
+		q.remove_events_for(this);
+	}
 
 	float rd() { return m_V; }
 	bool impeded() { return m_impeded; }
 	bool signal() { return m_V > Vdd/2.0; }
 	void set_value(float V, bool impeded) {
-		m_V = V, m_impeded = impeded;
-		queue_change();
+		if (m_V != V || m_impeded != impeded) {
+			m_V = V, m_impeded = impeded;
+			queue_change();
+		}
 	}
 };
 
@@ -197,13 +227,18 @@ class Connection: public Device {
 class Wire: public Device {
 	std::vector<Connection> connections;
 	bool indeterminate;
+	DeviceEventQueue q;
 
+	void queue_change(){  // Add a voltage change event to the queue
+		q.queue_event(new DeviceEvent<Wire>(*this, "Wire Voltage Change"));
+	}
 	void on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data) {
 		const char *direction = " <-- ";
 		if (conn->impeded()) direction = " ->| ";
 		std::cout << this->name() << direction << name << " changed to " << conn->rd() << "V" << std::endl;
 		if (!conn->impeded()) // Not an impeded connection
 			assert();         // determine wire voltage and update impeded connections
+		queue_change();
 	}
 
   public:
@@ -219,6 +254,8 @@ class Wire: public Device {
 	void disconnect(const Connection &connection) {
 		for (auto conn=connections.begin(); conn != connections.end(); ++conn) {
 			if (&(*conn) == &connection) {
+				DeviceEvent<Connection>::unsubscribe<Wire>(this, &Wire::on_connection_change,
+						const_cast<Connection *>(&connection));
 				connections.erase(conn);
 				break;
 			}
@@ -252,7 +289,8 @@ class Wire: public Device {
 		}
 		std::cout << std::endl;
 	}
-	float signal() {
+	bool determinate() { return !indeterminate; }
+	bool signal() {
 		float V = rd();
 		return V > Vdd/2.0;
 	}
@@ -304,6 +342,8 @@ class Latch: public Device {
 		m_Qc.name(a_name+"::Qc");
 	}
 
+	Connection &D() {return m_D; }
+	Connection &Ck() {return m_Ck; }
 	Connection &Q() {return m_Q; }
 	Connection &Qc() {return m_Qc; }
 };
@@ -330,12 +370,20 @@ class ABuffer: public Device {
 
 //___________________________________________________________________________________
 // A buffer whos output impedence depends on a third state signal
-class Tristate: public ABuffer {
+class Tristate: public Device {
+  protected:
+	Connection &m_in;
 	Connection &m_gate;
+	Connection m_out;
 	bool m_invert_gate;
 	bool m_invert_output;
 
-	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+
+	void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+		m_out.set_value(D->signal() * Vdd, false);
+	}
+
+	void on_gate_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
 		bool impeded = !m_gate.signal();
 		bool out = D->signal();
 		if (m_invert_output) out = !out;
@@ -345,9 +393,17 @@ class Tristate: public ABuffer {
 
   public:
 	Tristate(Connection &in, Connection &gate, bool invert_gate=false, bool invert_output=false):
-		ABuffer(in), m_gate(gate), m_invert_gate(invert_gate), m_invert_output(invert_output) {
-		DeviceEvent<Connection>::subscribe<ABuffer>(this, &ABuffer::on_change, &m_gate);
+		m_in(in), m_gate(gate), m_out(), m_invert_gate(invert_gate), m_invert_output(invert_output) {
+		DeviceEvent<Connection>::subscribe<Tristate>(this, &Tristate::on_change, &m_in);
+		DeviceEvent<Connection>::subscribe<Tristate>(this, &Tristate::on_gate_change, &m_gate);
 	}
+	bool signal() { return m_out.signal(); }
+	bool impeded() { return m_out.impeded(); }
+	bool inverted() { return m_invert_output; }
+	bool gate_invert() { return m_invert_gate; }
+
+	void wr(float in) { m_in.set_value(in, true); }
+	Connection &rd() { return m_out; }
 };
 
 
@@ -547,7 +603,8 @@ class Schmitt: public Device {
 		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_enable, &m_enable);
 		m_enable.set_value(Vss, true); // start enabled if gate_invert
 	}
-
+	Connection &in() { return m_in; }
+	Connection &en() { return m_enable; }
 	Connection &rd() { return m_out; }
 };
 

@@ -64,13 +64,13 @@ protected:
 	Connection rdTris;  // read tris
 	Connection S1;
 	Connection S1_en;
+	bool       porta_select;  // false is portb
 	BYTE 	   port_mask;
 	DeviceEventQueue eq;
 
 	void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
-		auto c = components();
-		if (name == "PORTA" || name == "PORTB") {
-			Wire &DataBus = dynamic_cast<Wire &>(*c["Data Bus"]);
+		auto c = components();  // simulates a data bus write operation to either port or tris
+		if ((porta_select && name == "PORTA") || (!porta_select && name == "PORTB")) {
 			bool input = ((data[2] & port_mask) == port_mask);
 			Data.set_value(input * Vdd, true);    // set the input value on the bus.
 			eq.process_events();            // basically propagate all events, and their events etc.
@@ -78,9 +78,7 @@ protected:
 			eq.process_events();
 			Port.set_value(Vss, true);      // latch the value from the bus into Q
 			eq.process_events();
-			DataBus.assert();               // calculate bus signal voltage and propagate
-		} else if (name == "TRISA" || name == "TRISB") {
-			Wire &DataBus = dynamic_cast<Wire &>(*c["Data Bus"]);
+		} else if ((porta_select && name == "TRISA") || (!porta_select && name == "TRISB")) {
 			bool input = ((data[2] & port_mask) == port_mask);
 			Data.set_value(input * Vdd, true);
 			eq.process_events();
@@ -89,7 +87,6 @@ protected:
 			Tris.set_value(Vss, true); // clock the signal
 			eq.process_events();
 			Data.set_value(Data.rd(), true);    // impeded.
-			DataBus.assert();          // calculate bus signal voltage and propagate
 		}
 	}
 
@@ -100,8 +97,8 @@ protected:
 
 
 public:
-	BasicPort(Connection &a_Pin, const std::string &a_name, int port_bit_ofs):
-		Device(a_name), Pin(a_Pin), port_mask(1 << port_bit_ofs)
+	BasicPort(Connection &a_Pin, const std::string &a_name, int port_no, int port_bit_ofs):
+		Device(a_name), Pin(a_Pin), porta_select(port_no==0), port_mask(1 << port_bit_ofs)
 	{
 		Wire *DataBus = new Wire(a_name+"::data");
 		Wire *PinWire = new Wire(a_name+"::pin");
@@ -134,6 +131,7 @@ public:
 		DeviceEvent<Register>::subscribe<BasicPort>(this, &BasicPort::on_register_change);
 	}
 	Wire &bus_line() { return dynamic_cast<Wire &>(*m_components["Data Bus"]); }
+	Connection &pin() { return Pin; }
 	std::map<std::string, SmartPtr<Device> > &components() { return m_components; }
 	Connection &read_port() {           // read the port
 		auto c = components();
@@ -158,16 +156,17 @@ public:
 class SinglePort: public BasicPort {
 
   public:
-	SinglePort(Connection &a_Pin, const std::string &a_name, int port_bit_ofs):
-		BasicPort(a_Pin, a_name, port_bit_ofs)
+	SinglePort(Connection &a_Pin, const std::string &a_name, int port_no, int port_bit_ofs):
+		BasicPort(a_Pin, a_name, port_no, port_bit_ofs)
 	{
-		auto c = components();
+		auto &c = components();
 		Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
 		Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
 		Wire &PinWire = dynamic_cast<Wire &>(*c["Pin Wire"]);
 
 		Tristate *Tristate1 = new Tristate(DataLatch.Q(), TrisLatch.Q(), true); Tristate1->name(a_name+"::TS1");
 		Clamp * PinClamp = new Clamp(Pin);
+		c["Tristate1"] = Tristate1;
 		c["PinClamp"] = PinClamp;
 
 		PinWire.connect(Tristate1->rd());
@@ -237,7 +236,7 @@ class SinglePortA_Analog: public SinglePort {
 
   public:
 	SinglePortA_Analog(Connection &a_Pin, const std::string &a_name):
-		SinglePort(a_Pin, a_name, a_name=="RA0"?0:a_name=="RA1"?1:a_name=="RA3"?2:a_name=="RA4"?3:0),
+		SinglePort(a_Pin, a_name, 0, a_name=="RA0"?0:a_name=="RA1"?1:a_name=="RA3"?2:a_name=="RA4"?3:0),
 		Comparator(Vss, true, a_name+"::Comparator")
 	{
 		DeviceEvent<Register>::subscribe<SinglePortA_Analog>(this, &SinglePortA_Analog::on_register_change);
@@ -361,7 +360,7 @@ class SinglePortA_Analog_RA3: public  BasicPort {
 
 public:
 	SinglePortA_Analog_RA3(Connection &a_Pin, Connection &comparator_out, const std::string &a_name) :
-		BasicPort(a_Pin, a_name, 3), m_comparator_out(comparator_out)
+		BasicPort(a_Pin, a_name, 0, 3), m_comparator_out(comparator_out)
 	{
 		auto c = components();
 		Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
@@ -413,7 +412,7 @@ class SinglePortA_Analog_RA4: public BasicPort {
 
   public:
 	SinglePortA_Analog_RA4(Connection &a_Pin, Connection &comparator_out, const std::string &a_name) :
-		BasicPort(a_Pin, a_name, 4), m_comparator_out(comparator_out)
+		BasicPort(a_Pin, a_name, 0, 4), m_comparator_out(comparator_out)
 	{
 
 		auto c = components();
@@ -646,18 +645,20 @@ class PINS: public Device {
 
 class PORTA: public Device {
 	PINS &pins;
-	std::vector< SmartPtr<Device> > RA;
 
 	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	}
 
   public:
+	std::vector< SmartPtr<Device> > RA;
 	PORTA(PINS &a_pins): pins(a_pins) {
 		RA.resize(8);
+		Connection Comp;
 		DeviceEvent<Register>::subscribe<PORTA>(this, &PORTA::register_changed);
 		RA[0] = new SinglePortA_Analog(pins[PINS::pin_RA0], "RA0");
 		RA[1] = new SinglePortA_Analog(pins[PINS::pin_RA1], "RA1");
 		RA[2] = new SinglePortA_Analog_RA2(pins[PINS::pin_RA2], "RA2");
+//		RA[3] = new SinglePortA_Analog_RA3(pins[PINS::pin_RA3], Comp, "RA3");
 	}
 };
 

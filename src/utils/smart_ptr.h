@@ -24,10 +24,22 @@ template < class T > class SmartPtr
     RC* reference;   // Reference count
 
   public:
-    SmartPtr();
-    SmartPtr(T* pValue);
-    SmartPtr(const SmartPtr<T>& sp);
-    ~SmartPtr();
+    SmartPtr() : pData(0), reference(0) {
+         reference = new RC();
+         reference->AddRef();
+     }
+    SmartPtr(T* pValue) : pData(pValue), reference(0) {
+         reference = new RC();
+         reference->AddRef();
+     }
+    SmartPtr(const SmartPtr<T>& sp) : pData(sp.pData), reference(sp.reference) {
+         reference->AddRef();
+     }
+    ~SmartPtr() {
+    	if(reference && reference->Release() == 0) {
+    		delete pData; delete reference;
+        }
+    }
 
 
     const T& operator* () const { return *pData; }
@@ -35,7 +47,27 @@ template < class T > class SmartPtr
     T* operator-> () { return pData; }
     operator bool() const { return (pData != 0); }
 
-    SmartPtr<T>& operator = (const SmartPtr<T>& sp);
+    SmartPtr<T>& operator = (const SmartPtr<T>& sp)
+    {
+        // Assignment operator
+        if (this != &sp) // Avoid self assignment
+        {
+            if(reference && reference->Release() == 0) {
+                delete pData; delete reference;
+            }
+
+            pData = sp.pData;
+            reference = sp.reference;
+            reference->AddRef();
+        }
+        return *this;
+    }
 };
 
 #endif
+
+
+
+
+
+
