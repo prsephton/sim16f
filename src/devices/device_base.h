@@ -589,7 +589,11 @@ class Mux: public Device {
 		calculate_select();
 		set_output();
 	}
+	Connection &in(int n) { return *m_in[n]; }
+	Connection &select(int n) { return *m_select[n]; }
 	Connection &rd() { return m_out; }
+	size_t no_inputs() { return m_in.size(); }
+	size_t no_selects() { return m_select.size(); }
 };
 
 class FET: public Device {

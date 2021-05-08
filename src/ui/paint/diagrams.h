@@ -178,6 +178,30 @@ namespace app {
 
 	};
 
+	class MuxDiagram: public CairoDrawing {
+		Mux &m_mux;
+
+		int m_x;
+		int m_y;
+		double m_rotation;
+
+	  public:
+
+		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->save();
+			cr->translate(m_x, m_y);
+
+			MuxSymbol(0, 0, m_rotation, m_mux.no_selects(), m_mux.no_inputs()).draw(cr);
+
+			cr->restore();
+			return false;
+		}
+
+		MuxDiagram(Mux &a_mux, double x, double y, double rotation, Glib::RefPtr<Gtk::DrawingArea>a_area):
+			CairoDrawing(a_area), m_mux(a_mux), m_x(x), m_y(y), m_rotation(rotation) {}
+
+	};
+
 	class LatchDiagram: public CairoDrawing {
 		Latch &m_latch;
 		bool m_point_right;

@@ -359,6 +359,8 @@ public:
 		PinWire.connect(Tristate1->rd());
 		c["Tristate1"] = Tristate1;    // smart pointer should discard old Tristate1
 		PinWire.connect(Comparator);
+		Clamp * PinClamp = new Clamp(Pin);
+		c["PinClamp"] = PinClamp;
 	}
 	Connection &comparator() { return Comparator; }
 };

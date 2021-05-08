@@ -130,11 +130,13 @@ namespace app {
 			cr->stroke();
 
 			cr->set_line_width(0.2);
+			double h = (height+2*width) / (m_inputs+1);
+			double ofs = 3;  // adjust for character height
 			for (int r=0; r < m_inputs; ++r) {
-				cr->move_to((width-cw)/2, -height/2 + (height/ch) * r);
+				cr->move_to((width-cw)/2, ofs + height/2.0 + width - (r+1) * h);
 				cr->save();
-				cr->scale(0.6, 0.6);
-				cr->text_path(int_to_hex(r));
+				cr->scale(0.8, 0.8);
+				cr->text_path(int_to_hex(r, "", ""));
 				cr->fill_preserve(); cr->stroke();
 				cr->restore();
 			}
