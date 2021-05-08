@@ -214,6 +214,7 @@ class SinglePortA_Analog: public SinglePort {
 		Comparator(Vss, true, a_name+"::Comparator")
 	{
 		set_comparators_for_an0_and_an1(0b111);
+
 	}
 	Connection &comparator() { return Comparator; }
 };
@@ -222,7 +223,8 @@ class SinglePortA_Analog: public SinglePort {
 //  A model for a single port for pin AN2.  This looks like AN0/AN1 except that
 //  it also has a voltage reference.
 class SinglePortA_Analog_RA2: public  SinglePortA_Analog {
-	Connection VRef;
+	Connection m_vref_sw;
+	Connection m_vref_in;
 
 	virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 		if        (name == "CMCON") {
@@ -249,10 +251,12 @@ class SinglePortA_Analog_RA2: public  SinglePortA_Analog {
 			}
 		} else if (name == "VRCON") {
 			BYTE vrcon = data[2];
-			bool vren = (vrcon & Flags::VRCON::VREN) == Flags::VRCON::VREN;  // VRef enable
 			bool vroe = (vrcon & Flags::VRCON::VROE) == Flags::VRCON::VROE;  // VRef output enable
+			bool vren = (vrcon & Flags::VRCON::VREN) == Flags::VRCON::VREN;  // VRef enable
 			bool vrr  = (vrcon & Flags::VRCON::VRR)  == Flags::VRCON::VRR;   // VRef Range
 			float vref =  0;
+			Relay &relay = VRef();
+			relay.sw().set_value(vroe*Vdd, true);
 			if (vren) {
 				if (vrr) {
 					vref = ((vrcon & 0b111) / 24.0) * Vdd;
@@ -260,7 +264,7 @@ class SinglePortA_Analog_RA2: public  SinglePortA_Analog {
 					vref = ((vrcon & 0b111) / 32.0) * Vdd + Vdd/4;
 				}
 			}
-			VRef.set_value(vref, !vroe);
+			relay.in().set_value(vref, true);
 		} else {
 			process_register_change(r, name, data);  // handles TRIS/PORT changes
 		}
@@ -268,11 +272,19 @@ class SinglePortA_Analog_RA2: public  SinglePortA_Analog {
 
   public:
 	SinglePortA_Analog_RA2(Connection &a_Pin, const std::string &a_name) :
-		SinglePortA_Analog(a_Pin, a_name), VRef((float)0.35, true)
+		SinglePortA_Analog(a_Pin, a_name)
 	{
-		auto c = components();
+		auto &c = components();
 		Wire &PinWire = dynamic_cast<Wire &>(*c["Pin Wire"]);
-		PinWire.connect(VRef);
+		Relay *VRef = new Relay(m_vref_in, m_vref_sw, "VRef");
+		c["VRef"] = VRef;
+		PinWire.connect(VRef->rd());
+
+	}
+	Relay &VRef() {
+		auto &c = components();
+		Relay &vref = dynamic_cast<Relay &>(*c["VRef"]);
+		return vref;
 	}
 };
 

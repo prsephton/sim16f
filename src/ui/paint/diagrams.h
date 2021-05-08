@@ -18,7 +18,9 @@ namespace app {
 	  public:
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			BufferSymbol(m_x, m_y).draw(cr, m_point_right, false);
+			double rotation = 0;
+			if (!m_point_right) rotation = CairoDrawing::DIRECTION::LEFT;
+			BufferSymbol(m_x, m_y, rotation, false).draw(cr);
 			return false;
 		}
 
@@ -36,7 +38,7 @@ namespace app {
 	  public:
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			BufferSymbol(m_x, m_y).draw(cr, true, m_rotation);
+			BufferSymbol(m_x, m_y, m_rotation, true).draw(cr);
 			return false;
 		}
 
@@ -72,8 +74,8 @@ namespace app {
 			cr->translate(m_x, m_y);
 			cr->set_line_width(1.2);
 			black(cr);
-			DiodeSymbol(0, -10).draw(cr, CairoDrawing::DIRECTION::UP);
-			DiodeSymbol(0,  17).draw(cr, CairoDrawing::DIRECTION::UP);
+			DiodeSymbol(0, -10, CairoDrawing::DIRECTION::UP).draw(cr);
+			DiodeSymbol(0,  17, CairoDrawing::DIRECTION::UP).draw(cr);
 			cr->move_to(0, -10); cr->line_to(0,10);
 			cr->move_to(0, -25); cr->line_to(0,-17);
 			cr->move_to(0,  25); cr->line_to(0, 17);
@@ -111,7 +113,7 @@ namespace app {
 	  public:
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			SchmittSymbol(m_x, m_y).draw(cr, m_rotation);
+			SchmittSymbol(m_x, m_y, m_rotation).draw(cr);
 			return false;
 		}
 
@@ -133,7 +135,7 @@ namespace app {
 			cr->translate(m_x, m_y);
 			cr->set_line_width(1.2);
 			double rot = m_point_right?CairoDrawing::DIRECTION::RIGHT:CairoDrawing::DIRECTION::LEFT;
-			BufferSymbol().draw(cr, m_tris.inverted(), rot);
+			BufferSymbol(0,0,rot,m_tris.inverted()).draw(cr);
 
 			if (m_tris.gate_invert()) {
 				cr->save();
@@ -151,6 +153,28 @@ namespace app {
 		TristateDiagram(Tristate &a_tris, bool point_right, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area), m_tris(a_tris), m_point_right(point_right),  m_x(x), m_y(y)
 		{}
+
+	};
+
+	class RelayDiagram: public CairoDrawing {
+		Relay &m_relay;
+
+		int m_x;
+		int m_y;
+	  public:
+
+		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->save();
+			cr->translate(m_x, m_y);
+
+			RelaySymbol(0,0,0,m_relay.sw().signal()).draw(cr);
+
+			cr->restore();
+			return false;
+		}
+
+		RelayDiagram(Relay &a_relay, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
+			CairoDrawing(a_area), m_relay(a_relay), m_x(x), m_y(y) {}
 
 	};
 

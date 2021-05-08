@@ -192,18 +192,20 @@ template <class T> class DeviceEvent: public QueueableEvent {
 class Connection: public Device {
 	float m_V;
 	bool  m_impeded;
+	bool  m_determinate;
 	DeviceEventQueue q;
 
 	void queue_change(){  // Add a voltage change event to the queue
 		q.queue_event(new DeviceEvent<Connection>(*this, "Voltage Change"));
 	}
   public:
-	Connection(const std::string &a_name=""): Device(a_name), m_V(Vss), m_impeded(true) {};
+	Connection(const std::string &a_name=""):
+		Device(a_name), m_V(Vss), m_impeded(true), m_determinate(false) {};
 	Connection(float V, bool impeded, const std::string &a_name=""):
-		Device(a_name), m_V(V), m_impeded(impeded) {
+		Device(a_name), m_V(V), m_impeded(impeded), m_determinate(false) {
 	};
 	Connection(bool on, bool impeded, const std::string &a_name=""):
-		Device(a_name), m_V(on?Vdd:Vss), m_impeded(impeded) {
+		Device(a_name), m_V(on?Vdd:Vss), m_impeded(impeded), m_determinate(false) {
 	};
 
 	virtual	~Connection() {
@@ -213,6 +215,8 @@ class Connection: public Device {
 
 	float rd() { return m_V; }
 	bool impeded() { return m_impeded; }
+	bool determinate() { return m_determinate || !m_impeded; }
+	void determinate(bool on) { m_determinate = on; }
 	bool signal() { return m_V > Vdd/2.0; }
 	void set_value(float V, bool impeded) {
 		if (m_V != V || m_impeded != impeded) {
@@ -239,8 +243,7 @@ class Wire: public Device {
 		const char *direction = " <-- ";
 		if (conn->impeded()) direction = " ->| ";
 		if (debug) std::cout << this->name() << direction << name << " changed to " << conn->rd() << "V" << std::endl;
-		if (!conn->impeded()) // Not an impeded connection
-			assert();         // determine wire voltage and update impeded connections
+		assert();         // determine wire voltage and update impeded connections
 		queue_change();
 	}
 
@@ -267,10 +270,15 @@ class Wire: public Device {
 	float rd() {
 		float V;
 		indeterminate = true;
+		if (name() == "RA2::pin") debug = true;
+
 		if (debug) std::cout << "read wire " << name() << ": ";
 		for (auto conn = connections.begin(); conn != connections.end(); ++conn) {
-			if (debug) std::cout << (*conn)->name();
-			if (!(*conn)->impeded()) {   // Find lowest unimpeded connection
+			if (debug) std::cout << (*conn)->name()<<" ";
+			if ((*conn)->impeded()) {   // Find lowest unimpeded connection
+				(*conn)->determinate(false);
+				if (debug) std::cout << "[i]";
+			} else {
 				float v = (*conn)->rd();
 				if (indeterminate) {
 					V = v;
@@ -279,25 +287,26 @@ class Wire: public Device {
 					V = (V>v)?v:V;
 				}
 				if (debug) std::cout << "[" << v << "]";
-			} else {
-				if (debug) std::cout << "[i]";
 			}
 		}
 		if (indeterminate) {
 			V = Vss;     // If no unimpeded sources or drains, then indeterminate
+		} else {
+			for (auto conn = connections.begin(); conn != connections.end(); ++conn) {
+				(*conn)->determinate(true);
+			}
 		}
-		if (debug) std::cout << " =" << V << "V" << std::endl;
+		if (debug) std::cout << "=" << V << "V" << std::endl;
+		debug = false;
 		return V;
 	}
 	void assert() {  // fires signals to any impeded connections
 		float V = rd();
 		if (debug) std::cout << "Wire: " << name() << " is " << (indeterminate?"unknown":"");
-		if (!indeterminate) {
-			if (debug) std::cout << V << "V";
-			for (auto conn = connections.begin(); conn != connections.end(); ++conn) {
-				if ((*conn)->impeded()) {
-					(*conn)->set_value(V, true);
-				}
+		if (debug) std::cout << V << "V";
+		for (auto conn = connections.begin(); conn != connections.end(); ++conn) {
+			if ((*conn)->impeded()) {
+				(*conn)->set_value(V, true);
 			}
 		}
 		if (debug) std::cout << std::endl;
@@ -423,6 +432,43 @@ class Tristate: public Device {
 	bool gate_invert() { return m_invert_gate; }
 
 	void wr(float in) { m_in.set_value(in, true); }
+	Connection &rd() { return m_out; }
+};
+
+
+//___________________________________________________________________________________
+// A relay, such as a reed relay.  A signal applied closes the relay
+class Relay: public Device {
+  protected:
+	Connection &m_in;
+	Connection &m_sw;
+	Connection m_out;
+
+	void recalc_output() {
+		bool impeded = !m_sw.signal(); // open circuit if not signal
+		bool out = m_in.signal();
+		m_out.set_value(out * Vdd, impeded);
+	}
+
+	void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+		recalc_output();
+	}
+
+	void on_sw_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+		recalc_output();
+	}
+
+  public:
+	Relay(Connection &in, Connection &sw, const std::string &a_name="sw"):
+		Device(a_name), m_in(in), m_sw(sw), m_out(name()+"::out") {
+		DeviceEvent<Connection>::subscribe<Relay>(this, &Relay::on_change, &m_in);
+		DeviceEvent<Connection>::subscribe<Relay>(this, &Relay::on_sw_change, &m_sw);
+		recalc_output();
+	}
+	bool signal() { return m_out.signal(); }
+
+	Connection &in() { return m_in; }
+	Connection &sw() { return m_sw; }
 	Connection &rd() { return m_out; }
 };
 
