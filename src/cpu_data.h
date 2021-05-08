@@ -61,11 +61,12 @@ class ControlEvent {
 			name(a_name), filename(a_filename), m_data(0) {}
 };
 
+
+
 //___________________________________________________________________________________
 // Contains the current machine state.  Includes stack, memory and devices.
 class CPU_DATA {
   public:
-	SRAM  sram;
 	Flash flash;
 
 	WORD execPC;  // PC of currently executing instruction.
@@ -77,6 +78,7 @@ class CPU_DATA {
 	std::map<std::string, SmartPtr<Register> > Registers;
 	std::map<BYTE, std::string> RegisterNames;
 
+	SRAM   sram;
 	PINS   pins;
 	Clock  clock;
 	EEPROM eeprom;
@@ -137,6 +139,16 @@ class CPU_DATA {
 			sram.write(idx, v, false);
 		} else {
 			reg->second->write(sram, v);
+		}
+	}
+
+	const BYTE read_sram(BYTE idx) {
+		std::string regname = register_name(idx);
+		auto reg = Registers.find(regname);
+		if (reg == Registers.end()) {
+			return sram.read(idx);
+		} else {
+			return reg->second->read(sram);
 		}
 	}
 

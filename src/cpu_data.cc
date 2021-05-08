@@ -54,7 +54,6 @@ class STATUS: public Register {
 		if (changed) {
 			eq.queue_event(new DeviceEvent<Register>(*this, "STATUS", {sts, changed, nvalue}));
 		}
-
 		a_sram.write(index(), value);
 	}
 };

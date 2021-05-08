@@ -104,6 +104,40 @@ namespace app {
 		OrSymbol(double x=0, double y=0): m_x(x), m_y(y){}
 	};
 
+	class MuxSymbol {
+		int m_x;
+		int m_y;
+	  public:
+
+		void draw(const Cairo::RefPtr<Cairo::Context>& cr, int gates=1, int inputs=2, double rotation=0) {
+			cr->save();
+			cr->translate(m_x, m_y);
+			cr->rotate(rotation);
+			cr->set_line_width(1.2);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+			int cw = 5, ch = 14;
+			int width = cw * (gates+1);
+			int height = ch * (inputs+1);
+			cr->move_to(0, -height/2 - width); cr->line_to(0, height/2 + width);
+			cr->line_to(width,  height/2);
+			cr->line_to(width, -height/2);
+			cr->close_path();
+			cr->stroke();
+
+			cr->set_line_width(0.2);
+			for (int r=0; r < inputs; ++r) {
+				cr->move_to((width-cw)/2, -height/2 + (height/ch) * r);
+				cr->save();
+				cr->scale(0.6, 0.6);
+				cr->text_path(int_to_hex(r));
+				cr->fill_preserve(); cr->stroke();
+				cr->restore();
+			}
+			cr->restore();
+		}
+		MuxSymbol(double x=0, double y=0): m_x(x), m_y(y){}
+	};
+
 	class SchmittSymbol {
 		int m_x;
 		int m_y;

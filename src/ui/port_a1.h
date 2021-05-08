@@ -11,7 +11,7 @@
 
 namespace app {
 
-	class PortA0: public CairoDrawing {
+	class PortA1: public CairoDrawing {
 		CPU_DATA &m_cpu;
 		Glib::RefPtr<Gtk::Builder> m_refGlade;
 	  protected:
@@ -26,7 +26,7 @@ namespace app {
 			cr->move_to(400, 50);
 			cr->scale(2.0, 2.0);
 			cr->set_line_width(0.1);
-			cr->text_path("Device RA0/AN0");
+			cr->text_path("Device RA1/AN1");
 			cr->fill_preserve(); cr->stroke();
 			cr->restore();
 			return false;
@@ -74,7 +74,7 @@ namespace app {
 			wire.add(WireDiagram::pt(540, 200));
 			wire.add(WireDiagram::pt(540, 500));
 			wire.add(WireDiagram::pt(100, 500));
-			wire.add(WireDiagram::text(100,  498, "To Comparator 0"));
+			wire.add(WireDiagram::text(100,  498, "To Comparator 1"));
 		}
 
 
@@ -161,12 +161,12 @@ namespace app {
 			m_area->queue_draw();
 		}
 
-		PortA0(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
-			CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>::cast_dynamic(a_refGlade->get_object("dwg_RA0"))),
+		PortA1(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
+			CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>::cast_dynamic(a_refGlade->get_object("dwg_RA1"))),
 			m_cpu(a_cpu), m_refGlade(a_refGlade)
 		{
-			auto &p0 = dynamic_cast<SinglePortA_Analog &>(*(m_cpu.porta.RA[0]));
-			auto &c = p0.components();
+			auto &p1 = dynamic_cast<SinglePortA_Analog &>(*(m_cpu.porta.RA[1]));
+			auto &c = p1.components();
 			Latch &DataLatch = dynamic_cast<Latch &>(*(c["Data Latch"]));
 			Latch &TrisLatch = dynamic_cast<Latch &>(*(c["Tris Latch"]));
 			Wire &DataBus = dynamic_cast<Wire &> (*(c["Data Bus"]));
@@ -179,10 +179,10 @@ namespace app {
 			Inverter &Inverter1 = dynamic_cast<Inverter &> (*(c["Inverter1"]));
 			Clamp &Clamp1 = dynamic_cast<Clamp &> (*(c["PinClamp"]));
 
-			DeviceEvent<Wire>::subscribe<PortA0>(this, &PortA0::on_wire_change, &DataBus);
-			DeviceEvent<Connection>::subscribe<PortA0>(this, &PortA0::on_connection_change, &DataLatch.Q());
-			DeviceEvent<Connection>::subscribe<PortA0>(this, &PortA0::on_connection_change, &TrisLatch.Q());
-			DeviceEvent<Connection>::subscribe<PortA0>(this, &PortA0::on_connection_change, &Tristate1.rd());
+			DeviceEvent<Wire>::subscribe<PortA1>(this, &PortA1::on_wire_change, &DataBus);
+			DeviceEvent<Connection>::subscribe<PortA1>(this, &PortA1::on_connection_change, &DataLatch.Q());
+			DeviceEvent<Connection>::subscribe<PortA1>(this, &PortA1::on_connection_change, &TrisLatch.Q());
+			DeviceEvent<Connection>::subscribe<PortA1>(this, &PortA1::on_connection_change, &Tristate1.rd());
 
 			m_components["Data Latch"] = new LatchDiagram(DataLatch, true, 200.0,  50.0, m_area);
 			m_components["Tris Latch"] = new LatchDiagram(TrisLatch, true, 200.0, 170.0, m_area);
@@ -191,7 +191,7 @@ namespace app {
 			m_components["Tristate1"]  = new TristateDiagram( Tristate1, true, 400.0, 150.0, m_area);
 			m_components["Tristate1 input"] = new ConnectionDiagram(DataLatch.Q(), 200, 40, m_area);
 			m_components["Tristate1 gate"]  = new ConnectionDiagram(TrisLatch.Q(), 200, 40, m_area);
-			m_components["Pin"]  = new PinDiagram(p0.pin(), 530, 150, m_area);
+			m_components["Pin"]  = new PinDiagram(p1.pin(), 530, 150, m_area);
 			m_components["Schmitt"]  = new SchmittDiagram(SchmittTrigger, 490, 250, CairoDrawing::DIRECTION::DOWN, m_area);
 			m_components["WR_PORTA"]  = new ConnectionDiagram(DataLatch.Ck(), 100, 40, m_area);
 			m_components["WR_TRISA"]  = new ConnectionDiagram(TrisLatch.Ck(), 100, 160, m_area);

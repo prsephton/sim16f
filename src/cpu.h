@@ -109,28 +109,18 @@ class CPU {
 	CPU_DATA &cpu_data() { return data; }
 
 	void process_queue() {
-
+		data.device_events.process_events();
 		while (!data.control.empty()) {
 			ControlEvent e = data.control.front(); data.control.pop();
 			if (e.name == "pause") paused = true;
 			if (e.name == "play") paused = false;
 			if (e.name == "next" and paused) nsteps += 1;
 			if (e.name == "back") reset();
+			if (e.name == "reset") {
+
+				reset();
+			}
 		}
-
-		data.device_events.process_events();
-
-//		while (!data.sram.events.empty()) {
-//			SRAM::Event e = data.sram.events.front(); data.pins.events.pop();
-//			std::cout << "SRAM: " << e.name << "\n";
-//			data.process_sram_event(e);
-//		}
-
-//		while (!data.wdt.events.empty()) {
-//			WDT::Event e = data.wdt.events.front(); data.pins.events.pop();
-//			std::cout << "WDT: " << e.name << "\n";
-//		}
-
 	}
 
 	void clock_event(Clock *device, const std::string &name, const std::vector<BYTE> &data){

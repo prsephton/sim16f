@@ -45,7 +45,7 @@ class ADDWF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		WORD ldata = (data & 0x0f) + (cpu.W & 0x0f);
 		data = data + cpu.W;
 		BYTE Z = data==0?Flags::STATUS::Z:0;
@@ -86,7 +86,7 @@ class ANDWF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		data = data & cpu.W;
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE &status = cpu.sram.status();
@@ -168,7 +168,7 @@ class COMF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		data = ~data;
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE &status = cpu.sram.status();
@@ -205,7 +205,7 @@ class DECF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		--data;
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE &status = cpu.sram.status();
@@ -242,7 +242,7 @@ class DECFSZ: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		--data;
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE &status = cpu.sram.status();
@@ -279,7 +279,7 @@ class INCF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		++data;
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE &status = cpu.sram.status();
@@ -316,7 +316,7 @@ class INCFSZ: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		--data;
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE &status = cpu.sram.status();
@@ -353,7 +353,7 @@ class IORWF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		data = data | cpu.W;
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE &status = cpu.sram.status();
@@ -391,7 +391,7 @@ class MOVF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		BYTE Z = data==0?Flags::STATUS::Z:0;
 		BYTE &status = cpu.sram.status();
 		BYTE mask = Flags::STATUS::Z;
@@ -459,7 +459,7 @@ class RLF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		BYTE &status = cpu.sram.status();
 		data = data << 1;
 		if (status & Flags::STATUS::C) data |= 1;
@@ -497,7 +497,7 @@ class RRF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		BYTE &status = cpu.sram.status();
 		BYTE C = data&0x01?Flags::STATUS::C:0;
 		data = data >> 1;
@@ -535,7 +535,7 @@ class SUBWF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		bool lborrow = (data & 0x0f) < (cpu.W & 0x0f);
 		bool borrow = data < cpu.W;
 
@@ -579,7 +579,7 @@ class SWAPF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		data = (data << 4) + (data >> 4);
 
 		if (to_file) {
@@ -612,7 +612,7 @@ class XORWF: public Instruction {
 		BYTE idx;
 		bool to_file;
 		decode(opcode, idx, to_file);
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		BYTE &status = cpu.sram.status();
 		data = data ^ cpu.W;
 
@@ -651,7 +651,7 @@ class BCF: public Instruction {
 		BYTE cbits;
 		decode(opcode, idx, cbits);
 		cbits = 1 << cbits;
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		data = data & ~cbits;
 		cpu.write_sram(idx, data);
 		return false;
@@ -680,7 +680,7 @@ class BSF: public Instruction {
 		BYTE cbits;
 		decode(opcode, idx, cbits);
 		cbits = 1 << cbits;
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		data = data | cbits;
 		cpu.write_sram(idx, data);
 		return false;
@@ -709,7 +709,7 @@ class BTFSC: public Instruction {
 		BYTE cbits;
 		decode(opcode, idx, cbits);
 		cbits = 1 << cbits;
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		return (data & cbits) == 0;
 	}
 };
@@ -736,7 +736,7 @@ class BTFSS: public Instruction {
 		BYTE cbits;
 		decode(opcode, idx, cbits);
 		cbits = 1 << cbits;
-		WORD data = cpu.sram.read(idx);
+		WORD data = cpu.read_sram(idx);
 		return (data & cbits) != 0;
 	}
 };
@@ -1011,7 +1011,7 @@ class RETFIE: public Instruction {
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		WORD address = cpu.pop();
 		cpu.sram.set_PC(address-1);
-		BYTE intcon = cpu.sram.read(cpu.sram.INTCON);
+		BYTE intcon = cpu.read_sram(cpu.sram.INTCON);
 		intcon |= Flags::INTCON::GIE;
 		cpu.write_sram(cpu.sram.INTCON, intcon);
 		return false;
