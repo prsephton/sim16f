@@ -95,6 +95,7 @@ class CPU_DATA {
 	void configure(const std::string &a_configuration) {
 		if (a_configuration.length() >= 2) {  // set configuration word
 			Config = *(WORD *)a_configuration.c_str();
+			Register(0, "CONFIG", "").set_value(Config & 0xff);
 			std::cout << "config loaded: " << std::hex << Config << "\n";
 		}
 	}

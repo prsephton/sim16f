@@ -25,8 +25,14 @@ class Register : public Device {
 	WORD index() { return m_idx; }
 	virtual ~Register() {}
 
-	void set_value(BYTE a_value) {
+	bool set_value(BYTE a_value, BYTE a_old=0) {
+		BYTE changed = a_old ^ a_value; // all changing bits.
 		m_value = a_value;
+		if (changed) {
+			eq.queue_event(new DeviceEvent<Register>(*this, m_name, {a_old, changed, a_value}));
+			return true;
+		}
+		return false;
 	}
 
 	virtual const BYTE read(SRAM &a_sram) {         // default read for registers
@@ -42,12 +48,8 @@ class Register : public Device {
 
 	virtual void write(SRAM &a_sram, const unsigned char value) {  // default write
 		BYTE old = a_sram.read(index());
-		BYTE changed = old ^ value; // all changing bits.
-		if (changed) {
-			m_value = value;
-			eq.queue_event(new DeviceEvent<Register>(*this, m_name, {old, changed, value}));
-		}
-		a_sram.write(m_idx, value);
+		if (set_value(value, old))
+			a_sram.write(m_idx, value);
 	}
 };
 

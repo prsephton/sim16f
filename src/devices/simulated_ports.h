@@ -2,6 +2,7 @@
 #include "register.h"
 #include "sram.h"
 #include "flags.h"
+#include "clock.h"
 #include "../utils/utility.h"
 
 
@@ -82,7 +83,7 @@ public:
 		PinWire->connect(Pin);
 		Schmitt *trigger = new Schmitt(S1, S1_en);
 
-		Inverter *NotPort = new Inverter(Port);
+		Inverter *NotPort = new Inverter(rdPort);
 		Latch *SR1 = new Latch(trigger->rd(), NotPort->rd(), true, false); SR1->set_name(a_name+"::InLatch");
 		Tristate *Tristate2 = new Tristate(SR1->Q(), rdPort);  Tristate2->name(a_name+"::TS2");
 		DataBus->connect(Tristate2->rd());
@@ -418,6 +419,8 @@ class SinglePortA_Analog_RA4: public BasicPort {
 		c["NOR Gate"] = Nor1;
 		c["FET1"] = nFET1;
 
+		S1_en.set_value(Vdd, true);
+
 	}
 	Connection &TMR0() {
 		auto c = components();
@@ -426,4 +429,175 @@ class SinglePortA_Analog_RA4: public BasicPort {
 	}
 };
 
+
+//___________________________________________________________________________________
+//  A model for the pin MCLR/RA5/Vpp.
+//
+//  This port has no tris or data latch, but may serve as an input for data. An attempt
+//  to read the non-existent tris latch state always returns 0.
+//
+//  A real chip would detect a high voltage on this pin to initiate in-circuit programming.
+//
+//  A low signal on this pin will reset the chip, if the MCLRE configuration bit is set,
+//  otherwise the port may be used as an input.
+//
+//  This port, and the next, RA6, just look like nothing else.  So we will model it from
+//  ground up.
+
+class SinglePortA_MCLR_RA5: public Device {
+	std::map<std::string, SmartPtr<Device> > m_components;
+protected:
+	Connection &Pin;
+	Connection Data;    // This is the data bus value
+
+	Connection rdPort;  // read port
+	Connection rdTris;  // read tris
+	Connection S1;      // Schmitt trigger 1 input
+	Connection S2;      // Schmitt trigger 2 input
+	Connection S2_en;   // Schmitt trigger 2 enable (active low)
+	Connection cVss;    // We need a signal ground here
+	Connection MCLRE;   // MCLR enable
+
+	DeviceEventQueue eq;
+
+
+	void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+	}
+
+
+  public:
+	SinglePortA_MCLR_RA5(Connection &a_Pin, const std::string &a_name) :
+		Pin(a_Pin)
+	{
+		Wire *DataBus = new Wire(a_name+"::data");
+		Wire *PinWire = new Wire(a_name+"::pin");
+		Wire *MCLREWire = new Wire(a_name+"::mclre");
+
+		PinWire->connect(Pin);
+		Schmitt *St1 = new Schmitt(S1);
+		Schmitt *St2 = new Schmitt(S2, S2_en, true, true);
+
+		PinWire->connect(S1);
+		PinWire->connect(S2);
+
+		MCLREWire->connect(MCLRE);
+		MCLREWire->connect(S2_en);
+
+		AndGate *g1 = new AndGate({&MCLRE, &St1->rd()}, true, "And1");
+
+		Inverter *NotPort = new Inverter(rdPort);
+		Latch *SR1 = new Latch(St2->rd(), NotPort->rd(), true, false); SR1->set_name(a_name+"::InLatch");
+		Tristate *Tristate2 = new Tristate(SR1->Q(), rdPort);  Tristate2->name(a_name+"::TS2");
+		DataBus->connect(Tristate2->rd());
+
+		Tristate *Tristate3 = new Tristate(cVss, rdTris, false, true);  Tristate3->name(a_name+"::TS3");
+		DataBus->connect(Tristate3->rd());
+
+		m_components["Data Bus"] = DataBus;
+		m_components["Pin Wire"] = PinWire;
+		m_components["MCLRE Wire"] = MCLREWire;
+		m_components["Schmitt1"] = St1;
+		m_components["Schmitt2"] = St2;
+		m_components["And1"] = g1;
+		m_components["Inverter1"] = NotPort;
+		m_components["SR1"] = SR1;
+		m_components["Tristate2"] = Tristate2;
+		m_components["Tristate3"] = Tristate3;
+
+
+		DeviceEvent<Register>::subscribe<SinglePortA_MCLR_RA5>(this, &SinglePortA_MCLR_RA5::on_register_change);
+	}
+	Wire &bus_line() { return dynamic_cast<Wire &>(*m_components["Data Bus"]); }
+	Connection &data() { return Data; }
+	Connection &pin() { return Pin; }
+	std::map<std::string, SmartPtr<Device> > &components() { return m_components; }
+	Connection &read_port() {           // read the port
+		rdPort.set_value(Vdd, true);    // raise a read signal on the port read control line
+		eq.process_events();            // basically propagate all events, and their events etc.
+		rdPort.set_value(Vss, true);    // lower the read singal.  The result is on the bus.
+		return Data;  // FixMe: this mechanism may be broken.  Test it.
+	}
+	Connection &read_tris() {           // Always returns a 1.
+		rdTris.set_value(Vdd, true);    // raise a read signal on the port read control line
+		eq.process_events();            // basically propagate all events, and their events etc.
+		rdTris.set_value(Vss, true);    // lower the read singal.  The result is on the bus.
+		return Data;
+	}
+
+};
+
+//___________________________________________________________________________________
+//  A model for the pin RA6/OSC2/CLKOUT
+//  This time, there are the expected data and tris latches, and the read mechanism
+// is comfortably familiar.
+//  However, the internal oscillator circuit does potentially output the clock
+// signal on this pin (FOSC = 011, 100, 110 with RA6=CLKOUT).   If RA6 is
+// configured for I/O, CLKOUT can also be output with FOSC=101,111.
+//  We should be able to derive this port from BasicPort.
+
+class SinglePortA_RA6_CLKOUT: public  BasicPort {
+	Connection m_CLKOUT;
+	Connection m_OSC;
+	Connection m_Fosc1;
+	Connection m_Fosc2;  // also s1_en
+	BYTE m_fosc;
+
+	virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+		if (name == "CONFIG") {
+			m_fosc = (data[2] & 0b11) | ((data[2] >> 2) & 0b100);
+			m_OSC.set_value(Vss, true);
+			m_Fosc1.set_value(Vss, true);     // If High, select CLKOUT signal else port latch
+			m_Fosc2.set_value(Vss, true);     // If High, use pin for I/O
+			if (m_fosc == 0b111) {        // RC osc + CLKOUT
+				m_Fosc1.set_value(Vdd, false);
+			} else if (m_fosc == 0b110) { // RC, RA6 is I/O
+				m_Fosc2.set_value(Vdd, false);
+			} else if (m_fosc == 0b101) { // INTOSC + CLKOUT
+				m_Fosc1.set_value(Vdd, false);
+			} else if (m_fosc == 0b100) { // INTOSC, RA6 is I/O
+				m_Fosc2.set_value(Vdd, false);
+			} else if (m_fosc == 0b011) { // EC, RA6 is I/O
+				m_Fosc2.set_value(Vdd, false);
+			} else if (m_fosc == 0b010) { // HS xtal/resonator on RA6 & RA7
+			} else if (m_fosc == 0b001) { // XT osc on RA6 & RA7
+			} else if (m_fosc == 0b000) { // LP osc on RA6 & RA7
+			}
+		}
+	}
+
+	void on_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data) {
+		if (name == "oscillator") {
+			if (m_fosc==0b010 || m_fosc==0b001 || m_fosc==0b000) {
+				m_OSC.set_value(((bool)data[0]) * Vdd, false);
+			}
+		} else if (name == "CLKOUT") {
+			m_CLKOUT.set_value(((bool)data[0]) * Vdd, false);
+		}
+	}
+
+public:
+	SinglePortA_RA6_CLKOUT(Connection &a_Pin, const std::string &a_name) :
+		BasicPort(a_Pin, a_name, 0, 3), m_fosc(0)
+	{
+		auto &c = components();
+		Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
+		Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
+
+		Mux *mux = new Mux({&DataLatch.Q(), &m_CLKOUT}, {&m_Fosc1});
+
+		Wire &PinWire = dynamic_cast<Wire &>(*c["Pin Wire"]);
+		Clamp * PinClamp = new Clamp(Pin);
+
+		auto And1 = new AndGate({&TrisLatch.Q(), &m_Fosc2}, false, "And1");
+		auto Nor1 = new OrGate({&And1->rd(), &m_Fosc1}, false, "Nor1");
+		Tristate *Tristate1 = new Tristate(mux->rd(), Nor1->rd(), true);
+		PinWire.connect(Tristate1->rd());
+
+		c["Tristate1"] = Tristate1;    // smart pointer should discard old Tristate1
+		c["Mux"] = mux;  // remember our mux component
+		c["PinClamp"] = PinClamp;
+		c["And1"] = And1;
+		c["Nor1"] = Nor1;
+	}
+};
 

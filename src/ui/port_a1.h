@@ -104,7 +104,7 @@ namespace app {
 
 		void draw_schmitt() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["SchmittOut"]);
-			conn.add(ConnectionDiagram::pt(  0, 60, true));
+			conn.add(ConnectionDiagram::pt(  0, 45, true));
 			conn.add(ConnectionDiagram::pt(  0, 74));
 			conn.add(ConnectionDiagram::pt(-60, 74));
 		}
@@ -192,7 +192,7 @@ namespace app {
 			m_components["Tristate1 input"] = new ConnectionDiagram(DataLatch.Q(), 200, 40, m_area);
 			m_components["Tristate1 gate"]  = new ConnectionDiagram(TrisLatch.Q(), 200, 40, m_area);
 			m_components["Pin"]  = new PinDiagram(p1.pin(), 530, 150, m_area);
-			m_components["Schmitt"]  = new SchmittDiagram(SchmittTrigger, 490, 250, CairoDrawing::DIRECTION::DOWN, m_area);
+			m_components["Schmitt"]  = new SchmittDiagram(SchmittTrigger, 490, 250, CairoDrawing::DIRECTION::DOWN, true, m_area);
 			m_components["WR_PORTA"]  = new ConnectionDiagram(DataLatch.Ck(), 100, 40, m_area);
 			m_components["WR_TRISA"]  = new ConnectionDiagram(TrisLatch.Ck(), 100, 160, m_area);
 			m_components["CMCON"]  = new ConnectionDiagram(SchmittTrigger.en(), 330, 220, m_area);

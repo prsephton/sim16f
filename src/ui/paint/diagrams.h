@@ -109,16 +109,17 @@ namespace app {
 		int m_x;
 		int m_y;
 		double m_rotation;
+		bool m_dual;
 
 	  public:
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			SchmittSymbol(m_x, m_y, m_rotation).draw(cr);
+			SchmittSymbol(m_x, m_y, m_rotation, m_dual).draw(cr);
 			return false;
 		}
 
-		SchmittDiagram(Schmitt &a_schmitt, double x, double y, double rotation, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area), m_schmitt(a_schmitt), m_x(x), m_y(y), m_rotation(rotation)
+		SchmittDiagram(Schmitt &a_schmitt, double x, double y, double rotation, bool dual, Glib::RefPtr<Gtk::DrawingArea>a_area):
+			CairoDrawing(a_area), m_schmitt(a_schmitt), m_x(x), m_y(y), m_rotation(rotation), m_dual(dual)
 		{}
 	};
 

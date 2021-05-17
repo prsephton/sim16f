@@ -104,7 +104,7 @@ namespace app {
 
 		void draw_schmitt() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["SchmittOut"]);
-			conn.add(ConnectionDiagram::pt(  0, 60, true));
+			conn.add(ConnectionDiagram::pt(  0, 45, true));
 			conn.add(ConnectionDiagram::pt(  0, 74));
 			conn.add(ConnectionDiagram::pt(-60, 74));
 		}
@@ -185,8 +185,8 @@ namespace app {
 			CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>::cast_dynamic(a_refGlade->get_object("dwg_RA3"))),
 			m_cpu(a_cpu), m_refGlade(a_refGlade)
 		{
-			auto &p2 = dynamic_cast<SinglePortA_Analog_RA3 &>(*(m_cpu.porta.RA[3]));
-			auto &c = p2.components();
+			auto &p3 = dynamic_cast<SinglePortA_Analog_RA3 &>(*(m_cpu.porta.RA[3]));
+			auto &c = p3.components();
 			Latch &DataLatch = dynamic_cast<Latch &>(*(c["Data Latch"]));
 			Latch &TrisLatch = dynamic_cast<Latch &>(*(c["Tris Latch"]));
 			Wire &DataBus = dynamic_cast<Wire &> (*(c["Data Bus"]));
@@ -212,8 +212,8 @@ namespace app {
 			m_components["Pin Wire"]   = new WireDiagram( PinWire,   0.0,  0.0, m_area);
 			m_components["Tristate1"]  = new TristateDiagram( Tristate1, true, 430.0, 150.0, m_area);
 			m_components["Tristate1 gate"]  = new ConnectionDiagram(TrisLatch.Q(), 200, 40, m_area);
-			m_components["Pin"]  = new PinDiagram(p2.pin(), 530, 150, m_area);
-			m_components["Schmitt"]  = new SchmittDiagram(SchmittTrigger, 490, 250, CairoDrawing::DIRECTION::DOWN, m_area);
+			m_components["Pin"]  = new PinDiagram(p3.pin(), 530, 150, m_area);
+			m_components["Schmitt"]  = new SchmittDiagram(SchmittTrigger, 490, 250, CairoDrawing::DIRECTION::DOWN, true, m_area);
 			m_components["WR_PORTA"]  = new ConnectionDiagram(DataLatch.Ck(), 100, 40, m_area);
 			m_components["WR_TRISA"]  = new ConnectionDiagram(TrisLatch.Ck(), 100, 160, m_area);
 			m_components["CMCON"]  = new ConnectionDiagram(SchmittTrigger.en(), 330, 220, m_area);

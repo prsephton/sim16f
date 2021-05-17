@@ -628,8 +628,10 @@ public:
 class Schmitt: public Device {
 	Connection &m_in;
 	Connection &m_enable;
+	Connection m_enabled;
 	Connection m_out;
 	bool       m_gate_invert;
+	bool       m_out_invert;
 
 	const float m_lo = (float)1.5;
 	const float m_hi = (float)3.5;
@@ -663,16 +665,29 @@ class Schmitt: public Device {
 				else
 					out = Vss;
 			}
+			if (m_out_invert) {
+				if (out > m_lo)
+					out = Vss;
+				else
+					out = Vdd;
+			}
+
 			m_out.set_value(out, false);
 		}
 	}
 
   public:
-	Schmitt(Connection &in, Connection &en, bool impeded=false, bool gate_invert=true):
-		m_in(in), m_enable(en), m_out(Vss, impeded), m_gate_invert(gate_invert) {
+	Schmitt(Connection &in, Connection &en, bool impeded=false, bool gate_invert=true, bool out_invert=false):
+		m_in(in), m_enable(en), m_out(Vss, impeded), m_gate_invert(gate_invert), m_out_invert(out_invert) {
 		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, &m_in);
 		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_enable, &m_enable);
 		m_enable.set_value(Vss, true); // start enabled if gate_invert
+	}
+	Schmitt(Connection &in, bool impeded=false, bool gate_invert=true, bool out_invert=false):
+		m_in(in), m_enable(m_enabled), m_out(Vss, impeded), m_gate_invert(gate_invert), m_out_invert(out_invert) {
+		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, &m_in);
+		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_enable, &m_enable);
+		m_enable.set_value(Vdd, true); // start enabled if gate_invert
 	}
 	Connection &in() { return m_in; }
 	Connection &en() { return m_enable; }

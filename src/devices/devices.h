@@ -5,8 +5,8 @@
 #include "flags.h"
 #include "../utils/utility.h"
 #include "register.h"
+#include "clock.h"
 #include "simulated_ports.h"
-
 
 //___________________________________________________________________________________
 class Comparator: public Device {
@@ -111,21 +111,6 @@ class EEPROM: public Device {
 	}
 };
 
-class Clock: public Device {
-  public:
-	bool high;
-	BYTE phase;
-	BYTE Q1;
-	BYTE Q2;
-	BYTE Q3;
-	BYTE Q4;
-
-	Clock(): high(false), phase(0), Q1(1), Q2(0), Q3(0), Q4(0) {}
-
-	void toggle();
-};
-
-
 class PINS: public Device {
 
 	Connection pins[PIN_COUNT];
@@ -189,14 +174,14 @@ class PINS: public Device {
 		pins[pin_Vdd-1].set_value(Vdd, false);
 	}
 
-	void clock_event(Clock *r, const std::string &name, const std::vector<BYTE> &data) {
-		if (name == "oscillator") {
-			pins[pin_OSC2-1].set_value(((bool)data[0]) * Vdd, false);
-		} else if (name == "CLKOUT") {
-			pins[pin_CLKOUT-1].set_value(((bool)data[0]) * Vdd, false);
-		}
-	}
-
+//	void clock_event(Clock *r, const std::string &name, const std::vector<BYTE> &data) {
+//		if (name == "oscillator") {
+//			pins[pin_OSC2-1].set_value(((bool)data[0]) * Vdd, false);
+//		} else if (name == "CLKOUT") {
+//			pins[pin_CLKOUT-1].set_value(((bool)data[0]) * Vdd, false);
+//		}
+//	}
+//
 
 	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 //		std::cout << "Register changed " << name << std::endl;
@@ -207,7 +192,6 @@ class PINS: public Device {
 			std::string name = "P"+int_to_string(n+1);
 			pins[n].name(name);
 		}
-		DeviceEvent<Clock>::subscribe<PINS>(this, &PINS::clock_event);
 		DeviceEvent<Register>::subscribe<PINS>(this, &PINS::register_changed);
 	}
 
@@ -244,23 +228,33 @@ class PORTA: public Device {
 		RA[2] = new SinglePortA_Analog_RA2(pins[PINS::pin_RA2], "RA2");
 		RA[3] = new SinglePortA_Analog_RA3(pins[PINS::pin_RA3], Comp1, "RA3");
 		RA[4] = new SinglePortA_Analog_RA4(pins[PINS::pin_RA4], Comp2, "RA4");
-		RA[5] = new SinglePort(pins[PINS::pin_RA5], "RA5", 0, 5);
-		RA[6] = new SinglePort(pins[PINS::pin_RA6], "RA6", 0, 6);
+		RA[5] = new SinglePortA_MCLR_RA5(pins[PINS::pin_RA5], "RA5");
+		RA[6] = new SinglePortA_RA6_CLKOUT(pins[PINS::pin_RA6], "RA6");
 		RA[7] = new SinglePort(pins[PINS::pin_RA7], "RA7", 0, 7);
 	}
 	const BYTE rd_tris() {
 		BYTE data_bus;
 		for (int n = 0; n < 8; ++n) {
-			BasicPort &p = dynamic_cast<BasicPort &>(*RA[n]);
-			data_bus = (data_bus << 1) | p.read_tris().signal();
+			if (n == 5) {
+				SinglePortA_MCLR_RA5 &p = dynamic_cast<SinglePortA_MCLR_RA5 &>(*RA[n]);
+				data_bus = (data_bus << 1) | p.read_tris().signal();
+			} else {
+				BasicPort &p = dynamic_cast<BasicPort &>(*RA[n]);
+				data_bus = (data_bus << 1) | p.read_tris().signal();
+			}
 		}
 		return data_bus;
 	}
 	const BYTE rd_port() {
 		BYTE data_bus;
 		for (int n = 0; n < 8; ++n) {
-			BasicPort &p = dynamic_cast<BasicPort &>(*RA[n]);
-			data_bus = (data_bus << 1) | p.read_port().signal();
+			if (n == 5) {
+				SinglePortA_MCLR_RA5 &p = dynamic_cast<SinglePortA_MCLR_RA5 &>(*RA[n]);
+				data_bus = (data_bus << 1) | p.read_port().signal();
+			} else {
+				BasicPort &p = dynamic_cast<BasicPort &>(*RA[n]);
+				data_bus = (data_bus << 1) | p.read_port().signal();
+			}
 		}
 		return data_bus;
 	}

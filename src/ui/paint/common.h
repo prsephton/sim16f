@@ -53,20 +53,35 @@ namespace app {
 			cr->rotate(m_rotation);
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
-			cr->move_to(0, -6);
-			cr->line_to(0,  6);
-			cr->line_to(6,  0);
-			cr->close_path();
-			cr->stroke();
-			cr->move_to(7, -7);
-			cr->line_to(7,  7);
-			cr->stroke();
+			cr->move_to(0, -6); cr->line_to(0,  6); cr->line_to(6,  0); cr->close_path(); cr->stroke();
+			cr->move_to(7, -7); cr->line_to(7,  7); cr->stroke();
+			cr->move_to(0, 0); cr->line_to(-5, 0); cr->stroke();
+			cr->move_to(7, 0); cr->line_to(10, 0); cr->stroke();
 			cr->restore();
 		}
 		DiodeSymbol(double x=0, double y=0, double rotation=0): Symbol(x, y, rotation) {}
 	};
 
-	class AndSymbol: public Symbol {
+	class VssSymbol: public Symbol {
+	  public:
+
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->save();
+			cr->translate(m_x, m_y);
+			cr->rotate(m_rotation);
+			cr->set_line_width(1.2);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_BUTT);
+			cr->move_to(-5, 0); cr->line_to(0, 10); cr->line_to(5, 0);
+			cr->close_path();
+			cr->fill_preserve(); cr->stroke();
+			cr->restore();
+		}
+		VssSymbol(double x=0, double y=0, double rotation=0): Symbol(x, y, rotation) {}
+	};
+
+	class FETSymbol: public Symbol {
+		bool m_nType;
+		bool m_with_vss;
 	  public:
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
@@ -75,39 +90,137 @@ namespace app {
 			cr->rotate(m_rotation);
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
-
-			cr->move_to(40,-20); cr->line_to(0,-20); cr->line_to(0,20); cr->line_to(40,20);
+			cr->move_to(0, 0); cr->line_to(5,0); cr->stroke();
+			cr->move_to(5,-8); cr->line_to(5,8); cr->stroke();
+			cr->move_to(20,-20); cr->line_to(20,-8); cr->line_to(9,-8);
+			cr->line_to(9,8); cr->line_to(20,8); cr->line_to(20,20);
 			cr->stroke();
-			cr->arc(40,0,20, -M_PI/2, M_PI/2);
+			cr->move_to(12, 4);
+			cr->text_path(m_nType?"N":"P");
+			cr->save();
+			cr->scale(0.8, 0.8);
+			cr->fill_preserve(); cr->stroke();
+			cr->stroke();
+			cr->restore();
+			if (m_with_vss) VssSymbol(20,20).draw(cr);
+			cr->restore();
+		}
+		FETSymbol(double x=0, double y=0, double rotation=0, bool nType=true, bool with_vss = true):
+			Symbol(x, y, rotation), m_nType(nType), m_with_vss(with_vss) {}
+	};
+
+	class BufferSymbol: public Symbol  {
+		bool m_inverted;
+	  public:
+
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->save();
+			cr->translate(m_x, m_y);
+			cr->set_line_width(1.2);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+			cr->rotate(m_rotation);
+			cr->move_to(0, -15); cr->line_to(0, 15);
+			cr->line_to(30, 0); cr->close_path();
+			if (m_inverted) {
+				cr->stroke();
+				cr->save();
+				cr->set_line_width(0.8);
+				cr->arc(30, 0, 3.5, 0, 2*M_PI);
+				cr->set_source_rgba(1.0, 1.0, 1.0, 1.0); cr->fill_preserve();
+				cr->set_source_rgba(0.0, 0.0, 0.0, 1.0); cr->stroke();
+				cr->restore();
+			}
 			cr->stroke();
 			cr->restore();
 		}
-		AndSymbol(double x=0, double y=0, double rotation=0): Symbol(x, y, rotation) {}
+		BufferSymbol(double x=0, double y=0, double rotation=0, bool inverted=false):
+			Symbol(x, y, rotation), m_inverted(inverted) {}
+	};
+
+	class AndSymbol: public Symbol {
+		bool m_inverted;
+	  public:
+
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			double h = 30;
+			cr->save();
+			cr->translate(m_x, m_y);
+			cr->rotate(m_rotation);
+			cr->set_line_width(1.2);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+
+			cr->move_to(h,-h/2); cr->line_to(0,-h/2); cr->line_to(0,h/2); cr->line_to(h,h/2);
+			cr->stroke();
+			cr->arc(h,0,h/2, -M_PI/2, M_PI/2);
+			cr->stroke();
+
+			if (m_inverted) {
+				cr->save();
+				cr->set_line_width(0.8);
+				cr->arc(h*3/2 + 3.5, 0, 3.5, 0, 2*M_PI);
+				cr->set_source_rgba(1.0, 1.0, 1.0, 1.0); cr->fill_preserve();
+				cr->set_source_rgba(0.0, 0.0, 0.0, 1.0); cr->stroke();
+				cr->restore();
+			}
+
+			cr->restore();
+		}
+		AndSymbol(double x=0, double y=0, double rotation=0, bool inverted=false):
+			Symbol(x, y, rotation), m_inverted(inverted) {}
 	};
 
 	class OrSymbol: public Symbol  {
+		bool m_inverted;
+		bool m_xor;
 	  public:
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			double h   = 30.0;
+			double ofs = h/8;
 			cr->save();
+
 			cr->translate(m_x, m_y);
 			cr->rotate(m_rotation);
-			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+			cr->set_line_width(1.2);
+
 			cr->save();
-			cr->rectangle(-5, -20, 40, 40);
+			cr->rectangle(-ofs, -h/2, h-ofs, h);
 			cr->clip();
-			cr->arc(-40, 0, 40, -M_PI/2, M_PI/2);
-			cr->stroke();
+			cr->scale(1/4.0, 1.0);
+			cr->arc(-2*ofs, 0, h/2, -M_PI/2, M_PI/2);
 			cr->restore();
-			cr->move_to(-5,-20); cr->line_to(40,-20);
-			cr->move_to(-5, 20); cr->line_to(40, 20);
 			cr->stroke();
-			cr->arc(40,0,20, -M_PI/2, M_PI/2);
+			if (m_xor) {
+				cr->save();
+				cr->scale(1/4.0, 1.0);
+				cr->arc(ofs*2, 0, h/2, -M_PI/2, M_PI/2);
+				cr->restore();
+				cr->stroke();
+			}
+
+			cr->move_to(-ofs,-h/2); cr->line_to(h-ofs*2,-h/2);
+			cr->move_to(-ofs, h/2); cr->line_to(h-ofs*2, h/2);
 			cr->stroke();
+
+			cr->save();
+			cr->scale(1.5, 1);
+			cr->arc(h/2, 0.0, h/2, -M_PI/2, M_PI/2);
+			cr->restore();
+			cr->stroke();
+
+			if (m_inverted) {
+				cr->save();
+				cr->set_line_width(0.8);
+				cr->arc(h*3/2 + 3.5, 0, 3.5, 0, 2*M_PI);
+				cr->set_source_rgba(1.0, 1.0, 1.0, 1.0); cr->fill_preserve();
+				cr->set_source_rgba(0.0, 0.0, 0.0, 1.0); cr->stroke();
+				cr->restore();
+			}
 			cr->restore();
 		}
-		OrSymbol(double x=0, double y=0, double rotation=0): Symbol(x, y, rotation){}
+		OrSymbol(double x=0, double y=0, double rotation=0, bool inverted=false, bool is_xor=false):
+			Symbol(x, y, rotation), m_inverted(inverted), m_xor(is_xor){}
 	};
 
 	class MuxSymbol: public Symbol  {
@@ -147,6 +260,7 @@ namespace app {
 	};
 
 	class SchmittSymbol: public Symbol  {
+		bool m_dual;
 	  public:
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
@@ -156,16 +270,21 @@ namespace app {
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 
-			AndSymbol().draw(cr);
-
+			if (m_dual)
+				AndSymbol().draw(cr);
+			else {
+				cr->move_to(0, -22); cr->line_to(0, 22);
+				cr->line_to(45, 0); cr->close_path();
+			}
 			cr->stroke();
 			cr->set_line_width(0.8);
-			cr->move_to( 8,10); cr->line_to(18,10); cr->line_to(23,-10); cr->line_to(38,-10);
-			cr->move_to(18,10); cr->line_to(23,10); cr->line_to(28,-10);
+			cr->move_to( 4,6); cr->line_to(10,6); cr->line_to(15,-6); cr->line_to(26,-6);
+			cr->move_to(10,6); cr->line_to(15,6); cr->line_to(20,-6);
 			cr->stroke();
 			cr->restore();
 		}
-		SchmittSymbol(double x=0, double y=0, double rotation=0): Symbol(x, y, rotation) {}
+		SchmittSymbol(double x=0, double y=0, double rotation=0, bool dual=true):
+			Symbol(x, y, rotation), m_dual(dual) {}
 	};
 
 	class RelaySymbol: public Symbol  {
@@ -226,34 +345,6 @@ namespace app {
 			Symbol(x, y, rotation), m_flipped(flipped), m_closed(closed) {}
 	};
 
-	class BufferSymbol: public Symbol  {
-		bool m_inverted;
-	  public:
-
-		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->save();
-			cr->translate(m_x, m_y);
-			cr->set_line_width(1.2);
-			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
-			cr->rotate(m_rotation);
-			cr->move_to(0, -15); cr->line_to(0, 15);
-			cr->line_to(30, 0); cr->close_path();
-			if (m_inverted) {
-				cr->stroke();
-				cr->save();
-				cr->set_line_width(0.8);
-				cr->arc(30, 0, 3.5, 0, 2*M_PI);
-				cr->set_source_rgba(1.0, 1.0, 1.0, 1.0); cr->fill_preserve();
-				cr->set_source_rgba(0.0, 0.0, 0.0, 1.0); cr->stroke();
-				cr->restore();
-			}
-			cr->stroke();
-			cr->restore();
-		}
-		BufferSymbol(double x=0, double y=0, double rotation=0, bool inverted=false):
-			Symbol(x, y, rotation), m_inverted(inverted) {}
-	};
-
 	class GenericDiagram: public CairoDrawing {
 		int m_x;
 		int m_y;
@@ -306,7 +397,10 @@ namespace app {
 				indeterminate(cr);
 			}
 			for (size_t n=0; n < m_symbols.size(); ++n) {
+				cr->save();
+				black(cr);
 				m_symbols[n]->draw(cr);
+				cr->restore();
 			}
 			for (size_t n=0; n < m_points.size(); ++n) {
 				pt &point = m_points[n];
