@@ -61,7 +61,13 @@ class ControlEvent {
 			name(a_name), filename(a_filename), m_data(0) {}
 };
 
-
+//___________________________________________________________________________________
+class CONFIG: public Register {
+  public:
+	CONFIG(const std::string &a_name): Register(0, a_name) {}
+	virtual const BYTE read(SRAM &a_sram) { return get_value(); }
+	virtual void write(SRAM &a_sram, const unsigned char value)	{ set_value(value); }
+};
 
 //___________________________________________________________________________________
 // Contains the current machine state.  Includes stack, memory and devices.
@@ -88,6 +94,8 @@ class CPU_DATA {
 	Timer0 tmr0;
 	Timer1 tmr1;
 	Timer2 tmr2;
+	CONFIG cfg1;
+	CONFIG cfg2;
 
 	std::queue<ControlEvent> control;
 	DeviceEventQueue device_events;
@@ -95,7 +103,8 @@ class CPU_DATA {
 	void configure(const std::string &a_configuration) {
 		if (a_configuration.length() >= 2) {  // set configuration word
 			Config = *(WORD *)a_configuration.c_str();
-			Register(0, "CONFIG", "").set_value(Config & 0xff);
+			cfg1.write(sram, a_configuration.c_str()[0]);  // registers allow device config
+			cfg2.write(sram, a_configuration.c_str()[1]);
 			std::cout << "config loaded: " << std::hex << Config << "\n";
 		}
 	}

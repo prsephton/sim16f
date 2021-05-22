@@ -9,16 +9,78 @@
 
 namespace app {
 
+	struct Rect {
+		double x;
+		double y;
+		double w;
+		double h;
+
+		Rect(double a_x, double a_y, double a_w, double a_h):
+			x(a_x), y(a_y), w(a_w), h(a_h) {}
+	};
+
+	struct Point {
+		double x;
+		double y;
+
+		Point(double a_x, double a_y):
+			x(a_x), y(a_y) {}
+	};
+
 	class Symbol {
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) = 0;
+
 	  protected:
 		double m_x;
 		double m_y;
 		double m_rotation;
+		bool   m_selected;
+		Rect   m_rect;
+		Point  m_ofs;
+
 
 	  public:
-		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) = 0;
+		virtual void outline(const Cairo::RefPtr<Cairo::Context>& cr) {
+			Rect r = bounding_rect();
+			cr->save();
+			cr->set_identity_matrix();
+			cr->translate(m_ofs.x, m_ofs.y);
+			cr->set_line_width(2.0);
+			cr->set_source_rgba(0.5, 0.6, 0.8, 0.10);
+			cr->set_operator(Cairo::OPERATOR_XOR);
+			cr->rectangle(r.x,r.y,r.w,r.h);
+			cr->fill_preserve();
+			cr->set_source_rgba(0.0, 0.0, 0.0, 0.85);
+//			cr->set_operator(Cairo::OPERATOR_OVER);
+			cr->set_dash(std::vector<double>{2,2}, 1);
+			cr->stroke();
+			cr->restore();
+		}
 
-		Symbol(double x=0, double y=0, double rotation=0): m_x(x), m_y(y), m_rotation(rotation) {}
+		void draw_symbol(const Cairo::RefPtr<Cairo::Context>& cr, Point a_ofs) {
+			m_ofs = a_ofs;
+			cr->save();
+			draw(cr);
+			cr->restore();
+
+			if (selected()) outline(cr);
+		}
+
+		const Rect bounding_rect() const { return m_rect; }
+		void bounding_rect(const Cairo::RefPtr<Cairo::Context>& cr, Rect r) {
+			cr->user_to_device(r.x, r.y);
+			cr->user_to_device_distance(r.w, r.h);
+			if (r.w < 0) { r.x += r.w; r.w = fabs(r.w); }
+			if (r.h < 0) { r.y += r.h; r.h = fabs(r.h); }
+			m_rect = Rect(r.x - m_ofs.x, r.y-m_ofs.y, r.w, r.h);
+		}
+
+		const bool selected() const { return m_selected; }
+		bool &selected() { return m_selected; }
+
+		Symbol(double x=0, double y=0, double rotation=0):
+			m_x(x), m_y(y), m_rotation(rotation), m_selected(false),
+			m_rect(0,0,0,0), m_ofs(0,0) {}
 		virtual ~Symbol() {}
 	};
 
@@ -29,6 +91,7 @@ namespace app {
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
+			bounding_rect(cr, Rect(0, -10, 20, 20));
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 			cr->rectangle(0,-10,20,20);
@@ -38,7 +101,6 @@ namespace app {
 			cr->move_to(20,-10);
 			cr->line_to( 0, 10);
 			cr->stroke();
-
 			cr->restore();
 		}
 		PinSymbol(double x=0, double y=0, double rotation=0): Symbol(x, y, rotation) {}
@@ -51,6 +113,7 @@ namespace app {
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(m_rotation);
+			bounding_rect(cr, Rect(0, -7, 10, 14));
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 			cr->move_to(0, -6); cr->line_to(0,  6); cr->line_to(6,  0); cr->close_path(); cr->stroke();
@@ -69,6 +132,7 @@ namespace app {
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(m_rotation);
+			bounding_rect(cr, Rect(-5, 0, 10, 10));
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_BUTT);
 			cr->move_to(-5, 0); cr->line_to(0, 10); cr->line_to(5, 0);
@@ -88,6 +152,7 @@ namespace app {
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(m_rotation);
+			bounding_rect(cr, Rect(0, -20, 20, 40));
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 			cr->move_to(0, 0); cr->line_to(5,0); cr->stroke();
@@ -116,9 +181,10 @@ namespace app {
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
+			cr->rotate(m_rotation);
+			bounding_rect(cr, Rect(0, -15, 30, 30));
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
-			cr->rotate(m_rotation);
 			cr->move_to(0, -15); cr->line_to(0, 15);
 			cr->line_to(30, 0); cr->close_path();
 			if (m_inverted) {
@@ -146,6 +212,7 @@ namespace app {
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(m_rotation);
+			bounding_rect(cr, Rect(0, -h/2, h*1.5, h));
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 
@@ -178,9 +245,10 @@ namespace app {
 			double h   = 30.0;
 			double ofs = h/8;
 			cr->save();
-
 			cr->translate(m_x, m_y);
 			cr->rotate(m_rotation);
+			bounding_rect(cr, Rect(0, -h/2, h*1.5, h));
+
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 			cr->set_line_width(1.2);
 
@@ -231,11 +299,12 @@ namespace app {
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(m_rotation);
-			cr->set_line_width(1.2);
-			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 			int cw = 5, ch = 14;
 			int width = cw * (m_gates+1);
 			int height = ch * (m_inputs+1);
+			bounding_rect(cr, Rect(0, -height/2, width, height));
+			cr->set_line_width(1.2);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 			cr->move_to(0, -height/2 - width); cr->line_to(0, height/2 + width);
 			cr->line_to(width,  height/2);
 			cr->line_to(width, -height/2);
@@ -270,11 +339,14 @@ namespace app {
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 
-			if (m_dual)
-				AndSymbol().draw(cr);
-			else {
+			if (m_dual) {
+				AndSymbol s = AndSymbol();
+				s.draw(cr);
+				bounding_rect(cr, Rect(0, -15, 45, 30));
+			} else {
 				cr->move_to(0, -22); cr->line_to(0, 22);
 				cr->line_to(45, 0); cr->close_path();
+				bounding_rect(cr, Rect(0, -22, 45, 44));
 			}
 			cr->stroke();
 			cr->set_line_width(0.8);
@@ -285,6 +357,25 @@ namespace app {
 		}
 		SchmittSymbol(double x=0, double y=0, double rotation=0, bool dual=true):
 			Symbol(x, y, rotation), m_dual(dual) {}
+	};
+
+	class BlockSymbol: public Symbol  {
+		double m_w;
+		double m_h;
+	  public:
+
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->save();
+			cr->translate(m_x, m_y);
+			bounding_rect(cr, Rect(-m_w/2, -m_h/2, m_w, m_h));
+			cr->set_line_width(1.2);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+			cr->rectangle(-m_w/2, -m_h/2, m_w, m_h);
+			cr->stroke();
+			cr->restore();
+		}
+		BlockSymbol(double x=0, double y=0, double w=100, double h=100):
+			Symbol(x, y, 0), m_w(w), m_h(h) {}
 	};
 
 	class RelaySymbol: public Symbol  {
@@ -298,6 +389,7 @@ namespace app {
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(m_rotation);
+			bounding_rect(cr, Rect(0, 0, sz*4, -sz));
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 
@@ -349,6 +441,21 @@ namespace app {
 		int m_x;
 		int m_y;
 
+		virtual bool on_motion(double x, double y) {
+
+			for (size_t n=0; n < m_symbols.size(); ++n) {
+				Symbol &s = *m_symbols[n];
+				Rect r = s.bounding_rect();
+				bool selected = s.selected();
+				s.selected() = inside(x, y, r.x, r.y, r.w, r.h);
+				if (selected != s.selected()) {
+//					m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+					m_area->queue_draw();
+				}
+			}
+			return false;
+		}
+
 	  public:
 		struct pt {
 			double x;
@@ -399,22 +506,23 @@ namespace app {
 			for (size_t n=0; n < m_symbols.size(); ++n) {
 				cr->save();
 				black(cr);
-				m_symbols[n]->draw(cr);
+				m_symbols[n]->draw_symbol(cr, Point(m_xofs, m_yofs));
 				cr->restore();
 			}
 			for (size_t n=0; n < m_points.size(); ++n) {
 				pt &point = m_points[n];
+				if (point.is_first) {
+					cr->stroke();
+					cr->move_to(point.x, point.y);
+				} else {
+					cr->line_to(point.x, point.y);
+				}
 				if (point.is_join) {
 					cr->stroke();
 					cr->arc(point.x, point.y, 2, 0, 2*M_PI);
 					cr->fill_preserve();
 					cr->stroke();
 					cr->move_to(point.x, point.y);
-				} else if (point.is_first) {
-					cr->stroke();
-					cr->move_to(point.x, point.y);
-				} else {
-					cr->line_to(point.x, point.y);
 				}
 				if (point.is_invert) {
 					cr->stroke();

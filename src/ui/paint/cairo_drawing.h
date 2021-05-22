@@ -4,13 +4,75 @@
 #include <iostream>
 #include <sstream>
 #include <queue>
+#include <cmath>
+#include <limits>
 
 namespace app {
 
 	class CairoDrawing : public Component {
+
 	  protected:
 		Glib::RefPtr<Gtk::DrawingArea> m_area;
+		double m_xpos, m_ypos, m_xofs, m_yofs;
+
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) = 0;
+		virtual bool on_motion(double x, double y) {
+			m_xpos = x; m_ypos = y;
+			m_area->queue_draw_area(2, 2, 100, 20);
+			return false;
+		}
+		bool draw_content(const Cairo::RefPtr<Cairo::Context>& cr) {
+			m_xofs=0; m_yofs=0;
+			cr->user_to_device(m_xofs, m_yofs);
+			return on_draw(cr);
+		}
+
+		void show_coords(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->move_to(14, 14);
+			std::string coords = std::string("x: ") + int_to_string((int)m_xpos) + "; y: " + int_to_string((int)m_ypos);
+			cr->text_path(coords);
+			cr->fill_preserve(); cr->stroke();
+		}
+		bool motion_event(GdkEventMotion* motion_event) {
+//			std::cout << "motion x=" << motion_event->x << " y=" << motion_event->y << ";" << std::endl;
+			return on_motion(motion_event->x, motion_event->y);
+		}
+
+		// distance from a point
+		double distance(double x, double y, double p1, double p2) {
+			double dx = p1 - x;
+			double dy = p2 - y;
+			double squares = dx * dx + dy * dy;
+			if (squares) return sqrt(squares);
+			return 0;
+		}
+
+		// distance from a line segment
+		double distance(double x, double y, double px1, double py1, double px2, double py2) {
+			px2 -= px1; py2 -= py1;
+			x -= px1; y -= py1;               // ensure lines both use 0,0 as base, compare apples to apples
+			double theta = atan2(py2, px2);
+			double sin_theta = sin(theta);
+			double cos_theta = cos(theta);
+			double yc = y * cos_theta + x * sin_theta;        // rotate point by theta
+			double xc = x * cos_theta - y * sin_theta;
+			double xr = px2 * cos_theta - py2 * sin_theta;    // xr == max length
+			if (xc < 0 || xc > xr)
+				return std::numeric_limits<double>::infinity();  // No perpendicular solution
+			return fabs(yc);
+		}
+
+		bool inside(double px, double py, double x, double y, double w, double h) {
+			// is px,py inside rect(x,y,w,h) ?
+			if (w < 0) { x += w; w = abs(w); }
+			if (h < 0) { y += h; h = abs(h); }
+			px -= x; py -= y;
+			if (px >= 0 && px <= w && py >= 0 && py < h) {
+				std::cout << "Test ("<< px <<", " << py << ") inside rect(" << x << ", " << y << ", " << w << ", " << h << ")" << std::endl;
+				return true;
+			}
+			return false;
+		}
 
 	  public:
 		struct DIRECTION {
@@ -21,11 +83,15 @@ namespace app {
 		};
 
 		void black(const Cairo::RefPtr<Cairo::Context>& cr) {
-		  cr->set_source_rgba(0.0, 0.0, 0.0, 1.0);
+			cr->set_source_rgba(0.0, 0.0, 0.0, 1.0);
+		}
+
+		void selected(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->set_source_rgba(0.0, 0.0, 0.0, 0.75);
 		}
 
 		void white(const Cairo::RefPtr<Cairo::Context>& cr) {
-		  cr->set_source_rgba(1.0, 1.0, 1.0, 1.0);
+			cr->set_source_rgba(1.0, 1.0, 1.0, 1.0);
 		}
 
 		void gray(const Cairo::RefPtr<Cairo::Context>& cr) {
@@ -50,8 +116,10 @@ namespace app {
 			cr->restore();
 		}
 
-		CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>area): m_area(area) {
-			m_area->signal_draw().connect(sigc::mem_fun(*this, &CairoDrawing::on_draw));
+		CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>area): m_area(area), m_xpos(0), m_ypos(0), m_xofs(0), m_yofs(0) {
+			m_area->signal_draw().connect(sigc::mem_fun(*this, &CairoDrawing::draw_content));
+			m_area->signal_motion_notify_event().connect(sigc::mem_fun(*this, &CairoDrawing::motion_event));
+			m_area->add_events(Gdk::POINTER_MOTION_MASK);
 		}
 		virtual ~CairoDrawing() {}
 	};

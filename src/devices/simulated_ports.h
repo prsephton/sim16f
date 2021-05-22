@@ -543,7 +543,7 @@ class SinglePortA_RA6_CLKOUT: public  BasicPort {
 	BYTE m_fosc;
 
 	virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
-		if (name == "CONFIG") {
+		if (name == "CONFIG1") {
 			m_fosc = (data[2] & 0b11) | ((data[2] >> 2) & 0b100);
 			m_OSC.set_value(Vss, true);
 			m_Fosc1.set_value(Vss, true);     // If High, select CLKOUT signal else port latch
@@ -599,5 +599,10 @@ public:
 		c["And1"] = And1;
 		c["Nor1"] = Nor1;
 	}
+
+	Connection &fosc1() { return m_Fosc1; }
+	Connection &fosc2() { return m_Fosc2; }
+	Connection &osc()   { return m_OSC; }
+
 };
 

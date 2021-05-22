@@ -15,18 +15,33 @@ namespace app {
 
 		int m_x;
 		int m_y;
+
+		BufferSymbol m_symbol;
+
 	  public:
 
+		virtual bool on_motion(double x, double y) {
+			Rect r = m_symbol.bounding_rect();
+			bool selected = m_symbol.selected();
+			m_symbol.selected() = inside(x, y, r.x, r.y, r.w, r.h);
+			if (selected != m_symbol.selected()) {
+				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+			}
+			return false;
+		}
+
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			double rotation = 0;
-			if (!m_point_right) rotation = CairoDrawing::DIRECTION::LEFT;
-			BufferSymbol(m_x, m_y, rotation, false).draw(cr);
+			m_symbol.draw_symbol(cr, Point(m_xofs, m_yofs));
 			return false;
 		}
 
 		BufferDiagram(ABuffer &a_buffer, bool point_right, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area), m_buffer(a_buffer), m_point_right(point_right),  m_x(x), m_y(y)
-		{}
+		{
+			double rotation = 0;
+			if (!m_point_right) rotation = CairoDrawing::DIRECTION::LEFT;
+			m_symbol = BufferSymbol(m_x, m_y, rotation, false);
+		}
 	};
 
 	class InverterDiagram:  public CairoDrawing {
@@ -35,47 +50,75 @@ namespace app {
 
 		int m_x;
 		int m_y;
+
+		BufferSymbol m_symbol;
+
 	  public:
 
+		virtual bool on_motion(double x, double y) {
+			Rect r = m_symbol.bounding_rect();
+			bool selected = m_symbol.selected();
+			m_symbol.selected() = inside(x, y, r.x, r.y, r.w, r.h);
+			if (selected != m_symbol.selected()) {
+				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+			}
+			return false;
+		}
+
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			BufferSymbol(m_x, m_y, m_rotation, true).draw(cr);
+			m_symbol.draw_symbol(cr, Point(m_xofs, m_yofs));
 			return false;
 		}
 
 		InverterDiagram(Inverter &a_inverter, double x, double y, double rotation, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area), m_inverter(a_inverter), m_rotation(rotation),  m_x(x), m_y(y)
-		{}
+		{
+			m_symbol = BufferSymbol(m_x, m_y, m_rotation, true);
+
+		}
 	};
 
 	class PinDiagram:  public CairoDrawing {
 		Connection &m_pin;
 		int m_x;
 		int m_y;
+
 	  public:
 
+		virtual bool on_motion(double x, double y) {
+			return false;
+		}
+
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			PinSymbol(m_x, m_y).draw(cr);
+			PinSymbol(m_x, m_y).draw_symbol(cr, Point(m_xofs, m_yofs));
 			return false;
 		}
 
 		PinDiagram(Connection &a_pin, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area), m_pin(a_pin), m_x(x), m_y(y)
-		{}
+		{
+
+		}
 	};
 
 	class ClampDiagram:  public CairoDrawing {
 		Clamp &m_clamp;
 		int m_x;
 		int m_y;
+
 	  public:
+
+		virtual bool on_motion(double x, double y) {
+			return false;
+		}
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->set_line_width(1.2);
 			black(cr);
-			DiodeSymbol(0, -10, CairoDrawing::DIRECTION::UP).draw(cr);
-			DiodeSymbol(0,  17, CairoDrawing::DIRECTION::UP).draw(cr);
+			DiodeSymbol(0, -10, CairoDrawing::DIRECTION::UP).draw_symbol(cr, Point(m_xofs, m_yofs));
+			DiodeSymbol(0,  17, CairoDrawing::DIRECTION::UP).draw_symbol(cr, Point(m_xofs, m_yofs));
 			cr->move_to(0, -10); cr->line_to(0,10);
 			cr->move_to(0, -25); cr->line_to(0,-17);
 			cr->move_to(0,  25); cr->line_to(0, 17);
@@ -111,16 +154,30 @@ namespace app {
 		double m_rotation;
 		bool m_dual;
 
+		SchmittSymbol m_symbol;
+
 	  public:
 
+		virtual bool on_motion(double x, double y) {
+			Rect r = m_symbol.bounding_rect();
+			bool selected = m_symbol.selected();
+			m_symbol.selected() = inside(x, y, r.x, r.y, r.w, r.h);
+			if (selected != m_symbol.selected()) {
+				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+			}
+			return false;
+		}
+
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			SchmittSymbol(m_x, m_y, m_rotation, m_dual).draw(cr);
+			m_symbol.draw_symbol(cr, Point(m_xofs, m_yofs));
 			return false;
 		}
 
 		SchmittDiagram(Schmitt &a_schmitt, double x, double y, double rotation, bool dual, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area), m_schmitt(a_schmitt), m_x(x), m_y(y), m_rotation(rotation), m_dual(dual)
-		{}
+		{
+			m_symbol = SchmittSymbol(m_x, m_y, m_rotation, m_dual);
+		}
 	};
 
 	class TristateDiagram: public CairoDrawing {
@@ -129,14 +186,26 @@ namespace app {
 
 		int m_x;
 		int m_y;
+
+		BufferSymbol m_symbol;
+
 	  public:
+
+		virtual bool on_motion(double x, double y) {
+			Rect r = m_symbol.bounding_rect();
+			bool selected = m_symbol.selected();
+			m_symbol.selected() = inside(x, y, r.x, r.y, r.w, r.h);
+			if (selected != m_symbol.selected()) {
+				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+			}
+			return false;
+		}
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->set_line_width(1.2);
-			double rot = m_point_right?CairoDrawing::DIRECTION::RIGHT:CairoDrawing::DIRECTION::LEFT;
-			BufferSymbol(0,0,rot,m_tris.inverted()).draw(cr);
+			m_symbol.draw_symbol(cr, Point(m_xofs, m_yofs));
 
 			if (m_tris.gate_invert()) {
 				cr->save();
@@ -153,7 +222,10 @@ namespace app {
 
 		TristateDiagram(Tristate &a_tris, bool point_right, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area), m_tris(a_tris), m_point_right(point_right),  m_x(x), m_y(y)
-		{}
+		{
+			double rot = m_point_right?CairoDrawing::DIRECTION::RIGHT:CairoDrawing::DIRECTION::LEFT;
+			m_symbol = BufferSymbol(0,0,rot,m_tris.inverted());
+		}
 
 	};
 
@@ -162,20 +234,35 @@ namespace app {
 
 		int m_x;
 		int m_y;
+
+		RelaySymbol m_symbol;
+
 	  public:
+
+		virtual bool on_motion(double x, double y) {
+			Rect r = m_symbol.bounding_rect();
+			bool selected = m_symbol.selected();
+			m_symbol.selected() = inside(x, y, r.x, r.y, r.w, r.h);
+			if (selected != m_symbol.selected()) {
+				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+			}
+			return false;
+		}
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
 
-			RelaySymbol(0,0,0,m_relay.sw().signal()).draw(cr);
+			m_symbol.draw_symbol(cr, Point(m_xofs, m_yofs));
 
 			cr->restore();
 			return false;
 		}
 
 		RelayDiagram(Relay &a_relay, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area), m_relay(a_relay), m_x(x), m_y(y) {}
+			CairoDrawing(a_area), m_relay(a_relay), m_x(x), m_y(y) {
+			m_symbol = RelaySymbol(0,0,0,m_relay.sw().signal());
+		}
 
 	};
 
@@ -186,20 +273,34 @@ namespace app {
 		int m_y;
 		double m_rotation;
 
+		MuxSymbol m_symbol;
+
 	  public:
+
+		virtual bool on_motion(double x, double y) {
+			Rect r = m_symbol.bounding_rect();
+			bool selected = m_symbol.selected();
+			m_symbol.selected() = inside(x, y, r.x, r.y, r.w, r.h);
+			if (selected != m_symbol.selected()) {
+				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+			}
+			return false;
+		}
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
 
-			MuxSymbol(0, 0, m_rotation, m_mux.no_selects(), m_mux.no_inputs()).draw(cr);
+			m_symbol.draw_symbol(cr, Point(m_xofs, m_yofs));
 
 			cr->restore();
 			return false;
 		}
 
 		MuxDiagram(Mux &a_mux, double x, double y, double rotation, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area), m_mux(a_mux), m_x(x), m_y(y), m_rotation(rotation) {}
+			CairoDrawing(a_area), m_mux(a_mux), m_x(x), m_y(y), m_rotation(rotation) {
+			m_symbol = MuxSymbol(0, 0, m_rotation, m_mux.no_selects(), m_mux.no_inputs());
+		}
 
 	};
 
@@ -209,18 +310,28 @@ namespace app {
 
 		int m_x;
 		int m_y;
+		Point m_size;
+		BlockSymbol m_basic;
+
 	  public:
 
+		virtual bool on_motion(double x, double y) {
+			Rect r = m_basic.bounding_rect();
+			bool selected = inside(x, y, r.x, r.y, r.w, r.h);
+			if (selected != m_basic.selected()) {
+				m_basic.selected() = selected;
+				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+			}
+			return false;
+		}
+
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			m_basic.draw_symbol(cr, Point(m_xofs, m_yofs));
+
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->set_line_width(1.5);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
-			cr->rectangle(0, 0, 70, 70);
-			cr->set_source_rgba(0.9, 0.9, 0.95, 8.0);
-			cr->fill_preserve();
-			cr->set_source_rgba(0.0, 0.0, 0.0, 1.0);
-			cr->stroke();
 
 			cr->set_line_width(0.2);
 			if (m_point_right) {
@@ -229,16 +340,21 @@ namespace app {
 
 				cr->move_to(10, 59); cr->text_path("Ck");
 				cr->move_to(50, 59); cr->text_path("Q");
-				cr->move_to(50, 48); cr->line_to(60,48);
 			} else {
 				cr->move_to(10, 17); cr->text_path("Q");
 				cr->move_to(50, 17); cr->text_path("D");
 
 				cr->move_to(10, 59); cr->text_path("Q");
-				cr->move_to(10, 48); cr->line_to(20,48);
 				cr->move_to(50, 59); cr->text_path("Ck");
 			}
 			cr->fill_preserve(), cr->stroke();
+			cr->set_line_width(0.8);
+			if (m_point_right) {
+				cr->move_to(50, 48); cr->line_to(60,48);
+			} else {
+				cr->move_to(10, 48); cr->line_to(20,48);
+			}
+			cr->stroke();
 
 			cr->set_source_rgba(0.5, 0.5, 0.9, 1.0);
 			cr->set_line_width(0.8);
@@ -261,8 +377,10 @@ namespace app {
 		}
 
 		LatchDiagram(Latch &a_latch, bool point_right, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area), m_latch(a_latch), m_point_right(point_right),  m_x(x), m_y(y)
-		{}
+			CairoDrawing(a_area), m_latch(a_latch), m_point_right(point_right),  m_x(x), m_y(y), m_size(70, 70)
+		{
+			m_basic = BlockSymbol(m_x+m_size.x/2, m_y+m_size.y/2, m_size.x, m_size.y);
+		}
 	};
 
 }

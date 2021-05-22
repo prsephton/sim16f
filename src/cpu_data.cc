@@ -81,7 +81,8 @@ class OPTION: public Register {
 };
 
 
-CPU_DATA::CPU_DATA(): execPC(0), SP(0), W(0), Config(0), porta(pins), portb(pins) {
+CPU_DATA::CPU_DATA():
+		execPC(0), SP(0), W(0), Config(0), porta(pins), portb(pins), cfg1("CONFIG1"), cfg2("CONFIG2") {
 	Registers["INDF"]   = new INDF();
 	Registers["TMR0"]   = new Register(SRAM::TMR0, "TMR0", "Timer 0");  // bank 0 and 2
 	Registers["PCL"]    = new Register(SRAM::PCL, "PCL", "Program Counters Low  Byte");  // all banks

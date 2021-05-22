@@ -25,6 +25,7 @@ class Register : public Device {
 	WORD index() { return m_idx; }
 	virtual ~Register() {}
 
+	bool get_value() { return m_value; }
 	bool set_value(BYTE a_value, BYTE a_old=0) {
 		BYTE changed = a_old ^ a_value; // all changing bits.
 		m_value = a_value;

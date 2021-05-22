@@ -36,12 +36,12 @@ namespace app {
 			WireDiagram &wire = dynamic_cast<WireDiagram &>(*m_components["Data Bus"]);
 			wire.add(WireDiagram::pt(0,  23, true));
 			wire.add(WireDiagram::pt(100, 23));
-			wire.add(WireDiagram::pt(70,  23, false,true));
+			wire.add(WireDiagram::pt(70,  23, true,true));
 			wire.add(WireDiagram::pt(70, 340));
 			wire.add(WireDiagram::pt(120,340));
-			wire.add(WireDiagram::pt(70, 144, false,true));
+			wire.add(WireDiagram::pt(70, 144, true,true));
 			wire.add(WireDiagram::pt(100,144));
-			wire.add(WireDiagram::pt(70, 270, false,true));
+			wire.add(WireDiagram::pt(70, 270, true,true));
 			wire.add(WireDiagram::pt(120,270));
 			wire.add(WireDiagram::text(0, 21, "Data bus"));
 		}
