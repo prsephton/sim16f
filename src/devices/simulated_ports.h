@@ -589,7 +589,7 @@ public:
 		Clamp * PinClamp = new Clamp(Pin);
 
 		auto And1 = new AndGate({&TrisLatch.Q(), &m_Fosc2}, false, "And1");
-		auto Nor1 = new OrGate({&And1->rd(), &m_Fosc1}, false, "Nor1");
+		auto Nor1 = new OrGate({&And1->rd(), &m_Fosc1}, true, "Nor1");
 		Tristate *Tristate1 = new Tristate(mux->rd(), Nor1->rd(), true);
 		PinWire.connect(Tristate1->rd());
 
@@ -598,6 +598,9 @@ public:
 		c["PinClamp"] = PinClamp;
 		c["And1"] = And1;
 		c["Nor1"] = Nor1;
+
+		DeviceEvent<Clock>::subscribe<SinglePortA_RA6_CLKOUT>(this, &SinglePortA_RA6_CLKOUT::on_clock_change);
+
 	}
 
 	Connection &fosc1() { return m_Fosc1; }

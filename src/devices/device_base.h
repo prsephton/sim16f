@@ -270,7 +270,7 @@ class Wire: public Device {
 	float rd() {
 		float V;
 		indeterminate = true;
-		if (name() == "RA2::pin") debug = true;
+//		if (name() == "RA2::pin") debug = true;
 
 		if (debug) std::cout << "read wire " << name() << ": ";
 		for (auto conn = connections.begin(); conn != connections.end(); ++conn) {
@@ -541,6 +541,7 @@ class OrGate: public Device {
 		}
 		m_out.set_value((m_inverted ^ sig) * Vdd, false);
 	}
+	bool inverted() { return m_inverted; }
 	Connection &rd() { return m_out; }
 };
 
@@ -584,7 +585,7 @@ class Mux: public Device {
 			DeviceEvent<Connection>::subscribe<Mux>(this, &Mux::on_change, m_in[n]);
 		}
 		for (size_t n = 0; n < m_select.size(); ++n) {
-			DeviceEvent<Connection>::subscribe<Mux>(this, &Mux::on_select, m_in[n]);
+			DeviceEvent<Connection>::subscribe<Mux>(this, &Mux::on_select, m_select[n]);
 		}
 		calculate_select();
 		set_output();

@@ -223,6 +223,7 @@ namespace app {
 			DeviceEvent<Wire>::subscribe<PortA6>(this, &PortA6::on_wire_change, &DataBus);
 			DeviceEvent<Connection>::subscribe<PortA6>(this, &PortA6::on_connection_change, &DataLatch.Q());
 			DeviceEvent<Connection>::subscribe<PortA6>(this, &PortA6::on_connection_change, &TrisLatch.Q());
+			DeviceEvent<Connection>::subscribe<PortA6>(this, &PortA6::on_connection_change, &Mux1.in(1));
 
 			m_components["Data Latch"] = new LatchDiagram(DataLatch, true, 200.0,  150.0, m_area);
 			m_components["DataLatch.Q"] = new ConnectionDiagram(DataLatch.Q(), 200, 140, m_area);
