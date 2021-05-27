@@ -163,15 +163,6 @@ namespace app {
 			m_cpu(a_cpu), m_refGlade(a_refGlade)
 		{
 
-//			m_components["MCLRE Wire"] = MCLREWire;
-//			m_components["Schmitt1"] = St1;
-//			m_components["Schmitt2"] = St2;
-//			m_components["And1"] = g1;
-//			m_components["Inverter1"] = NotPort;
-//			m_components["SR1"] = SR1;
-//			m_components["Tristate2"] = Tristate2;
-//			m_components["Tristate3"] = Tristate3;
-
 			auto &p5 = dynamic_cast<SinglePortA_MCLR_RA5 &>(*(m_cpu.porta.RA[5]));
 			auto &c = p5.components();
 			Wire &DataBus = dynamic_cast<Wire &> (*(c["Data Bus"]));

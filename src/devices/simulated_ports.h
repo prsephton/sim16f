@@ -462,6 +462,10 @@ protected:
 
 
 	void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+		if (name=="CONFIG1") {
+			bool flag = data[2] & 0b100000;
+			MCLRE.set_value(Vdd*flag, false);
+		}
 	}
 
 
@@ -472,6 +476,8 @@ protected:
 		Wire *DataBus = new Wire(a_name+"::data");
 		Wire *PinWire = new Wire(a_name+"::pin");
 		Wire *MCLREWire = new Wire(a_name+"::mclre");
+
+		Pin.set_value(Vdd, false);
 
 		PinWire->connect(Pin);
 		Schmitt *St1 = new Schmitt(S1);
