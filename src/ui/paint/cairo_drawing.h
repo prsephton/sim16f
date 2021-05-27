@@ -62,18 +62,6 @@ namespace app {
 			return fabs(yc);
 		}
 
-		bool inside(double px, double py, double x, double y, double w, double h) {
-			// is px,py inside rect(x,y,w,h) ?
-			if (w < 0) { x += w; w = abs(w); }
-			if (h < 0) { y += h; h = abs(h); }
-			px -= x; py -= y;
-			if (px >= 0 && px <= w && py >= 0 && py < h) {
-				std::cout << "Test ("<< px <<", " << py << ") inside rect(" << x << ", " << y << ", " << w << ", " << h << ")" << std::endl;
-				return true;
-			}
-			return false;
-		}
-
 	  public:
 		struct DIRECTION {
 			static constexpr double UP      = -M_PI/2.0;

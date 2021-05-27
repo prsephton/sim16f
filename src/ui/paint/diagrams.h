@@ -23,7 +23,7 @@ namespace app {
 		virtual bool on_motion(double x, double y) {
 			Rect r = m_symbol.bounding_rect();
 			bool selected = m_symbol.selected();
-			m_symbol.selected() = inside(x, y, r.x, r.y, r.w, r.h);
+			m_symbol.selected() = r.inside(Point(x, y));
 			if (selected != m_symbol.selected()) {
 				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
 			}
@@ -58,7 +58,7 @@ namespace app {
 		virtual bool on_motion(double x, double y) {
 			Rect r = m_symbol.bounding_rect();
 			bool selected = m_symbol.selected();
-			m_symbol.selected() = inside(x, y, r.x, r.y, r.w, r.h);
+			m_symbol.selected() = r.inside(Point(x, y));
 			if (selected != m_symbol.selected()) {
 				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
 			}
@@ -161,7 +161,7 @@ namespace app {
 		virtual bool on_motion(double x, double y) {
 			Rect r = m_symbol.bounding_rect();
 			bool selected = m_symbol.selected();
-			m_symbol.selected() = inside(x, y, r.x, r.y, r.w, r.h);
+			m_symbol.selected() = r.inside(Point(x, y));
 			if (selected != m_symbol.selected()) {
 				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
 			}
@@ -194,7 +194,7 @@ namespace app {
 		virtual bool on_motion(double x, double y) {
 			Rect r = m_symbol.bounding_rect();
 			bool selected = m_symbol.selected();
-			m_symbol.selected() = inside(x, y, r.x, r.y, r.w, r.h);
+			m_symbol.selected() = r.inside(Point(x, y));
 			if (selected != m_symbol.selected()) {
 				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
 			}
@@ -242,7 +242,7 @@ namespace app {
 		virtual bool on_motion(double x, double y) {
 			Rect r = m_symbol.bounding_rect();
 			bool selected = m_symbol.selected();
-			m_symbol.selected() = inside(x, y, r.x, r.y, r.w, r.h);
+			m_symbol.selected() = r.inside(Point(x, y));
 			if (selected != m_symbol.selected()) {
 				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
 			}
@@ -280,7 +280,7 @@ namespace app {
 		virtual bool on_motion(double x, double y) {
 			Rect r = m_symbol.bounding_rect();
 			bool selected = m_symbol.selected();
-			m_symbol.selected() = inside(x, y, r.x, r.y, r.w, r.h);
+			m_symbol.selected() = r.inside(Point(x, y));
 			if (selected != m_symbol.selected()) {
 				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
 			}
@@ -317,7 +317,7 @@ namespace app {
 
 		virtual bool on_motion(double x, double y) {
 			Rect r = m_basic.bounding_rect();
-			bool selected = inside(x, y, r.x, r.y, r.w, r.h);
+			bool selected = r.inside(Point(x, y));
 			if (selected != m_basic.selected()) {
 				m_basic.selected() = selected;
 				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
@@ -361,11 +361,19 @@ namespace app {
 
 			cr->rectangle(0, 10, 5, 8);
 			draw_indicator(cr, m_point_right?m_latch.D().signal():m_latch.Q().signal());
-			cr->rectangle(0, 52, 5, 8);
+			if (m_point_right) {
+				cr->move_to(0, 50); cr->line_to(7,56); cr->line_to(0, 62); cr->close_path();
+			} else {
+				cr->rectangle(0, 52, 5, 8);
+			}
 			draw_indicator(cr, m_point_right?m_latch.Ck().signal():m_latch.Qc().signal());
 			cr->rectangle(65,10, 5, 8);
 			draw_indicator(cr, m_point_right?m_latch.Q().signal():m_latch.D().signal());
-			cr->rectangle(65,52, 5, 8);
+			if (m_point_right) {
+				cr->rectangle(65,52, 5, 8);
+			} else {
+				cr->move_to(70, 50); cr->line_to(63,56); cr->line_to(70, 62); cr->close_path();
+			}
 			draw_indicator(cr, m_point_right?m_latch.Qc().signal():m_latch.Ck().signal());
 
 			cr->move_to(0, 82);

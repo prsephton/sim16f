@@ -111,6 +111,7 @@ class EEPROM: public Device {
 	}
 };
 
+
 class PINS: public Device {
 
 	Connection pins[PIN_COUNT];
@@ -173,15 +174,6 @@ class PINS: public Device {
 		}
 		pins[pin_Vdd-1].set_value(Vdd, false);
 	}
-
-//	void clock_event(Clock *r, const std::string &name, const std::vector<BYTE> &data) {
-//		if (name == "oscillator") {
-//			pins[pin_OSC2-1].set_value(((bool)data[0]) * Vdd, false);
-//		} else if (name == "CLKOUT") {
-//			pins[pin_CLKOUT-1].set_value(((bool)data[0]) * Vdd, false);
-//		}
-//	}
-//
 
 	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 //		std::cout << "Register changed " << name << std::endl;

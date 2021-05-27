@@ -9,22 +9,36 @@
 
 namespace app {
 
-	struct Rect {
-		double x;
-		double y;
-		double w;
-		double h;
-
-		Rect(double a_x, double a_y, double a_w, double a_h):
-			x(a_x), y(a_y), w(a_w), h(a_h) {}
-	};
-
 	struct Point {
 		double x;
 		double y;
 
 		Point(double a_x, double a_y):
 			x(a_x), y(a_y) {}
+	};
+
+	struct Rect {
+		double x;
+		double y;
+		double w;
+		double h;
+
+		bool inside(Point p) {
+			// is px,py inside rect(x,y,w,h) ?
+			double lx=x, ly=y, lw = w, lh = h;
+			if (lw < 0) { lx += lw; w = abs(lw); }
+			if (lh < 0) { ly += lh; h = abs(lh); }
+			p.x -= lx; p.y -= ly;
+			if (p.x >= 0 && p.x <= lw && p.y >= 0 && p.y < lh) {
+//				std::cout << "Test ("<< px <<", " << py << ") inside rect(" << x << ", " << y << ", " << w << ", " << h << ")" << std::endl;
+				return true;
+			}
+			return false;
+		}
+
+
+		Rect(double a_x, double a_y, double a_w, double a_h):
+			x(a_x), y(a_y), w(a_w), h(a_h) {}
 	};
 
 	class Symbol {
@@ -447,7 +461,7 @@ namespace app {
 				Symbol &s = *m_symbols[n];
 				Rect r = s.bounding_rect();
 				bool selected = s.selected();
-				s.selected() = inside(x, y, r.x, r.y, r.w, r.h);
+				s.selected() = r.inside(Point(x, y));
 				if (selected != s.selected()) {
 //					m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
 					m_area->queue_draw();

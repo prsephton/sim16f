@@ -432,6 +432,7 @@ class Tristate: public Device {
 	bool gate_invert() { return m_invert_gate; }
 
 	void wr(float in) { m_in.set_value(in, true); }
+	Connection &input() { return m_in; }
 	Connection &rd() { return m_out; }
 };
 
