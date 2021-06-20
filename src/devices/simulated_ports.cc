@@ -535,7 +535,7 @@ Connection &SinglePortA_RA6_CLKOUT::osc()   { return m_OSC; }
 // an internal oscillator determines whether RA7 can be used as an input/output pin.
 // For anything other than these internal oscillator modes, the pin leads straight
 // to the clock circuits.
-virtual void PortA_RA7::on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+void PortA_RA7::on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	if (name == "CONFIG1") {
 		BYTE fosc = (data[2] & 0b11) | ((data[2] >> 2) & 0b100);
 		m_Fosc.set_value(Vdd * (fosc==0b100 || fosc==0b101), false);
