@@ -4,6 +4,7 @@
 #include <cstring>
 #include <iostream>
 #include <iomanip>
+#include <exception>
 #include <unistd.h>
 #include <pthread.h>
 
@@ -95,7 +96,11 @@ class CPU {
 	void toggle_clock() { data.clock.toggle(); }
 
 	bool running() const { return active; }
-	void stop() { active = false; }
+	void stop() {
+		data.device_events.clear();
+		while (! data.control.empty()) data.control.pop();
+		active = false;
+	}
 
 	void configure(const std::string &a_filename) {};
 	void load_eeprom(const std::string &a_filename) {};
@@ -109,17 +114,22 @@ class CPU {
 	CPU_DATA &cpu_data() { return data; }
 
 	void process_queue() {
-		data.device_events.process_events();
-		while (!data.control.empty()) {
-			ControlEvent e = data.control.front(); data.control.pop();
-			if (e.name == "pause") paused = true;
-			if (e.name == "play") paused = false;
-			if (e.name == "next" and paused) nsteps += 1;
-			if (e.name == "back") reset();
-			if (e.name == "reset") {
+		try {
+			data.device_events.process_events();
+			while (!data.control.empty()) {
+				ControlEvent e = data.control.front(); data.control.pop();
+				if (e.name == "pause") paused = true;
+				if (e.name == "play") paused = false;
+				if (e.name == "next" and paused) nsteps += 1;
+				if (e.name == "back") reset();
+				if (e.name == "reset") {
 
-				reset();
+					reset();
+				}
 			}
+		} catch (std::exception &e) {
+			std::cout << e.what() << std::endl;
+		} catch (...) {
 		}
 	}
 

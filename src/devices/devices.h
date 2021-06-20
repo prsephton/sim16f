@@ -222,7 +222,7 @@ class PORTA: public Device {
 		RA[4] = new SinglePortA_Analog_RA4(pins[PINS::pin_RA4], Comp2, "RA4");
 		RA[5] = new SinglePortA_MCLR_RA5(pins[PINS::pin_RA5], "RA5");
 		RA[6] = new SinglePortA_RA6_CLKOUT(pins[PINS::pin_RA6], "RA6");
-		RA[7] = new SinglePort(pins[PINS::pin_RA7], "RA7", 0, 7);
+		RA[7] = new PortA_RA7(pins[PINS::pin_RA7], "RA7");
 	}
 	const BYTE rd_tris() {
 		BYTE data_bus;

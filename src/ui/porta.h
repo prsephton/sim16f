@@ -11,6 +11,7 @@
 #include "port_a4.h"
 #include "port_a5.h"
 #include "port_a6.h"
+#include "port_a7.h"
 #include "../utils/smart_ptr.h"
 
 namespace app {
@@ -25,6 +26,7 @@ namespace app {
 		SmartPtr<Component> a4;
 		SmartPtr<Component> a5;
 		SmartPtr<Component> a6;
+		SmartPtr<Component> a7;
 
 	  public:
 
@@ -38,6 +40,7 @@ namespace app {
 			a4 = new PortA4(a_cpu, a_refGlade);
 			a5 = new PortA5(a_cpu, a_refGlade);
 			a6 = new PortA6(a_cpu, a_refGlade);
+			a7 = new PortA7(a_cpu, a_refGlade);
 		}
 	};
 

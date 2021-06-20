@@ -148,7 +148,7 @@ class SinglePort: public BasicPort {
 	}
 };
 
-//___________________________________________________________________________________
+//___________________________________________________________________8________________
 //  A model for a single port for pins RA0/AN0, RA1/AN1
 //  These are standard ports, but with a comparator output
 class SinglePortA_Analog: public SinglePort {
@@ -583,7 +583,7 @@ class SinglePortA_RA6_CLKOUT: public  BasicPort {
 
 public:
 	SinglePortA_RA6_CLKOUT(Connection &a_Pin, const std::string &a_name) :
-		BasicPort(a_Pin, a_name, 0, 3), m_fosc(0)
+		BasicPort(a_Pin, a_name, 0, 6), m_fosc(0)
 	{
 		auto &c = components();
 		Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
@@ -613,5 +613,47 @@ public:
 	Connection &fosc2() { return m_Fosc2; }
 	Connection &osc()   { return m_OSC; }
 
+};
+
+//___________________________________________________________________8________________
+// Port RA7/Osc1/CLKIN shares most features with a basic port.
+// This means that it has the normal data and Tris latches and the output pin is
+// clamped between Vss and Vdd.  It varies for Fosc modes 0b100 and 0b101, in that
+// an internal oscillator determines whether RA7 can be used as an input/output pin.
+// For anything other than these internal oscillator modes, the pin leads straight
+// to the clock circuits.
+class PortA_RA7: public BasicPort {
+	Connection m_Fosc;
+
+  protected:
+
+	virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+		if (name == "CONFIG1") {
+			BYTE fosc = (data[2] & 0b11) | ((data[2] >> 2) & 0b100);
+			m_Fosc.set_value(Vdd * (fosc==0b100 || fosc==0b101), false);
+			S1_en.set_value(Vdd * (fosc==0b100 || fosc==0b101), true);
+		}
+	}
+
+  public:
+	PortA_RA7(Connection &a_Pin, const std::string &a_name):
+		BasicPort(a_Pin, a_name, 0, 7), m_Fosc()
+	{
+		auto &c = components();
+		Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
+		Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
+
+		AndGate *nand1 = new AndGate({&m_Fosc, &TrisLatch.Qc()}, true, "NAND1");
+		c["NAND1"] = nand1;
+
+		Tristate *Tristate1 = new Tristate(DataLatch.Q(), nand1->rd(), true);
+		Wire &PinWire = dynamic_cast<Wire &>(*c["Pin Wire"]);
+		PinWire.connect(Tristate1->rd());
+		c["Tristate1"] = Tristate1;    // smart pointer should discard old Tristate1
+		Clamp * PinClamp = new Clamp(Pin);
+		c["PinClamp"] = PinClamp;
+	}
+
+	Connection &Fosc() { return m_Fosc; }
 };
 

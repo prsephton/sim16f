@@ -53,10 +53,17 @@ class DeviceEventQueue {
 	static std::mutex mtx;
 
   public:
+
 	void queue_event(QueueableEvent *event) {
 		mtx.lock();
 		events.push(event);
 		mtx.unlock();
+	}
+
+	void clear() {
+		while (!events.empty()) {
+			events.pop();
+		}
 	}
 
 	void remove_events_for(Device *d) {
@@ -75,15 +82,20 @@ class DeviceEventQueue {
 
 	void process_events() {
 		int n;
-		for (n=0; n<100; ++n)
-			if (events.empty())
-				break;
-			else {
-				mtx.lock();
-				auto event = events.front(); events.pop();
-				mtx.unlock();
-				event->fire_event();
-			}
+		try {
+			for (n=0; n<100; ++n)
+				if (events.empty())
+					break;
+				else {
+					mtx.lock();
+					auto event = events.front(); events.pop();
+					mtx.unlock();
+					event->fire_event();
+				}
+		} catch (std::exception &e) {
+			std::cout << e.what() << std::endl;
+		} catch (...) {}
+
 		if (n == 100)
 			std::cout << "Possible event loop detected" << std::endl;
 	}
