@@ -80,8 +80,10 @@ namespace app {
 
 	class PinDiagram:  public CairoDrawing {
 		Connection &m_pin;
-		int m_x;
-		int m_y;
+		double m_x;
+		double m_y;
+		double m_rotation;
+		double m_scale;
 
 	  public:
 
@@ -90,14 +92,34 @@ namespace app {
 		}
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			PinSymbol(m_x, m_y).draw_symbol(cr, Point(m_xofs, m_yofs));
+			bool signal = m_pin.signal();
+
+			cr->save();
+			cr->translate(m_x, m_y);
+			if (signal) this->green(cr); else this->gray(cr);
+			cr->rotate(m_rotation);
+			cr->scale(m_scale, m_scale);
+			cr->rectangle(0,-10,20,20);
+			cr->fill();
+			cr->restore();
+
+			this->black(cr);
+
+			PinSymbol(m_x, m_y, m_rotation, m_scale).draw_symbol(cr, Point(m_xofs, m_yofs));
+
+
 			return false;
 		}
 
-		PinDiagram(Connection &a_pin, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area), m_pin(a_pin), m_x(x), m_y(y)
-		{
+		void on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data) {
+//			std::cout << "Connection change: " << name << " to " << conn->name() << std::endl;
+			m_area->queue_draw_area((int)m_x, (int)m_y-10, 20, 20);
+		}
 
+		PinDiagram(Connection &a_pin, double x, double y, double rotation, double scale, Glib::RefPtr<Gtk::DrawingArea>a_area):
+			CairoDrawing(a_area), m_pin(a_pin), m_x(x), m_y(y), m_rotation(rotation), m_scale(scale)
+		{
+			DeviceEvent<Connection>::subscribe<PinDiagram>(this, &PinDiagram::on_connection_change, &a_pin);
 		}
 	};
 
