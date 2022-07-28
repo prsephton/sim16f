@@ -31,7 +31,13 @@ void BasicPort::process_register_change(Register *r, const std::string &name, co
 			eq.process_events();
 		} else if ((porta_select && name == "TRISA") || (!porta_select && name == "TRISB")) {
 			bool input = ((data[2] & port_mask) == port_mask);
-			if (debug) std::cout << this->name() << "; " << name << " = " << input << std::endl;
+			if (this->name() == "RA4") input = true;   // this port is a drain and expects a positive voltage
+
+			debug = (this->name() == "RA6" && Pin.name() == "RA6/OSC2/CLKOUT");
+			if (debug)
+				std::cout << std::string("  ! direction of ") <<  this->name() << "; " << name << " = " << (input?"input":"output") << std::endl;
+
+			Pin.impeded(!input);
 			Data.set_value(input * Vdd, true);
 			eq.process_events();
 			Tris.set_value(Vdd, true);
@@ -39,6 +45,9 @@ void BasicPort::process_register_change(Register *r, const std::string &name, co
 			Tris.set_value(Vss, true); // clock the signal
 			eq.process_events();
 			Data.set_value(Data.rd(), true);    // impeded.
+			eq.process_events();
+			if (debug)
+				std::cout << this->name() << ":" << Pin.name() << " is " << (Pin.impeded()?"":" not ") << "impeded" << std::endl;
 		}
 	}
 }
@@ -57,15 +66,8 @@ BasicPort::BasicPort(Connection &a_Pin, const std::string &a_name, int port_no, 
 	Latch *TrisLatch = new Latch(Data, Tris, false, true); TrisLatch->set_name(a_name+"::TrisLatch");
 
 	PinWire->connect(Pin);
-	Schmitt *trigger = new Schmitt(S1, S1_en);
 
 	Inverter *NotPort = new Inverter(rdPort);
-	Latch *SR1 = new Latch(trigger->rd(), NotPort->rd(), true, false); SR1->set_name(a_name+"::InLatch");
-	Tristate *Tristate2 = new Tristate(SR1->Q(), rdPort);  Tristate2->name(a_name+"::TS2");
-	DataBus->connect(Tristate2->rd());
-
-	Tristate *Tristate3 = new Tristate(TrisLatch->Qc(), rdTris, false, true);  Tristate3->name(a_name+"::TS3");
-	DataBus->connect(Tristate3->rd());
 
 	m_components["Data Bus"] = DataBus;
 	m_components["Pin Wire"] = PinWire;
@@ -73,13 +75,10 @@ BasicPort::BasicPort(Connection &a_Pin, const std::string &a_name, int port_no, 
 	m_components["Tris Latch"] = TrisLatch;
 
 	m_components["Inverter1"] = NotPort;
-	m_components["Tristate2"] = Tristate2;
-	m_components["Tristate3"] = Tristate3;
-	m_components["Schmitt Trigger"] = trigger;
-	m_components["SR1"] = SR1;
 
 	DeviceEvent<Register>::subscribe<BasicPort>(this, &BasicPort::on_register_change);
 }
+
 Wire &BasicPort::bus_line() { return dynamic_cast<Wire &>(*m_components["Data Bus"]); }
 Connection &BasicPort::data() { return Data; }
 Connection &BasicPort::pin() { return Pin; }
@@ -89,6 +88,7 @@ Connection &BasicPort::read_port() {           // read the port
 	rdPort.set_value(Vdd, true);    // raise a read signal on the port read control line
 	eq.process_events();            // basically propagate all events, and their events etc.
 	rdPort.set_value(Vss, true);    // lower the read singal.  The result is on the bus.
+	eq.process_events();            // basically propagate all events, and their events etc.
 	return Data;
 }
 Connection &BasicPort::read_tris() {           // read the tris latch value
@@ -96,15 +96,40 @@ Connection &BasicPort::read_tris() {           // read the tris latch value
 	rdTris.set_value(Vdd, true);    // raise a read signal on the port read control line
 	eq.process_events();            // basically propagate all events, and their events etc.
 	rdTris.set_value(Vss, true);    // lower the read singal.  The result is on the bus.
+	eq.process_events();            // basically propagate all events, and their events etc.
 	return Data;
 }
 
 
+BasicPortA::BasicPortA(Connection &a_Pin, const std::string &a_name, int port_bit_ofs):
+	BasicPort(a_Pin, a_name, 0, port_bit_ofs)
+{
+	auto &c = components();
+	Inverter &NotPort = dynamic_cast<Inverter &>(*c["Inverter1"]);
+	Wire &DataBus = dynamic_cast<Wire &>(*c["Data Bus"]);
+	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
+
+	Schmitt *trigger = new Schmitt(S1, S1_en);
+	Latch *SR1 = new Latch(trigger->rd(), NotPort.rd(), true, false); SR1->set_name(a_name+"::InLatch");
+
+	Tristate *Tristate2 = new Tristate(SR1->Q(), rdPort);  Tristate2->name(a_name+"::TS2");
+	DataBus.connect(Tristate2->rd());
+
+	Tristate *Tristate3 = new Tristate(TrisLatch.Qc(), rdTris, false, true);  Tristate3->name(a_name+"::TS3");
+	DataBus.connect(Tristate3->rd());
+
+	c["Tristate2"] = Tristate2;
+	c["Schmitt Trigger"] = trigger;
+	c["SR1"] = SR1;
+	c["Tristate3"] = Tristate3;
+
+}
+
 //___________________________________________________________________________________
 //  A model for a most ports, which have a Tristate connected to the DataLatch
 // and TrisLatch, and clamps the port range.
-SinglePort::SinglePort(Connection &a_Pin, const std::string &a_name, int port_no, int port_bit_ofs):
-	BasicPort(a_Pin, a_name, port_no, port_bit_ofs)
+SinglePortA::SinglePortA(Connection &a_Pin, const std::string &a_name, int port_bit_ofs):
+	BasicPortA(a_Pin, a_name, port_bit_ofs)
 {
 	auto &c = components();
 	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
@@ -176,7 +201,7 @@ void SinglePortA_Analog::on_register_change(Register *r, const std::string &name
 }
 
 SinglePortA_Analog::SinglePortA_Analog(Connection &a_Pin, const std::string &a_name):
-		SinglePort(a_Pin, a_name, 0, a_name=="RA0"?0:a_name=="RA1"?1:a_name=="RA3"?2:a_name=="RA4"?3:0),
+		SinglePortA(a_Pin, a_name, a_name=="RA0"?0:a_name=="RA1"?1:a_name=="RA3"?2:a_name=="RA4"?3:0),
 		Comparator(Vss, true, a_name+"::Comparator")
 	{
 		set_comparators_for_an0_and_an1(0b111);
@@ -298,7 +323,7 @@ void SinglePortA_Analog_RA3::on_register_change(Register *r, const std::string &
 }
 
 SinglePortA_Analog_RA3::SinglePortA_Analog_RA3(Connection &a_Pin, Connection &comparator_out, const std::string &a_name) :
-	BasicPort(a_Pin, a_name, 0, 3), m_comparator_out(comparator_out)
+	BasicPortA(a_Pin, a_name, 3), m_comparator_out(comparator_out)
 {
 	auto &c = components();
 	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
@@ -331,22 +356,24 @@ Connection &SinglePortA_Analog_RA3::comparator() { return Comparator; }
 // We can derive from BasicPort, since that has no Tristate connected to DataLatch,
 // and no pin clamp.
 
-void SinglePortA_Analog_RA4::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
-	if (name == "PORTA" || name == "PORTB") {
-		bool input = ((data[2] & port_mask) == port_mask);
-		Port.set_value(input * Vdd, true);
-	} else if (name == "TRISA" || name == "TRISB") {
-		bool input = ((data[2] & port_mask) == port_mask);
-		Tris.set_value(input * Vdd, true);
-	}
-}
+
+// TODO:  the following does not properly clock data- ref: BasicPort
+//void SinglePortA_Analog_RA4::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+//	if (name == "PORTA" || name == "PORTB") {
+//		bool input = ((data[2] & port_mask) == port_mask);
+//		Port.set_value(input * Vdd, true);
+//	} else if (name == "TRISA" || name == "TRISB") {
+//		bool input = ((data[2] & port_mask) == port_mask);
+//		Tris.set_value(input * Vdd, true);
+//	}
+//}
 
 void SinglePortA_Analog_RA4::on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	process_register_change(r, name, data);  // handles TRIS/PORT changes
 }
 
 SinglePortA_Analog_RA4::SinglePortA_Analog_RA4(Connection &a_Pin, Connection &comparator_out, const std::string &a_name) :
-	BasicPort(a_Pin, a_name, 0, 4), m_comparator_out(comparator_out)
+	BasicPortA(a_Pin, a_name, 4), m_comparator_out(comparator_out)
 {
 
 	auto &c = components();
@@ -391,6 +418,8 @@ Connection &SinglePortA_Analog_RA4::TMR0() {
 		if (name=="CONFIG1") {
 			bool flag = data[2] & 0b100000;
 			MCLRE.set_value(Vdd*flag, false);
+		} else {
+
 		}
 	}
 
@@ -484,6 +513,8 @@ void SinglePortA_RA6_CLKOUT::on_register_change(Register *r, const std::string &
 		} else if (m_fosc == 0b001) { // XT osc on RA6 & RA7
 		} else if (m_fosc == 0b000) { // LP osc on RA6 & RA7
 		}
+	} else {
+		process_register_change(r, name, data);  // handles TRIS/PORT changes
 	}
 }
 
@@ -498,7 +529,7 @@ void SinglePortA_RA6_CLKOUT::on_clock_change(Clock *c, const std::string &name, 
 }
 
 SinglePortA_RA6_CLKOUT::SinglePortA_RA6_CLKOUT(Connection &a_Pin, const std::string &a_name) :
-	BasicPort(a_Pin, a_name, 0, 6), m_fosc(0)
+	BasicPortA(a_Pin, a_name, 6), m_fosc(0)
 {
 	auto &c = components();
 	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
@@ -540,11 +571,13 @@ void PortA_RA7::on_register_change(Register *r, const std::string &name, const s
 		BYTE fosc = (data[2] & 0b11) | ((data[2] >> 2) & 0b100);
 		m_Fosc.set_value(Vdd * (fosc==0b100 || fosc==0b101), false);
 		S1_en.set_value(Vdd * (fosc==0b100 || fosc==0b101), true);
+	} else {
+		process_register_change(r, name, data);  // handles TRIS/PORT changes
 	}
 }
 
 PortA_RA7::PortA_RA7(Connection &a_Pin, const std::string &a_name):
-	BasicPort(a_Pin, a_name, 0, 7), m_Fosc()
+	BasicPortA(a_Pin, a_name, 7), m_Fosc()
 {
 	auto &c = components();
 	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
@@ -563,3 +596,98 @@ PortA_RA7::PortA_RA7(Connection &a_Pin, const std::string &a_name):
 
 Connection &PortA_RA7::Fosc() { return m_Fosc; }
 
+
+//___________________________________________________________________________________
+//___________________________________________________________________________________
+// PortB implementations
+//___________________________________________________________________________________
+//___________________________________________________________________________________
+//  A model for a most ports, which have a Tristate connected to the DataLatch
+// and TrisLatch, and clamps the port range.
+
+void BasicPortB::on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+	if (name == "OPTION") {
+//		bit 7 RBPU: PORTB Pull-up Enable bit
+//			1 = PORTB pull-ups are disabled
+//			0 = PORTB pull-ups are enabled by individual port latch values
+//		bit 6 INTEDG: Interrupt Edge Select bit
+//			1 = Interrupt on rising edge of RB0/INT pin
+//			0 = Interrupt on falling edge of RB0/INT pin
+//		bit 5 T0CS: TMR0 Clock Source Select bit
+//			1 = Transition on RA4/T0CKI pin
+//			0 = Internal instruction cycle clock (CLKOUT)
+//		bit 4 T0SE: TMR0 Source Edge Select bit
+//			1 = Increment on high-to-low transition on RA4/T0CKI pin
+//			0 = Increment on low-to-high transition on RA4/T0CKI pin
+//		bit 3 PSA: Prescaler Assignment bit
+//			1 = Prescaler is assigned to the WDT
+//			0 = Prescaler is assigned to the Timer0 module
+//		bit 2-0 PS2:PS0: Prescaler Rate Select bits
+
+		RBPU().set_value((data[2] & Flags::OPTION::RBPU)?Vdd:Vss, true);
+
+	} else {
+		process_register_change(r, name, data);  // handles TRIS/PORT changes
+	}
+}
+
+
+BasicPortB::BasicPortB(Connection &a_Pin, const std::string &a_name, int port_bit_ofs):
+	BasicPort(a_Pin, a_name, 1, port_bit_ofs)
+{
+	auto &c = components();
+
+	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
+	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
+	Wire &PinWire = dynamic_cast<Wire &>(*c["Pin Wire"]);
+	Inverter &NotPort = dynamic_cast<Inverter &>(*c["Inverter1"]);
+	Wire &DataBus = dynamic_cast<Wire &>(*c["Data Bus"]);
+
+	Tristate *Tristate1 = new Tristate(DataLatch.Q(), TrisLatch.Q(), true); Tristate1->name(a_name+"::TS1");
+	Clamp * PinClamp = new Clamp(Pin);
+
+	PinWire.connect(m_PinOut);
+	ABuffer *b = new ABuffer(m_PinOut);
+	Latch *SR1 = new Latch(b->rd(), NotPort.rd(), true, false); SR1->set_name(a_name+"::InLatch");
+
+	Tristate *Tristate2 = new Tristate(SR1->Q(), rdPort);  Tristate2->name(a_name+"::TS2");
+	DataBus.connect(Tristate2->rd());
+
+	Tristate *Tristate3 = new Tristate(TrisLatch.Q(), rdTris, false, false);  Tristate3->name(a_name+"::TS3");
+	DataBus.connect(Tristate3->rd());
+
+	c["Tristate1"] = Tristate1;
+	c["Tristate2"] = Tristate2;
+	c["Tristate3"] = Tristate3;
+	c["PinClamp"] = PinClamp;
+	c["Out Buffer"] = b;
+	c["SR1"] = SR1;
+
+	Inverter *RBPU_INV = new Inverter(m_RBPU);
+	AndGate *RBPU_GATE = new AndGate({&RBPU_INV->rd(), &TrisLatch.Q()}, true, "RBPU NAND");
+
+	Connection VDD(Vdd, true, "Vdd");
+	FET *pFET1 = new FET(VDD, RBPU_GATE->rd(), false);
+	PinWire.connect(pFET1->rd());
+
+	c["RBPU_INV"] = RBPU_INV;
+	c["RBPU_NAND"] = RBPU_GATE;
+	c["RBPU_FET"] = pFET1;
+
+	PinWire.connect(Tristate1->rd());
+}
+
+//___________________________________________________________________________
+//  RB0 adds a schmitt trigger connected to an interrupt signal
+PortB_RB0::PortB_RB0(Connection &a_Pin, const std::string &a_name):
+	BasicPortB(a_Pin, a_name, 7)
+{
+	auto &c = components();
+
+	Schmitt *trigger = new Schmitt(PinOut(), true, false);
+	Wire *IntWire = new Wire(trigger->rd(), m_INT, "INT");
+
+	c["INT_TRIGGER"] = trigger;
+	c["INT_WIRE"] = IntWire;
+
+}

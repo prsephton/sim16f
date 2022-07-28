@@ -30,20 +30,19 @@ protected:
 	Connection Tris;    // write tris
 	Connection rdPort;  // read port
 	Connection rdTris;  // read tris
-	Connection S1;
-	Connection S1_en;
 	bool       porta_select;  // false is portb
 	BYTE 	   port_mask;
 	DeviceEventQueue eq;
 	bool debug = false;
 
-	void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
-
 	virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
 public:
-	BasicPort(Connection &a_Pin, const std::string &a_name, int port_no, int port_bit_ofs);
 	std::map<std::string, SmartPtr<Device> > &components();
+
+	void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+
+	BasicPort(Connection &a_Pin, const std::string &a_name, int port_no, int port_bit_ofs);
 	Wire &bus_line();
 	Connection &data();
 	Connection &pin();
@@ -53,18 +52,30 @@ public:
 
 
 //___________________________________________________________________________________
+// Some components added specific to port A
+class BasicPortA: public BasicPort {
+protected:
+	Connection S1;
+	Connection S1_en;
+
+public:
+	BasicPortA(Connection &a_Pin, const std::string &a_name, int port_bit_ofs);
+};
+
+
+//___________________________________________________________________________________
 //  A model for a most ports, which have a Tristate connected to the DataLatch
 // and TrisLatch, and clamps the port range.
-class SinglePort: public BasicPort {
+class SinglePortA: public BasicPortA {
 
   public:
-	SinglePort(Connection &a_Pin, const std::string &a_name, int port_no, int port_bit_ofs);
+	SinglePortA(Connection &a_Pin, const std::string &a_name, int port_bit_ofs);
 };
 
 //___________________________________________________________________8________________
 //  A model for a single port for pins RA0/AN0, RA1/AN1
 //  These are standard ports, but with a comparator output
-class SinglePortA_Analog: public SinglePort {
+class SinglePortA_Analog: public SinglePortA {
 
   protected:
 	Connection Comparator;
@@ -101,7 +112,7 @@ class SinglePortA_Analog_RA2: public  SinglePortA_Analog {
 // The mux selects a comparator output if the CMCON register has a comparator
 // mode of 0b110, otherwise the Q output of the data latch is selected
 
-class SinglePortA_Analog_RA3: public  BasicPort {
+class SinglePortA_Analog_RA3: public  BasicPortA {
 	Connection &m_comparator_out;
 	Connection m_cmp_mode_sw;
 	Connection Comparator;
@@ -129,11 +140,9 @@ class SinglePortA_Analog_RA3: public  BasicPort {
 // We can derive from BasicPort, since that has no Tristate connected to DataLatch,
 // and no pin clamp.
 
-class SinglePortA_Analog_RA4: public BasicPort {
+class SinglePortA_Analog_RA4: public BasicPortA {
 	Connection &m_comparator_out;
 	Connection m_cmp_mode_sw;
-
-	void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
 	void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
@@ -196,7 +205,7 @@ protected:
 // configured for I/O, CLKOUT can also be output with FOSC=101,111.
 //  We should be able to derive this port from BasicPort.
 
-class SinglePortA_RA6_CLKOUT: public  BasicPort {
+class SinglePortA_RA6_CLKOUT: public  BasicPortA {
 	Connection m_CLKOUT;
 	Connection m_OSC;
 	Connection m_Fosc1;
@@ -220,15 +229,42 @@ public:
 // an internal oscillator determines whether RA7 can be used as an input/output pin.
 // For anything other than these internal oscillator modes, the pin leads straight
 // to the clock circuits.
-class PortA_RA7: public BasicPort {
+class PortA_RA7: public BasicPortA {
 	Connection m_Fosc;
 
   protected:
-
 	virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
   public:
 	PortA_RA7(Connection &a_Pin, const std::string &a_name);
 	Connection &Fosc();
+};
+
+//___________________________________________________________________________________
+//  A model for a most PortB ports, which have a Tristate connected to the DataLatch
+//  and TrisLatch, and clamps the port range.  PortB ports also have an optional
+//  weak pull-up installed on the pin wire, such that we can drive an external
+//  signal either as an active high, or as an active low.
+class BasicPortB: public BasicPort {
+	Connection m_RBPU;
+	Connection m_PinOut;
+
+protected:
+	virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+
+  public:
+	BasicPortB(Connection &a_Pin, const std::string &a_name, int port_bit_ofs);
+	Connection &RBPU() { return m_RBPU; }
+	Connection &PinOut() { return m_PinOut; }
+};
+
+//___________________________________________________________________________________
+// RB0 is a basic I/O port, which can also drive an interrupt signal.
+class PortB_RB0: public BasicPortB {
+	Connection m_INT;
+
+  public:
+	PortB_RB0(Connection &a_Pin, const std::string &a_name);
+	Connection &INT() { return m_INT; };
 };
 
