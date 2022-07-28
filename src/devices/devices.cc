@@ -15,7 +15,10 @@ void EEPROM::load(const std::string &a_file) {
 }
 
 
+void Clock::stop() { stopped=true; phase=0; high=false;}
+void Clock::start() { stopped=false; }
 void Clock::toggle() {
+	if (stopped) return;
 	high = !high;
 	if (high) {
 		++phase; phase = phase % 4;

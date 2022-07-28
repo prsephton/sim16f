@@ -206,6 +206,7 @@ class Connection: public Device {
 	bool  m_impeded;
 	bool  m_determinate;
 	DeviceEventQueue q;
+	bool debug = true;
 
 	void queue_change(){  // Add a voltage change event to the queue
 		q.queue_event(new DeviceEvent<Connection>(*this, "Voltage Change"));
@@ -227,11 +228,23 @@ class Connection: public Device {
 
 	float rd() { return m_V; }
 	bool impeded() { return m_impeded; }
+	void impeded(bool a_impeded) {
+		std::cout << name() << ": Directly setting impeded=" << a_impeded << std::endl;
+		m_impeded = a_impeded;
+	}
 	bool determinate() { return m_determinate || !m_impeded; }
 	void determinate(bool on) { m_determinate = on; }
 	bool signal() { return m_V > Vdd/2.0; }
 	void set_value(float V, bool impeded) {
+		if (name() == "RA6/OSC2/CLKOUT" && impeded && !m_impeded)
+			std::cout << "Changing an input into an output" << std::endl;
+		if (name() == "RA6/OSC2/CLKOUT" && !impeded && m_impeded)
+			std::cout << "Changing an output into an input" << std::endl;
 		if (m_V != V || m_impeded != impeded) {
+//			if (debug) {
+//				std::cout << "Connection " << name() << ".set_value(" << V << ") [" <<  std::string(impeded?"impeded":"not impeded") << "]";
+//				std::cout << std::endl;
+//			}
 			m_V = V, m_impeded = impeded;
 			queue_change();
 		}
@@ -240,6 +253,15 @@ class Connection: public Device {
 
 //___________________________________________________________________________________
 // A wire can be defined as a collection of connections
+//
+//   Connections may be impeded (high impedance) or unimpeded (low impedence).
+//  impeded connections are treated as outputs, whilst impeded connections
+//  are treated as inputs.
+//   To calculate the voltage on a wire, we find the lowest input voltage for all
+//  unimpeded (input) connections.  We can then update the voltage for all
+//  impeded (output) connections.
+//   If a wire has no unimpeded connections, the voltage on the wire is indeterminate.
+
 class Wire: public Device {
 	std::vector< Connection* > connections;
 	bool indeterminate;
@@ -254,8 +276,11 @@ class Wire: public Device {
 	void on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data) {
 		const char *direction = " <-- ";
 		if (conn->impeded()) direction = " ->| ";
-		if (debug) std::cout << this->name() << direction << name << " changed to " << conn->rd() << "V" << std::endl;
+//		if (this->name() == "RA6::pin")
+//			debug = true;
+		if (debug) std::cout << "Wire " << this->name() << direction << "Connection " << name << " changed to " << conn->rd() << "V" << std::endl;
 		assert();         // determine wire voltage and update impeded connections
+		debug = false;
 		queue_change();
 	}
 
@@ -282,15 +307,15 @@ class Wire: public Device {
 	float rd() {
 		float V;
 		indeterminate = true;
-//		if (name() == "RA2::pin") debug = true;
 
 		if (debug) std::cout << "read wire " << name() << ": ";
 		for (auto conn = connections.begin(); conn != connections.end(); ++conn) {
-			if (debug) std::cout << (*conn)->name()<<" ";
-			if ((*conn)->impeded()) {   // Find lowest unimpeded connection
+			if (debug) std::cout << (*conn)->name();
+			if ((*conn)->impeded())  {                 // Find lowest unimpeded (input) connection
 				(*conn)->determinate(false);
-				if (debug) std::cout << "[i]";
+				if (debug) std::cout << "[o]: ";
 			} else {
+				if (debug) std::cout << "[i]: ";
 				float v = (*conn)->rd();
 				if (indeterminate) {
 					V = v;
@@ -298,31 +323,31 @@ class Wire: public Device {
 				} else {
 					V = (V>v)?v:V;
 				}
-				if (debug) std::cout << "[" << v << "]";
+				if (debug) std::cout << "[" << v << "] ";
 			}
 		}
 		if (indeterminate) {
-			V = Vss;     // If no unimpeded sources or drains, then indeterminate
-		} else {
-			for (auto conn = connections.begin(); conn != connections.end(); ++conn) {
-				(*conn)->determinate(true);
-			}
+			V = Vss;             // If no unimpeded sources, then indeterminate
 		}
-		if (debug) std::cout << "=" << V << "V" << std::endl;
-		debug = false;
+		if (debug) std::cout << "(" << V << "V)" << std::endl;
 		return V;
 	}
+
 	void assert() {  // fires signals to any impeded connections
 		float V = rd();
 		if (debug) std::cout << "Wire: " << name() << " is " << (indeterminate?"unknown":"");
 		if (debug) std::cout << V << "V";
+		if (debug) std::cout << std::endl;
 		for (auto conn = connections.begin(); conn != connections.end(); ++conn) {
-			if ((*conn)->impeded()) {
+			if (indeterminate)
+				(*conn)->determinate(false);
+			else if ((*conn)->impeded()) {
+				if (debug) std::cout << std::string("    -- ") << (*conn)->name() << " set to " << V << "V" << std::endl;
 				(*conn)->set_value(V, true);
 			}
 		}
-		if (debug) std::cout << std::endl;
 	}
+
 	bool determinate() { return !indeterminate; }
 	bool signal() {
 		float V = rd();
@@ -443,8 +468,12 @@ class Tristate: public Device {
 	bool inverted() { return m_invert_output; }
 	bool gate_invert() { return m_invert_gate; }
 
+	Tristate &inverted(bool v) { m_invert_output = v; return *this; }
+	Tristate &gate_invert(bool v) { m_invert_gate = v; return *this; }
+
 	void wr(float in) { m_in.set_value(in, true); }
 	Connection &input() { return m_in; }
+	Connection &gate() { return m_gate; }
 	Connection &rd() { return m_out; }
 };
 
@@ -718,9 +747,15 @@ class Clamp: public Device {
 
 	void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
 		float in = m_in.rd();
-		if (in < m_lo) in = m_lo;
-		if (in > m_hi) in = m_hi;
-		m_in.set_value(in, false);
+		bool changed = false;
+		if (in < m_lo) {
+			in = m_lo; changed = true;
+		}
+		if (in > m_hi) {
+			in = m_hi; changed = true;
+		}
+		if (changed)
+			m_in.set_value(in, m_in.impeded());
 	}
 
   public:

@@ -41,7 +41,7 @@ class Timer0: public Device {
 	}
 
   public:
-	Timer0(): assigned_to_wdt(false), falling_edge(false), use_RA4(false), prescale_rate(0) {
+	Timer0(): Device("TMR0"), assigned_to_wdt(false), falling_edge(false), use_RA4(false), prescale_rate(0) {
 		DeviceEvent<Register>::subscribe<Timer0>(this, &Timer0::register_changed);
 	}
 	void clock_source_select(bool a_use_RA4){
@@ -161,15 +161,37 @@ class PINS: public Device {
 	static const BYTE pin_RA1    = 18;   // Bidirectional I/O port
 	static const BYTE pin_AN1    = 18;   // Analog comparator input
 
+	std::map<BYTE, std::string> pin_names  = {
+			{17, "RA0/AN0"},                          // 17
+			{18, "RA1/AN1"},                          // 18
+			{ 1, "RA2/AN2/Vref"},                     // 1
+			{ 2, "RA3/AN3/CMP1"},                     // 2
+			{ 3, "RA4/T0CK1/CMP2"},                   // 3
+			{ 4, "RA5/MCLR/Vpp"},                     // 4
+			{15, "RA6/OSC2/CLKOUT"},                  // 15
+			{16, "RA7/OSC1/CLKIN"},                   // 16
 
-	Connection &operator[](BYTE idx) {
+			{ 6, "RB0/INT"},                          // 6
+			{ 7, "RB1/RX/DT"},                        // 7
+			{ 8, "RB2/TX/CK"},                        // 8
+			{ 9, "RB3/CCP1"},                         // 9
+			{10, "RB4/PGM"},                          // 10
+			{11, "RB5"},                              // 11
+			{12, "RB6/T1OSO/T1CK/PGC"},               // 12
+			{13, "RB7/T1OSI/PGD"},                    // 13
+
+			{ 5, "Vss"},                              // 5
+			{14, "Vdd"}                               // 14
+	};
+
+	Connection &operator[] (BYTE idx) {
 		if (idx==0 or idx > 18)
 			throw(std::string("PIN Index is out of range: ") + int_to_string(idx));
 		return pins[idx-1];
 	}
 
 	void reset() {
-		for (unsigned int i = 0; i < sizeof(pins); ++i) {
+		for (unsigned int i = 0; i < PIN_COUNT; ++i) {
 			pins[i].set_value(Vss, true);
 		}
 		pins[pin_Vdd-1].set_value(Vdd, false);
@@ -181,9 +203,9 @@ class PINS: public Device {
 
 	PINS() {
 		for (int n = 0; n < PIN_COUNT; ++n) {
-			std::string name = "P"+int_to_string(n+1);
-			pins[n].name(name);
+			pins[n].name(pin_names[n+1]);
 		}
+		reset();
 		DeviceEvent<Register>::subscribe<PINS>(this, &PINS::register_changed);
 	}
 
@@ -224,6 +246,19 @@ class PORTA: public Device {
 		RA[6] = new SinglePortA_RA6_CLKOUT(pins[PINS::pin_RA6], "RA6");
 		RA[7] = new PortA_RA7(pins[PINS::pin_RA7], "RA7");
 	}
+
+	std::vector<BYTE> pin_numbers = {
+			PINS::pin_RA0,
+			PINS::pin_RA1,
+			PINS::pin_RA2,
+			PINS::pin_RA3,
+			PINS::pin_RA4,
+			PINS::pin_RA5,
+			PINS::pin_RA6,
+			PINS::pin_RA7
+	};
+
+
 	const BYTE rd_tris() {
 		BYTE data_bus;
 		for (int n = 0; n < 8; ++n) {
@@ -287,16 +322,28 @@ class PORTB: public Device {
 	PORTB(PINS &a_pins): pins(a_pins) {
 		RB.resize(8);
 		DeviceEvent<Register>::subscribe<PORTB>(this, &PORTB::register_changed);
-		RB[0] = new SinglePort(pins[PINS::pin_RB0], "RB0", 1, 0);
-		RB[1] = new SinglePort(pins[PINS::pin_RB1], "RB1", 1, 1);
-		RB[2] = new SinglePort(pins[PINS::pin_RB2], "RB2", 1, 2);
-		RB[3] = new SinglePort(pins[PINS::pin_RB3], "RB3", 1, 3);
-		RB[4] = new SinglePort(pins[PINS::pin_RB4], "RB4", 1, 4);
-		RB[5] = new SinglePort(pins[PINS::pin_RB5], "RB5", 1, 5);
-		RB[6] = new SinglePort(pins[PINS::pin_RB6], "RB6", 1, 6);
-		RB[7] = new SinglePort(pins[PINS::pin_RB7], "RB7", 1, 7);
+		RB[0] = new PortB_RB0(pins[PINS::pin_RB0], "RB0");
+		RB[1] = new BasicPortB(pins[PINS::pin_RB1], "RB1", 1);
+		RB[2] = new BasicPortB(pins[PINS::pin_RB2], "RB2", 2);
+		RB[3] = new BasicPortB(pins[PINS::pin_RB3], "RB3", 3);
+		RB[4] = new BasicPortB(pins[PINS::pin_RB4], "RB4", 4);
+		RB[5] = new BasicPortB(pins[PINS::pin_RB5], "RB5", 5);
+		RB[6] = new BasicPortB(pins[PINS::pin_RB6], "RB6", 6);
+		RB[7] = new BasicPortB(pins[PINS::pin_RB7], "RB7", 7);
 
 	}
+
+	std::vector<BYTE> pin_numbers = {
+			PINS::pin_RB0,
+			PINS::pin_RB1,
+			PINS::pin_RB2,
+			PINS::pin_RB3,
+			PINS::pin_RB4,
+			PINS::pin_RB5,
+			PINS::pin_RB6,
+			PINS::pin_RB7
+	};
+
 	const BYTE rd_tris() {
 		BYTE data_bus;
 		for (int n = 0; n < 8; ++n) {
@@ -321,6 +368,8 @@ class PORTB: public Device {
 
 class Flash: public Device {
   public:
+
+	Flash() : Device("FLASH") {}
 	WORD data[FLASH_SIZE];
 
 	void load(const std::string &a_file);
