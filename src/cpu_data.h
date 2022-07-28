@@ -1,3 +1,40 @@
+/*
+ * This module defines the data representation of the CPU, including all memory
+ * and other devices.
+ *
+ * Memory for the 16f62x series consits of flash memory, eeprom and registers (referred to as "file" registers in the
+ * data sheet).  The amounts of memory available depends on the microprocessor model.
+ *
+ * File registers are segmented into four banks, and most of these registers are mapped to a specific function. For
+ * example, I/O ports, timers and clock registers are all mapped to file registers.
+ *
+ * The CPU has direct access to register memory by either first selecting the appropriate bank (another register) and then
+ * reading the memory location, or by indirect access via register zero (INDF) and FSR (file select register).
+ *
+ * Some registers, such as STATUS map to the same location regardless of bank selection, and some registers may be used as
+ * arbitrary RAM storage, although very little volatile RAM is available this way.
+ *
+ * Flash memory is 14 bits wide, and is used exclusively for storage of code to be executed.  The program counter register
+ * contains an offset into the flash memory bank.  Addressing of flash memory is constrained to the size of the program
+ * counter, which is itself a 13 bit value.
+ *
+ * EEPROM is memory available to the CPU via EEDATA, EEADR1, EECON1 and EECON2 registers.  This data is non-volatile and
+ * 128 bytes (8 bit).  It can be written by the chip programmer, or at run time using EECON1 & EECON2.
+ *
+ * On a real PIC micro controller, writing to file registers directly results in actions to various devices, such as port pins,
+ * timers, and so forth.  In this simulator, we implement a publish-subscribe pattern with an internal queue, which allows
+ * for various "device" implementation instances to react to such changes.
+ *
+ * This same event driven model is followed throughout the rest of this program, providing various event types,
+ * such as CPU events (reflecting current CPU execution status changes), UI control events (from the UI to the CPU), and
+ * register change events normally triggered by execution of CPU instructions.
+ *
+ * Devices have their own event queue (see device_base.h) which reflect external changes to actual devices.  For example,
+ * we generate clock events by placing events in this queue at regular intervals, or handle single stepping by controlling
+ * when clock events are placed in the queue.
+ *
+ */
+
 #ifndef __cpu_data_h__
 #define __cpu_data_h__
 #include <map>
@@ -15,6 +52,7 @@
 class CpuEvent {
 
   public:
+	WORD OPCODE;               // OP Code at PC
 	WORD PC;                  // program counter
 	BYTE SP;                  // stack pointer
 	BYTE W;                   // contents of W register
@@ -27,9 +65,9 @@ class CpuEvent {
 	static registry subscribers;
 
   public:
-	CpuEvent(): PC(0), SP(0), W(0), disassembly("") {}
-	CpuEvent(WORD a_pc, BYTE a_sp, BYTE a_w, const std::string &a_disasm):
-		PC(a_pc), SP(a_sp), W(a_w), disassembly(a_disasm) {
+	CpuEvent(): OPCODE(0), PC(0), SP(0), W(0), disassembly("") {}
+	CpuEvent(WORD a_opcode, WORD a_pc, BYTE a_sp, BYTE a_w, const std::string &a_disasm):
+		OPCODE(a_opcode), PC(a_pc), SP(a_sp), W(a_w), disassembly(a_disasm) {
 		for(each_subscriber s = subscribers.begin(); s!= subscribers.end(); ++s) {
 			void *ob = s->first;
 			const CpuStatus &cb = s->second;
@@ -124,8 +162,8 @@ class CPU_DATA {
 
 	WORD pop() {
 		WORD value = stack[SP];
-		++SP;
 		SP = SP % STACK_SIZE;
+		++SP;
 		return value;
 	}
 
