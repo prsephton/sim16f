@@ -181,7 +181,7 @@ namespace app {
 			m_components["Data Bus"]   = new WireDiagram( DataBus,   100.0,  40.0, m_area);
 			m_components["Pin Wire"]   = new WireDiagram( PinWire,   0.0,  0.0, m_area);
 			m_components["MCLRE Wire"]  = new WireDiagram( MCLREWire,  250.0,  100.0, m_area);
-			m_components["Pin"]  = new PinDiagram(p5.pin(), 630, 200, m_area);
+			m_components["Pin"]  = new PinDiagram(p5.pin(), 630, 200, 0, 1, m_area);
 			m_components["Schmitt1"]  = new SchmittDiagram(Schmitt1, 480, 250, CairoDrawing::DIRECTION::DOWN, true, m_area);
 			m_components["Schmitt1_Out"]  = new ConnectionDiagram(Schmitt1.rd(), 480, 250, m_area);
 			m_components["Schmitt2"]  = new SchmittDiagram(Schmitt2, 440, 140, CairoDrawing::DIRECTION::LEFT, false, m_area);
@@ -192,8 +192,8 @@ namespace app {
 			m_components["Tristate3.in"] = new ConnectionDiagram(Tristate3.input(), 250, 310, m_area);
 			m_components["Inverter1"]  = new InverterDiagram(Inverter1, 300, 405, CairoDrawing::DIRECTION::RIGHT, m_area);
 			m_components["Output Latch"]= new LatchDiagram(OutputLatch, false, 360.0, 310.0, m_area);
-			m_components["RD_TRISA"]  = new ConnectionDiagram(Tristate3.rd(), 100, 310, m_area);
-			m_components["RD_PORTA"]  = new ConnectionDiagram(Tristate2.rd(), 100, 380, m_area);
+			m_components["RD_TRISA"]  = new ConnectionDiagram(Tristate3.gate(), 100, 310, m_area);
+			m_components["RD_PORTA"]  = new ConnectionDiagram(Tristate2.gate(), 100, 380, m_area);
 			m_components["Inverter1 out"]  = new ConnectionDiagram(Inverter1.rd(), 330, 405, m_area);
 			m_components["Output.Q"]= new ConnectionDiagram(OutputLatch.Q(), 360.0, 300.0, m_area);
 
