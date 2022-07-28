@@ -28,10 +28,17 @@ namespace app {
 		}
 
 		void show_coords(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->move_to(14, 14);
+			cr->save();
+			cr->set_source_rgba(0.2,1,1,1);
+			cr->rectangle(14,0,100,16);
+			cr->fill();
+			cr->set_source_rgba(0,0,0,1);
+			cr->set_line_width(0.7);
+			cr->move_to(14, 10);
 			std::string coords = std::string("x: ") + int_to_string((int)m_xpos) + "; y: " + int_to_string((int)m_ypos);
 			cr->text_path(coords);
 			cr->fill_preserve(); cr->stroke();
+			cr->restore();
 		}
 		bool motion_event(GdkEventMotion* motion_event) {
 //			std::cout << "motion x=" << motion_event->x << " y=" << motion_event->y << ";" << std::endl;
@@ -88,6 +95,10 @@ namespace app {
 
 		void orange(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->set_source_rgba(0.75, 0.55, 0.2, 1.0);
+		}
+
+		void green(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->set_source_rgba(0.5, 0.95, 0.5, 1.0);
 		}
 
 		void indeterminate(const Cairo::RefPtr<Cairo::Context>& cr) {
