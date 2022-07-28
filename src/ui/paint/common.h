@@ -4,6 +4,7 @@
 #include <iostream>
 #include <sstream>
 #include <queue>
+#include <cmath>
 #include "cairo_drawing.h"
 #include "../../devices/devices.h"
 
@@ -12,9 +13,11 @@ namespace app {
 	struct Point {
 		double x;
 		double y;
+		bool arrow;
+		bool term;
 
-		Point(double a_x, double a_y):
-			x(a_x), y(a_y) {}
+		Point(double a_x, double a_y, bool a_arrow=false, bool a_term=false):
+			x(a_x), y(a_y), arrow(a_arrow), term(a_term) {}
 	};
 
 	struct Rect {
@@ -48,6 +51,7 @@ namespace app {
 		double m_x;
 		double m_y;
 		double m_rotation;
+		double m_scale;
 		bool   m_selected;
 		Rect   m_rect;
 		Point  m_ofs;
@@ -71,6 +75,14 @@ namespace app {
 			cr->restore();
 		}
 
+		void rotate(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->rotate(m_rotation);
+		}
+
+		void scale(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->scale(m_scale, m_scale);
+		}
+
 		void draw_symbol(const Cairo::RefPtr<Cairo::Context>& cr, Point a_ofs) {
 			m_ofs = a_ofs;
 			cr->save();
@@ -92,12 +104,85 @@ namespace app {
 		const bool selected() const { return m_selected; }
 		bool &selected() { return m_selected; }
 
-		Symbol(double x=0, double y=0, double rotation=0):
-			m_x(x), m_y(y), m_rotation(rotation), m_selected(false),
+		Symbol(double x=0, double y=0, double rotation=0, double scale=1.0):
+			m_x(x), m_y(y), m_rotation(rotation), m_scale(scale), m_selected(false),
 			m_rect(0,0,0,0), m_ofs(0,0) {}
 		virtual ~Symbol() {}
 	};
 
+
+	class BusSymbol: public Symbol {
+		Point p1, p2;
+		double width, length;
+		double rotation;
+		int bits;
+
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			double lw = width / 6.0;
+			cr->save();
+			cr->translate(p1.x, p1.y);
+			cr->rotate(rotation);
+			cr->move_to(lw, lw);
+			cr->line_to(length-lw, lw);
+
+			cr->move_to(lw, width-lw);
+			cr->line_to(length-lw, width-lw);
+			cr->set_line_width(lw);
+			if (p1.arrow) {
+				cr->move_to(lw, -lw);
+				cr->line_to(-lw*3, lw*3);
+				cr->line_to(lw, width+lw);
+			}
+			if (p2.arrow) {
+				cr->move_to(length-lw, -lw);
+				cr->line_to(length+lw*3, lw*3);
+				cr->line_to(length-lw, width+lw);
+			}
+			cr->stroke();
+
+			cr->save();
+			cr->set_line_width(lw*3);
+			cr->set_source_rgba(1,1,1,1);
+			cr->move_to(0,lw*3); cr->line_to(length, lw*3);
+			cr->stroke();
+			cr->restore();
+
+			if (p1.term)  {
+				cr->move_to(lw, lw);
+				cr->line_to(lw, width-lw);
+				cr->stroke();
+			}
+			if (p2.term)  {
+				cr->move_to(length-lw, lw);
+				cr->line_to(length-lw, width-lw);
+				cr->stroke();
+			}
+
+			if (bits) {
+				cr->set_line_width(0.7);
+				cr->move_to(length/2-5, -5);
+				cr->line_to(length/2+5, width+5);
+				cr->stroke();
+				cr->move_to(length/2, -10);
+				cr->rotate(-rotation);
+				cr->set_font_size(8);
+				cr->text_path(int_to_string(bits));
+				cr->fill();
+				cr->stroke();
+			}
+			cr->restore();
+		}
+
+	  public:
+
+		BusSymbol(Point a_p1, Point a_p2, double w=5.0, int a_bits=0): p1(a_p1), p2(a_p2), width(w), bits(a_bits) {
+			double dy = a_p2.y-p1.y;
+			double dx = a_p2.x-p1.x;
+			rotation = atan2(dy, dx);
+			printf("Rotation is %.2f\n", rotation);
+			length = sqrt(dy*dy + dx*dx);
+		}
+	};
 
 	class PinSymbol: public Symbol {
 	  public:
@@ -105,6 +190,7 @@ namespace app {
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
+			rotate(cr); scale(cr);
 			bounding_rect(cr, Rect(0, -10, 20, 20));
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
@@ -117,7 +203,7 @@ namespace app {
 			cr->stroke();
 			cr->restore();
 		}
-		PinSymbol(double x=0, double y=0, double rotation=0): Symbol(x, y, rotation) {}
+		PinSymbol(double x=0, double y=0, double rotation=0, double scale=1.0): Symbol(x, y, rotation, scale) {}
 	};
 
 	class DiodeSymbol: public Symbol  {
@@ -160,6 +246,7 @@ namespace app {
 	class FETSymbol: public Symbol {
 		bool m_nType;
 		bool m_with_vss;
+		bool m_with_vdd;
 	  public:
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
@@ -171,6 +258,17 @@ namespace app {
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 			cr->move_to(0, 0); cr->line_to(5,0); cr->stroke();
 			cr->move_to(5,-8); cr->line_to(5,8); cr->stroke();
+			if (m_with_vdd) {
+				cr->save();
+				cr->move_to(10,-20);
+				cr->line_to(30,-20);
+				cr->move_to(10,-22);
+				cr->text_path("Vdd");
+				cr->set_line_width(0.7);
+				cr->fill_preserve(); cr->stroke();
+				cr->restore();
+			}
+
 			cr->move_to(20,-20); cr->line_to(20,-8); cr->line_to(9,-8);
 			cr->line_to(9,8); cr->line_to(20,8); cr->line_to(20,20);
 			cr->stroke();
@@ -184,8 +282,8 @@ namespace app {
 			if (m_with_vss) VssSymbol(20,20).draw(cr);
 			cr->restore();
 		}
-		FETSymbol(double x=0, double y=0, double rotation=0, bool nType=true, bool with_vss = true):
-			Symbol(x, y, rotation), m_nType(nType), m_with_vss(with_vss) {}
+		FETSymbol(double x=0, double y=0, double rotation=0, bool nType=true, bool with_vss=false, bool with_vdd=false):
+			Symbol(x, y, rotation), m_nType(nType), m_with_vss(with_vss), m_with_vdd(with_vdd) {}
 	};
 
 	class BufferSymbol: public Symbol  {
@@ -342,6 +440,41 @@ namespace app {
 			Symbol(x, y, rotation), m_gates(gates), m_inputs(inputs) {}
 	};
 
+	class ALUSymbol: public Symbol  {
+	  public:
+
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->save();
+			cr->translate(m_x, m_y);
+			cr->rotate(m_rotation);
+			int cw = 10, ch = 12;
+			int width = cw * 9;
+			int height = ch * 2;
+
+			bounding_rect(cr, Rect(-width/2, -height/2, width, height));
+			cr->set_line_width(1.2);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+
+			cr->translate(-width/2, -height/2);
+
+			cr->move_to(0, 0);
+			cr->line_to(cw*3, 0);
+			cr->line_to(cw*4, ch);
+			cr->line_to(cw*5, ch);
+			cr->line_to(cw*6, 0);
+			cr->line_to(cw*9, 0);
+			cr->line_to(cw*7, ch*2);
+			cr->line_to(cw*2, ch*2);
+
+			cr->close_path();
+			cr->stroke();
+
+			cr->restore();
+		}
+		ALUSymbol(double x=0, double y=0, double rotation=0, int gates=1, int inputs=2):
+			Symbol(x, y, rotation) {}
+	};
+
 	class SchmittSymbol: public Symbol  {
 		bool m_dual;
 	  public:
@@ -479,23 +612,36 @@ namespace app {
 			bool is_invert;
 			pt(double a_x, double a_y, bool first=false, bool join=false, bool invert=false):
 				x(a_x), y(a_y), is_first(first), is_join(join), is_invert(invert) {}
+			pt &join(bool j=true) { is_join = j; return *this; }
+			pt &first(bool f=true) { is_first = f; return *this; }
+			pt &invert(bool i=true) { is_invert = i; return *this; }
 		};
 
 		struct text {
 			double x;
 			double y;
 			std::string t;
+			double m_line_width;
+			bool m_underscore;
+			bool m_overscore;
+			bool m_bold;
+
 			text(double a_x, double a_y, const std::string &a_text):
-					x(a_x), y(a_y), t(a_text) {}
+					x(a_x), y(a_y), t(a_text), m_line_width(0.4), m_underscore(false), m_overscore(false), m_bold(false) {}
+
+			text &line_width(double w=0.4) { m_line_width = w; return *this; }
+			text &underscore(bool u=true)  { m_underscore = u; return *this; }
+			text &overscore(bool o=true)   { m_overscore = o; return *this; }
+			text &bold(bool b=true)        { m_bold = b; return *this; }
 		};
 
 		std::vector<pt> m_points;
 		std::vector<text> m_text;
 		std::vector<SmartPtr<Symbol>> m_symbols;
 
-		void add(pt a_pt) {m_points.push_back(a_pt); }
-		void add(text a_text) {m_text.push_back(a_text); }
-		void add(Symbol *a_symbol) {m_symbols.push_back(a_symbol); }
+		GenericDiagram &add(pt a_pt) {m_points.push_back(a_pt); return *this; }
+		GenericDiagram &add(text a_text) {m_text.push_back(a_text); return *this; }
+		GenericDiagram &add(Symbol *a_symbol) {m_symbols.push_back(a_symbol); return *this; }
 
 		virtual bool determinate() {
 			return true;
@@ -505,26 +651,49 @@ namespace app {
 			return false;
 		}
 
-		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+		void draw_text(const Cairo::RefPtr<Cairo::Context>& cr, const std::vector<text> &a_text) {
 			cr->save();
-			cr->translate(m_x, m_y);
-			cr->set_line_width(1.2);
-			if (determinate()) {
-				if (signal())
-					orange(cr);
-				else
-					gray(cr);
-			} else {
-				indeterminate(cr);
+			black(cr);
+			for (size_t n=0; n < a_text.size(); ++n) {
+				const int LINE_HEIGHT = 12;
+				const text &t = a_text[n];
+				cr->move_to(t.x, t.y);
+				size_t end=0, q=0;
+				while (end < std::string::npos) {
+					auto start = end; end = t.t.find("\n", end);
+					cr->text_path(t.t.substr(start, end-start));
+					cr->set_line_width(t.m_bold?t.m_line_width*1.5:t.m_line_width);
+					cr->fill_preserve();
+					cr->stroke();
+					if (t.m_overscore) {
+						cr->set_line_width(1.0);
+						Cairo::TextExtents extents;
+						cr->get_text_extents(t.t.substr(start, end-start), extents);
+						double y = t.y+extents.y_bearing+(q*LINE_HEIGHT)-2;
+						cr->move_to(t.x, y);
+						cr->line_to(t.x + extents.width, y);
+						cr->stroke();
+					}
+					if (t.m_underscore) {
+						cr->set_line_width(0.8);
+						Cairo::TextExtents extents;
+						cr->get_text_extents(t.t.substr(start, end-start), extents);
+						cr->move_to(t.x, t.y+(q*LINE_HEIGHT)+1);
+						cr->line_to(t.x + extents.width, t.y+(q*LINE_HEIGHT)+1);
+						cr->stroke();
+					}
+					if (end != std::string::npos) {
+						q++; cr->move_to(t.x, t.y+(q*LINE_HEIGHT));
+						end = end + 1;
+					}
+				}
 			}
-			for (size_t n=0; n < m_symbols.size(); ++n) {
-				cr->save();
-				black(cr);
-				m_symbols[n]->draw_symbol(cr, Point(m_xofs, m_yofs));
-				cr->restore();
-			}
-			for (size_t n=0; n < m_points.size(); ++n) {
-				pt &point = m_points[n];
+			cr->restore();
+		}
+
+		void draw_points(const Cairo::RefPtr<Cairo::Context>& cr, std::vector<pt> &a_points) {
+			for (size_t n=0; n < a_points.size(); ++n) {
+				pt &point = a_points[n];
 				if (point.is_first) {
 					cr->stroke();
 					cr->move_to(point.x, point.y);
@@ -541,7 +710,7 @@ namespace app {
 				if (point.is_invert) {
 					cr->stroke();
 					cr->save();
-					cr->set_line_width(0.8);
+					cr->set_line_width(0.9);
 					cr->arc(point.x, point.y, 3.5, 0, 2*M_PI);
 					white(cr); cr->fill_preserve();
 					black(cr); cr->stroke();
@@ -549,24 +718,35 @@ namespace app {
 				}
 			}
 			cr->stroke();
-			cr->set_line_width(0.4);
-			black(cr);
-			for (size_t n=0; n < m_text.size(); ++n) {
-				const int LINE_HEIGHT = 12;
-				text &t = m_text[n];
-				cr->move_to(t.x, t.y);
-				size_t end=0, q=0;
-				while (end < std::string::npos) {
-					auto start = end; end = t.t.find("\n", end);
-					cr->text_path(t.t.substr(start, end-start));
-					if (end != std::string::npos) {
-						q++; cr->move_to(t.x, t.y+(q*LINE_HEIGHT));
-						end = end + 1;
-					}
-				}
-				cr->fill_preserve();
-				cr->stroke();
+		}
+
+		virtual void draw_extra(const Cairo::RefPtr<Cairo::Context>& cr) {}
+
+		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->save();
+			cr->translate(m_x, m_y);
+
+			cr->set_line_width(1.2);
+			if (determinate()) {
+				if (signal())
+					orange(cr);
+				else
+					gray(cr);
+			} else {
+				indeterminate(cr);
 			}
+
+			for (size_t n=0; n < m_symbols.size(); ++n) {
+				cr->save();
+				black(cr);
+				m_symbols[n]->draw_symbol(cr, Point(m_xofs, m_yofs));
+				cr->restore();
+			}
+
+			draw_points(cr, m_points);
+			draw_text(cr, m_text);
+			draw_extra(cr);
+
 			cr->restore();
 			return false;  // true stops all further drawing
 		}
@@ -609,4 +789,26 @@ namespace app {
 		WireDiagram(Wire &a_wire, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			GenericDiagram(x, y, a_area), m_wire(a_wire){}
 	};
+
+
+	class BlockDiagram:  public GenericDiagram {
+		double x, y, width, height;
+	  public:
+
+		void redraw() {
+			m_area->queue_draw_area(x, y, width, height);
+		}
+
+		BlockDiagram(double x, double y, double width, double height, const std::string &a_name, Glib::RefPtr<Gtk::DrawingArea>a_area):
+			GenericDiagram(x, y, a_area), x(x), y(y), width(width), height(height)
+		{
+			double dw = width / 2, dh = height / 2;
+			add(new BlockSymbol(dw, dh, width, height));
+			if (a_name.length())
+				add(text(4, 12, a_name).line_width(0.8).underscore());
+		}
+	};
+
+
+
 }
