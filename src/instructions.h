@@ -1,3 +1,19 @@
+/*
+ * A single CPU instruction is defined by a 14 bit OP code.  When executed, the instruction
+ * performs a change to CPU status flags, data or registers.  A full set of registers is
+ * found in cpu_data.cc and cpu_data.h.  Status flags are themselves found in register 0x03,
+ * and reflect the result of various operations.  Program flow is often controlled by these
+ * flags, for example to branch depending on the value of the zero flag.
+ *
+ * The whole instruction set is represented as a tree.  The binary representation of an OP code
+ * in a real processor maps directly to the operation being performed.   Here we simulate that
+ * mapping by traversing each bit in the OP code to locate an object in memory which represents
+ * the appropriate instruction, and then executing that instruction.
+ *
+ * We include methods here for assembling and disassembling instructions to and from assembler
+ * or binary code.
+ *
+ */
 #ifndef __instructions_h__
 #define __instructions_h__
 #include <vector>
