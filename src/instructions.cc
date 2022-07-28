@@ -629,166 +629,6 @@ class XORWF: public Instruction {
 	}
 };
 
-class BCF: public Instruction {
-  public:
-	BCF(): Instruction(0b01000000000000, 4, 1, "BCF", "Bit Clear f") {}
-	inline void decode(WORD opcode, BYTE &idx, BYTE &cbits) {
-		idx   = opcode & 0x7f;
-		cbits = (opcode & 0x0380) >> 7;
-	};
-	virtual WORD assemble(WORD f, BYTE b, bool d) {
-		f = (WORD)(f & 0xff) | ((WORD)b << 7);
-		return opcode | f;
-	}
-	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
-		BYTE idx;
-		BYTE cbits;
-		decode(opcode, idx, cbits);
-		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
-	}
-	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
-		BYTE idx;
-		BYTE cbits;
-		decode(opcode, idx, cbits);
-		cbits = 1 << cbits;
-		WORD data = cpu.read_sram(idx);
-		data = data & ~cbits;
-		cpu.write_sram(idx, data);
-		return false;
-	}
-};
-
-class BSF: public Instruction {
-  public:
-	BSF(): Instruction(0b01010000000000, 4, 1, "BSF", "Bit Set f") {}
-	inline void decode(WORD opcode, BYTE &idx, BYTE &cbits) {
-		idx   = opcode & 0x7f;
-		cbits = (opcode & 0x0380) >> 7;
-	};
-	virtual WORD assemble(WORD f, BYTE b, bool d) {
-		f = (f & 0xff) | (b << 7);
-		return opcode | f;
-	}
-	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
-		BYTE idx;
-		BYTE cbits;
-		decode(opcode, idx, cbits);
-		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
-	}
-	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
-		BYTE idx;
-		BYTE cbits;
-		decode(opcode, idx, cbits);
-		cbits = 1 << cbits;
-		WORD data = cpu.read_sram(idx);
-		data = data | cbits;
-		cpu.write_sram(idx, data);
-		return false;
-	}
-};
-
-class BTFSC: public Instruction {
-  public:
-	BTFSC(): Instruction(0b01100000000000, 4, 1, "BTFSC", "Bit Test f, Skip if Clear") {}
-	inline void decode(WORD opcode, BYTE &idx, BYTE &cbits) {
-		idx   = opcode & 0x7f;
-		cbits = (opcode & 0x0380) >> 7;
-	};
-	virtual WORD assemble(WORD f, BYTE b, bool d) {
-		f = (f & 0xff) | (b << 7);
-		return opcode | f;
-	}
-	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
-		BYTE idx;
-		BYTE cbits;
-		decode(opcode, idx, cbits);
-		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
-	}
-	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
-		BYTE idx;
-		BYTE cbits;
-		decode(opcode, idx, cbits);
-		cbits = 1 << cbits;
-		WORD data = cpu.read_sram(idx);
-		return (data & cbits) == 0;
-	}
-};
-
-class BTFSS: public Instruction {
-  public:
-	BTFSS(): Instruction(0b01110000000000, 4, 1, "BTFSS", "Bit Test f, Skip if Set") {}
-	inline void decode(WORD opcode, BYTE &idx, BYTE &cbits) {
-		idx   = opcode & 0x7f;
-		cbits = (opcode & 0x0380) >> 7;
-	};
-	virtual WORD assemble(WORD f, BYTE b, bool d) {
-		f = (f & 0xff) | (b << 7);
-		return opcode | f;
-	}
-	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
-		BYTE idx;
-		BYTE cbits;
-		decode(opcode, idx, cbits);
-		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
-	}
-	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
-		BYTE idx;
-		BYTE cbits;
-		decode(opcode, idx, cbits);
-		cbits = 1 << cbits;
-		WORD data = cpu.read_sram(idx);
-		return (data & cbits) != 0;
-	}
-};
-
-class CALL: public Instruction {
-  public:
-	CALL(): Instruction(0b10000000000000, 3, 2, "CALL", "Call subroutine") {}
-	inline void decode(WORD opcode, WORD &address) {
-		address = opcode & 0x7ff;
-	};
-	virtual WORD assemble(WORD f, BYTE b, bool d) {
-		f = f & 0x7ff;
-		return opcode | f;
-	}
-	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
-		WORD address;
-		decode(opcode, address);
-		return mnemonic + pad(int_to_hex(address)) + description;
-	}
-	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
-		WORD address;
-		decode(opcode, address);
-		WORD PC = cpu.sram.get_PC();
-		cpu.push(PC+1);
-		cpu.sram.set_PC(address);
-		return false;
-	}
-};
-
-class GOTO: public Instruction {
-  public:
-	GOTO(): Instruction(0b10100000000000, 3, 2, "GOTO", "Go to address") {}
-	inline void decode(WORD opcode, WORD &address) {
-		address = opcode & 0x7ff;
-	};
-	virtual WORD assemble(WORD f, BYTE b, bool d) {
-		f = f & 0x7ff;
-		return opcode | f;
-	}
-	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
-		WORD address;
-		decode(opcode, address);
-		return mnemonic + pad(int_to_hex(address)) + description;
-	}
-	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
-		WORD address;
-		decode(opcode, address);
-		cpu.sram.set_PC(address);
-		return false;
-	}
-};
-
 class MOVLW: public Instruction {
   public:
 	MOVLW(): Instruction(0b11000000000000, 4, 1, "MOVLW", "Move literal to W") {}
@@ -830,7 +670,7 @@ class RETLW: public Instruction {
 		decode(opcode, literal);
 		cpu.W = literal;
 		WORD address = cpu.pop();
-		cpu.sram.set_PC(address-1);
+		cpu.sram.set_PC(address);
 		return false;
 	}
 };
@@ -983,6 +823,167 @@ class ANDLW: public Instruction {
 	}
 };
 
+class BCF: public Instruction {
+  public:
+	BCF(): Instruction(0b01000000000000, 4, 1, "BCF", "Bit Clear f") {}
+	inline void decode(WORD opcode, BYTE &idx, BYTE &cbits) {
+		idx   = opcode & 0x7f;
+		cbits = (opcode & 0x0380) >> 7;
+	};
+	virtual WORD assemble(WORD f, BYTE b, bool d) {
+		f = (WORD)(f & 0xff) | ((WORD)b << 7);
+		return opcode | f;
+	}
+	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
+		BYTE idx;
+		BYTE cbits;
+		decode(opcode, idx, cbits);
+		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
+	}
+	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
+		BYTE idx;
+		BYTE cbits;
+		decode(opcode, idx, cbits);
+		cbits = 1 << cbits;
+		WORD data = cpu.read_sram(idx);
+		data = data & ~cbits;
+		cpu.write_sram(idx, data);
+		return false;
+	}
+};
+
+class BSF: public Instruction {
+  public:
+	BSF(): Instruction(0b01010000000000, 4, 1, "BSF", "Bit Set f") {}
+	inline void decode(WORD opcode, BYTE &idx, BYTE &cbits) {
+		idx   = opcode & 0x7f;
+		cbits = (opcode & 0x0380) >> 7;
+	};
+	virtual WORD assemble(WORD f, BYTE b, bool d) {
+		f = (f & 0xff) | (b << 7);
+		return opcode | f;
+	}
+	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
+		BYTE idx;
+		BYTE cbits;
+		decode(opcode, idx, cbits);
+		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
+	}
+	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
+		BYTE idx;
+		BYTE cbits;
+		decode(opcode, idx, cbits);
+		cbits = 1 << cbits;
+		WORD data = cpu.read_sram(idx);
+		data = data | cbits;
+		cpu.write_sram(idx, data);
+		return false;
+	}
+};
+
+class BTFSC: public Instruction {
+  public:
+	BTFSC(): Instruction(0b01100000000000, 4, 1, "BTFSC", "Bit Test f, Skip if Clear") {}
+	inline void decode(WORD opcode, BYTE &idx, BYTE &cbits) {
+		idx   = opcode & 0x7f;
+		cbits = (opcode & 0x0380) >> 7;
+	};
+	virtual WORD assemble(WORD f, BYTE b, bool d) {
+		f = (f & 0xff) | (b << 7);
+		return opcode | f;
+	}
+	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
+		BYTE idx;
+		BYTE cbits;
+		decode(opcode, idx, cbits);
+		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
+	}
+	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
+		BYTE idx;
+		BYTE cbits;
+		decode(opcode, idx, cbits);
+		cbits = 1 << cbits;
+		WORD data = cpu.read_sram(idx);
+		return (data & cbits) == 0;
+	}
+};
+
+class BTFSS: public Instruction {
+  public:
+	BTFSS(): Instruction(0b01110000000000, 4, 1, "BTFSS", "Bit Test f, Skip if Set") {}
+	inline void decode(WORD opcode, BYTE &idx, BYTE &cbits) {
+		idx   = opcode & 0x7f;
+		cbits = (opcode & 0x0380) >> 7;
+	};
+	virtual WORD assemble(WORD f, BYTE b, bool d) {
+		f = (f & 0xff) | (b << 7);
+		return opcode | f;
+	}
+	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
+		BYTE idx;
+		BYTE cbits;
+		decode(opcode, idx, cbits);
+		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
+	}
+	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
+		BYTE idx;
+		BYTE cbits;
+		decode(opcode, idx, cbits);
+		cbits = 1 << cbits;
+		WORD data = cpu.read_sram(idx);
+		return (data & cbits) != 0;
+	}
+};
+
+
+class CALL: public Instruction {
+  public:
+	CALL(): Instruction(0b10000000000000, 3, 2, "CALL", "Call subroutine") {}
+	inline void decode(WORD opcode, WORD &address) {
+		address = opcode & 0x7ff;
+	};
+	virtual WORD assemble(WORD f, BYTE b, bool d) {
+		f = f & 0x7ff;
+		return opcode | f;
+	}
+	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
+		WORD address;
+		decode(opcode, address);
+		return mnemonic + pad(int_to_hex(address)) + description;
+	}
+	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
+		WORD address;
+		decode(opcode, address);
+		WORD PC = cpu.sram.get_PC();
+		cpu.push(PC);
+		cpu.sram.set_PC(address);
+		return false;
+	}
+};
+
+class GOTO: public Instruction {
+  public:
+	GOTO(): Instruction(0b10100000000000, 3, 2, "GOTO", "Go to address") {}
+	inline void decode(WORD opcode, WORD &address) {
+		address = opcode & 0x7ff;
+	};
+	virtual WORD assemble(WORD f, BYTE b, bool d) {
+		f = f & 0x7ff;
+		return opcode | f;
+	}
+	virtual const std::string disasm(WORD opcode, CPU_DATA &cpu) {
+		WORD address;
+		decode(opcode, address);
+		return mnemonic + pad(int_to_hex(address)) + description;
+	}
+	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
+		WORD address;
+		decode(opcode, address);
+		cpu.sram.set_PC(address);
+		return false;
+	}
+};
+
 class RETURN: public Instruction {
   public:
 	RETURN(): Instruction(0b00000000001000, 14, 2, "RETURN", "Return from Subroutine") {}
@@ -994,7 +995,7 @@ class RETURN: public Instruction {
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		WORD address = cpu.pop();
-		cpu.sram.set_PC(address-1);
+		cpu.sram.set_PC(address);
 		return false;
 	}
 };
@@ -1010,7 +1011,7 @@ class RETFIE: public Instruction {
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		WORD address = cpu.pop();
-		cpu.sram.set_PC(address-1);
+		cpu.sram.set_PC(address);
 		BYTE intcon = cpu.read_sram(cpu.sram.INTCON);
 		intcon |= Flags::INTCON::GIE;
 		cpu.write_sram(cpu.sram.INTCON, intcon);
