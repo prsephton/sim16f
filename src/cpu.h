@@ -1,3 +1,18 @@
+/*
+ * The 16fxxx CPU executes instructions at a given clock frequency by fetching an instruction
+ * indexed by the current value of the Program Counter (PC), and simultaneously executing a previously
+ * fetched instruction if available, then incrementing the PC.  We do the fetch and execute sequentially
+ * rather than in parallel, but that should not matter to the simulation.
+ *
+ * Some instructions take two, rather than one clock cycle to execute, in which case the fetch is delayed
+ * for one cycle.   In the case of branch (on sign or carry) instructions, execution continues at the
+ * provided address by loading it into the PC, or skips the provided address and continues directly after,
+ * which we simulate by turning the next instruction into a NOP.
+ *
+ * The input clock is divided into four stages, so that a 4Mhz clock executes instructions at 1MHz.
+ *
+ */
+
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -42,7 +57,6 @@ class CPU {
 			else {
 				opcode = data.flash.fetch(PC);
 				current = instructions.find(opcode);
-
 			}
 			if (current) cycles = current->cycles;
 			data.execPC = PC;
@@ -56,10 +70,10 @@ class CPU {
 		if (current) {
 			skip = current->execute(opcode, data);
 			disassembled = current->disasm(opcode, data);
-			CpuEvent(data.execPC, data.SP, data.W, disassembled);
+			CpuEvent(opcode, data.execPC, data.SP, data.W, disassembled);
 		} else if (disassembled.length()) {   // fetch/flush cycle
 			auto st = disassembled.substr(0, 10) + "*" + disassembled.substr(11);
-			CpuEvent(data.execPC, data.SP, data.W, st);
+			CpuEvent(opcode, data.execPC, data.SP, data.W, st);
 		}
 	}
 
@@ -70,13 +84,17 @@ class CPU {
 
   public:
 	void reset() {
+		data.clock.stop();
+		nsteps = 0;
 		paused = true;
-		data.SP = 7;
+		current = NULL;
+		data.SP = 8;
 		data.W = 0;
 		cycles = 0;
 		skip = 0;
-		nsteps = 2;        // fetch & execute the first instruction
 		data.sram.reset();
+		nsteps = 2;        // fetch & execute the first instruction
+		data.clock.start();
 	}
 
 	void cycle() {
@@ -153,9 +171,10 @@ class CPU {
 		}
 	}
 
-	CPU(): active(true), debug(true), paused(false), skip(false), cycles(0), nsteps(0) {
+	CPU(): active(true), debug(true), paused(true), skip(false), cycles(0), nsteps(0) {
 		memset(data.flash.data, 0, sizeof(data.flash.data));
 		memset(data.eeprom.data, 0, sizeof(data.eeprom.data));
+
 		DeviceEvent<Clock>::subscribe<CPU>(this, &CPU::clock_event);
 
 		if (debug) {
