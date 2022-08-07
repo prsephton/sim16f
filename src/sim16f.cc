@@ -56,6 +56,8 @@ void *run_clock(void *a_params) {
 #include "utils/cmdline.h"
 //___________________________________________________________________________________
 // Host thread.
+#ifndef TESTING
+
 int main(int argc, char *argv[]) {
 	Params params;
 	CPU &cpu = params.cpu;
@@ -166,3 +168,4 @@ int main(int argc, char *argv[]) {
 
 	pthread_exit(NULL);
 }
+#endif
