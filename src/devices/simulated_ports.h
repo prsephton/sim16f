@@ -35,12 +35,11 @@ protected:
 	DeviceEventQueue eq;
 	bool debug = false;
 
-	virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+	void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
 public:
 	std::map<std::string, SmartPtr<Device> > &components();
-
-	void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
 	BasicPort(Connection &a_Pin, const std::string &a_name, int port_no, int port_bit_ofs);
 	Wire &bus_line();
@@ -82,7 +81,7 @@ class SinglePortA_Analog: public SinglePortA {
 
 	void set_comparator(bool on);
 	void set_comparators_for_an0_and_an1(BYTE cmcon);
-	virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
   public:
 	SinglePortA_Analog(Connection &a_Pin, const std::string &a_name);
@@ -96,7 +95,7 @@ class SinglePortA_Analog_RA2: public  SinglePortA_Analog {
 	Connection m_vref_sw;
 	Connection m_vref_in;
 
-	virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
   public:
 	SinglePortA_Analog_RA2(Connection &a_Pin, const std::string &a_name);
@@ -118,7 +117,7 @@ class SinglePortA_Analog_RA3: public  BasicPortA {
 	Connection Comparator;
 
 	void set_comparator(bool on);
-	virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
   public:
 	SinglePortA_Analog_RA3(Connection &a_Pin, Connection &comparator_out, const std::string &a_name);
@@ -143,9 +142,6 @@ class SinglePortA_Analog_RA3: public  BasicPortA {
 class SinglePortA_Analog_RA4: public BasicPortA {
 	Connection &m_comparator_out;
 	Connection m_cmp_mode_sw;
-
-	void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
-
 
   public:
 	SinglePortA_Analog_RA4(Connection &a_Pin, Connection &comparator_out, const std::string &a_name);
@@ -184,7 +180,7 @@ protected:
 
 	DeviceEventQueue eq;
 
-	void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
   public:
 	SinglePortA_MCLR_RA5(Connection &a_Pin, const std::string &a_name);
@@ -212,7 +208,7 @@ class SinglePortA_RA6_CLKOUT: public  BasicPortA {
 	Connection m_Fosc2;  // also s1_en
 	BYTE m_fosc;
 
-	virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 	void on_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data);
 
 public:
@@ -233,7 +229,7 @@ class PortA_RA7: public BasicPortA {
 	Connection m_Fosc;
 
   protected:
-	virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
   public:
 	PortA_RA7(Connection &a_Pin, const std::string &a_name);
@@ -248,9 +244,10 @@ class PortA_RA7: public BasicPortA {
 class BasicPortB: public BasicPort {
 	Connection m_RBPU;
 	Connection m_PinOut;
+	Inverse    m_iRBPU;
 
 protected:
-	virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
   public:
 	BasicPortB(Connection &a_Pin, const std::string &a_name, int port_bit_ofs);
@@ -266,5 +263,24 @@ class PortB_RB0: public BasicPortB {
   public:
 	PortB_RB0(Connection &a_Pin, const std::string &a_name);
 	Connection &INT() { return m_INT; };
+};
+
+//___________________________________________________________________________________
+// RB0 is a basic I/O port, which can also drive an interrupt signal.
+class PortB_RB1: public BasicPortB {
+	Connection m_SPEN;
+	Connection m_USART_Data_Out;
+	Connection m_Peripheral_OE;
+	Connection m_USART_Receive;
+	Inverse m_iRBPU;
+	Inverse m_iSPEN;
+
+	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+  public:
+	PortB_RB1(Connection &a_Pin, const std::string &a_name);
+	Connection &SPEN() { return m_SPEN; };
+	Connection &USART_Data_Out() { return m_USART_Data_Out; };
+	Connection &Peripheral_OE() { return m_Peripheral_OE; };
+	Connection &USART_Receive() { return m_USART_Receive; };
 };
 
