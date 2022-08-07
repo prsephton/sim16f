@@ -228,6 +228,7 @@ namespace app {
 			m_components["Inverter1 out"]  = new ConnectionDiagram(Inverter1.rd(), 330, 405, m_area);
 			m_components["Output.Q"]= new ConnectionDiagram(OutputLatch.Q(), 360.0, 300.0, m_area);
 			m_components["Clamp"]= new ClampDiagram(Clamp1, 515.0,150.0, m_area);
+
 			m_components["Mux"]= new MuxDiagram(Mux1, 380, 130, 0, m_area);
 			m_components["Mux.out"]= new ConnectionDiagram(Mux1.rd(), 380, 130, m_area);
 			m_components["Mux.s0"]= new ConnectionDiagram(Mux1.select(0), 380, 130, m_area);

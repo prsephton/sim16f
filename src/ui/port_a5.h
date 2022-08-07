@@ -93,13 +93,6 @@ namespace app {
 
 		void draw_schmitt1() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["Schmitt1_Out"]);
-			conn.add(ConnectionDiagram::pt(   0, 45, true));
-			conn.add(ConnectionDiagram::pt(   0, 74));
-			conn.add(ConnectionDiagram::pt( -50, 74));
-		}
-
-		void draw_schmitt2() {
-			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["Schmitt2_Out"]);
 			conn.add(ConnectionDiagram::pt( -45, 0, true, false, true));
 			conn.add(ConnectionDiagram::pt( -45, 0, true));
 			conn.add(ConnectionDiagram::pt( -80, 0));
@@ -108,6 +101,13 @@ namespace app {
 			conn.add(ConnectionDiagram::pt( -160, 0, true));
 			conn.add(ConnectionDiagram::pt( -255, 0));
 			conn.add(ConnectionDiagram::text(-20, 35, "Schmitt Trigger\nInput buffer"));
+		}
+
+		void draw_schmitt2() {
+			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["Schmitt2_Out"]);
+			conn.add(ConnectionDiagram::pt(   0, 45, true));
+			conn.add(ConnectionDiagram::pt(   0, 74));
+			conn.add(ConnectionDiagram::pt( -50, 74));
 		}
 
 		void draw_rd_trisa() {
@@ -182,10 +182,10 @@ namespace app {
 			m_components["Pin Wire"]   = new WireDiagram( PinWire,   0.0,  0.0, m_area);
 			m_components["MCLRE Wire"]  = new WireDiagram( MCLREWire,  250.0,  100.0, m_area);
 			m_components["Pin"]  = new PinDiagram(p5.pin(), 630, 200, 0, 1, m_area);
-			m_components["Schmitt1"]  = new SchmittDiagram(Schmitt1, 480, 250, CairoDrawing::DIRECTION::DOWN, true, m_area);
-			m_components["Schmitt1_Out"]  = new ConnectionDiagram(Schmitt1.rd(), 480, 250, m_area);
-			m_components["Schmitt2"]  = new SchmittDiagram(Schmitt2, 440, 140, CairoDrawing::DIRECTION::LEFT, false, m_area);
-			m_components["Schmitt2_Out"]  = new ConnectionDiagram(Schmitt2.rd(), 440, 140, m_area);
+			m_components["Schmitt1"]  = new SchmittDiagram(Schmitt1, 440, 140, CairoDrawing::DIRECTION::LEFT, false, m_area);
+			m_components["Schmitt1_Out"]  = new ConnectionDiagram(Schmitt1.rd(), 440, 140, m_area);
+			m_components["Schmitt2"]  = new SchmittDiagram(Schmitt2, 480, 250, CairoDrawing::DIRECTION::DOWN, true, m_area);
+			m_components["Schmitt2_Out"]  = new ConnectionDiagram(Schmitt2.rd(), 480, 250, m_area);
 			m_components["And1.out"]  = new ConnectionDiagram(And1.rd(), 185, 130, m_area);
 			m_components["Tristate2"]  = new TristateDiagram(Tristate2, false, 250, 380, m_area);
 			m_components["Tristate3"]  = new TristateDiagram(Tristate3, false, 250, 310, m_area);

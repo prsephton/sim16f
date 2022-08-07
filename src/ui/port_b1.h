@@ -11,7 +11,7 @@
 
 namespace app {
 
-	class PortB0: public CairoDrawing {
+	class PortB1: public CairoDrawing {
 		CPU_DATA &m_cpu;
 		Glib::RefPtr<Gtk::Builder> m_refGlade;
 	  protected:
@@ -27,7 +27,7 @@ namespace app {
 			cr->move_to(400, 20);
 			cr->scale(2.0, 2.0);
 			cr->set_line_width(0.1);
-			cr->text_path("Device RB0/INT");
+			cr->text_path("Device RB1/RX/DT");
 			cr->fill_preserve(); cr->stroke();
 			cr->restore();
 			return false;
@@ -47,37 +47,52 @@ namespace app {
 			wire.add(WireDiagram::text(0, 51, "Data bus"));
 		}
 
-		void draw_tristate1_input() {
-			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["Tristate1 input"]);
+		void draw_datalatch_q() {
+			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["Datalatch.Q"]);
 			conn.add(ConnectionDiagram::pt(70,53,true));
-			conn.add(ConnectionDiagram::pt(170,53));
+			conn.add(ConnectionDiagram::pt(105,53));
+		}
+
+
+		void draw_trislatch_q() {
+			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["Trislatch.Q"]);
+
+			// Connection to AndGate "Out Enable"
+			conn.add(ConnectionDiagram::pt(70, 15, true));
+			conn.add(ConnectionDiagram::pt(115, 15));
+
+			// connection to RBPU_AND
+			conn.add(ConnectionDiagram::pt(90, 15,true,true));
+			conn.add(ConnectionDiagram::pt(90, -160));
+			conn.add(ConnectionDiagram::pt(170,-160));
+
+			// connection to Tristate3 input
+			conn.add(ConnectionDiagram::pt(90, 15,true));
+			conn.add(ConnectionDiagram::pt(90, 120));
+			conn.add(ConnectionDiagram::pt(50, 120));
 
 		}
 
-		void draw_tristate1_gate() {
-			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["Tristate1 gate"]);
-			conn.add(ConnectionDiagram::pt(70,145, true));
-			conn.add(ConnectionDiagram::pt(100,145));
-			conn.add(ConnectionDiagram::pt(185,145));
-			conn.add(ConnectionDiagram::pt(185, 70));
+		void draw_datamux() {
+			ConnectionDiagram &dmux = dynamic_cast<ConnectionDiagram &>(*m_components["dMUX"]);
+			dmux.add(new MuxSymbol(0,0,0,1,2));
+			dmux.add(ConnectionDiagram::pt(10,0).first());
+			dmux.add(ConnectionDiagram::pt(65,0));
+		}
 
-			// connection to RBPU_AND
-			conn.add(ConnectionDiagram::pt(90,145,true,true));
-			conn.add(ConnectionDiagram::pt(90, -20));
-			conn.add(ConnectionDiagram::pt(170,-20));
-
-			// connection to Tristate3 input
-			conn.add(ConnectionDiagram::pt(90, 145,true));
-			conn.add(ConnectionDiagram::pt(90, 250));
-			conn.add(ConnectionDiagram::pt(50, 250));
-
+		void draw_out_enable() {
+			ConnectionDiagram &out_en = dynamic_cast<ConnectionDiagram &>(*m_components["Out_en"]);
+			out_en.add(new AndSymbol(0, 0, 0, false));
+			out_en.add(ConnectionDiagram::pt(45, 0).first());
+			out_en.add(ConnectionDiagram::pt(70, 0));
+			out_en.add(ConnectionDiagram::pt(70, -105));
 		}
 
 		void draw_pin_wire() {
 			WireDiagram &wire = dynamic_cast<WireDiagram &>(*m_components["Pin Wire"]);
-			wire.add(WireDiagram::pt(400, 145, true));
-			wire.add(WireDiagram::pt(530, 145));
-			wire.add(WireDiagram::pt(500, 145, true, true));
+			wire.add(WireDiagram::pt(400, 125, true));
+			wire.add(WireDiagram::pt(530, 125));
+			wire.add(WireDiagram::pt(500, 125, true, true));
 			wire.add(WireDiagram::pt(500, 375));
 
 			//  TTL Input buffer
@@ -90,7 +105,7 @@ namespace app {
 
 			// Wire from PBPU MOS to pin horizontal
 			wire.add(WireDiagram::pt(480,  80, true));
-			wire.add(WireDiagram::pt(480, 145, false, true));
+			wire.add(WireDiagram::pt(480, 125, false, true));
 
 			// Wire continuation to INT schmitte trigger
 			wire.add(WireDiagram::pt(500, 375, true, true));
@@ -163,6 +178,15 @@ namespace app {
 			conn.add(ConnectionDiagram::text(0, -2, "RBPU").overscore());
 		}
 
+		void draw_SPEN() {
+			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["SPEN"]);
+			conn.add(ConnectionDiagram::pt(   0,  0).first());
+			conn.add(ConnectionDiagram::pt( 268,  0).invert());
+			conn.add(ConnectionDiagram::pt( 210,  0).first().join());
+			conn.add(ConnectionDiagram::pt( 210, 30));
+			conn.add(ConnectionDiagram::text(0, -2, "SPEN"));
+		}
+
 		void draw_rbpu_and() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["RBPU_AND"]);
 			conn.add(ConnectionDiagram::pt( 320,  10, true));
@@ -170,11 +194,27 @@ namespace app {
 			conn.add(new FETSymbol(360, 10, 0, false, false, true));
 		}
 
-		void draw_int_output() {
-			WireDiagram &wire = dynamic_cast<WireDiagram &>(*m_components["INT_WIRE"]);
+		void draw_usart_out() {
+			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["USART.out"]);
+			conn.add(ConnectionDiagram::pt(   0,  0).first());
+			conn.add(ConnectionDiagram::pt( 205,  0));
+			conn.add(ConnectionDiagram::text(0, -2, "USART Data Output"));
+		}
+
+		void draw_peripheral_oe() {
+			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["Peripheral.OE"]);
+			conn.add(ConnectionDiagram::pt(   0,  0).first());
+			conn.add(ConnectionDiagram::pt( 200,  0));
+			conn.add(ConnectionDiagram::pt( 200,  -70));
+			conn.add(ConnectionDiagram::pt( 215,  -70));
+			conn.add(ConnectionDiagram::text(0, -2, "Peripheral OE").overscore());
+		}
+
+		void draw_usart_rec() {
+			WireDiagram &wire = dynamic_cast<WireDiagram &>(*m_components["USART_REC_WIRE"]);
 			wire.add(WireDiagram::pt(280, 0, true));
 			wire.add(WireDiagram::pt(0, 0));
-			wire.add(WireDiagram::text(8, -2, "INT"));
+			wire.add(WireDiagram::text(8, -2, "USART Receive"));
 			wire.add(new VssSymbol(0, 0, M_PI*0.5));
 		}
 
@@ -186,12 +226,12 @@ namespace app {
 			m_area->queue_draw();
 		}
 
-		PortB0(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
-			CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>::cast_dynamic(a_refGlade->get_object("dwg_RB0"))),
+		PortB1(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
+			CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>::cast_dynamic(a_refGlade->get_object("dwg_RB1"))),
 			m_cpu(a_cpu), m_refGlade(a_refGlade)
 		{
-			auto &p0 = dynamic_cast<BasicPortB &>(*(m_cpu.portb.RB[0]));
-			auto &c = p0.components();
+			auto &p1 = dynamic_cast<PortB_RB1 &>(*(m_cpu.portb.RB[1]));
+			auto &c = p1.components();
 			Latch &DataLatch = dynamic_cast<Latch &>(*(c["Data Latch"]));
 			Latch &TrisLatch = dynamic_cast<Latch &>(*(c["Tris Latch"]));
 			Wire &DataBus = dynamic_cast<Wire &> (*(c["Data Bus"]));
@@ -203,22 +243,26 @@ namespace app {
 			Inverter &Inverter1 = dynamic_cast<Inverter &> (*(c["Inverter1"]));
 			Clamp &Clamp1 = dynamic_cast<Clamp &> (*(c["PinClamp"]));
 			AndGate &RBPU = dynamic_cast<AndGate &> (*(c["RBPU_NAND"]));
-			Schmitt &Int_trigger = dynamic_cast<Schmitt &> (*(c["INT_TRIGGER"]));
-			Wire &Int_wire = dynamic_cast<Wire &> (*(c["INT_WIRE"]));
 
-			DeviceEvent<Wire>::subscribe<PortB0>(this, &PortB0::on_wire_change, &DataBus);
-			DeviceEvent<Connection>::subscribe<PortB0>(this, &PortB0::on_connection_change, &DataLatch.Q());
-			DeviceEvent<Connection>::subscribe<PortB0>(this, &PortB0::on_connection_change, &TrisLatch.Q());
-			DeviceEvent<Connection>::subscribe<PortB0>(this, &PortB0::on_connection_change, &Tristate1.rd());
+			Schmitt &USART_trigger = dynamic_cast<Schmitt &> (*(c["USART_TRIGGER"]));
+			Mux &dMux = dynamic_cast<Mux &>(*c["Data MUX"]);
+			AndGate &Out_en = dynamic_cast<AndGate &>(*c["Out Enable"]);
+
+			Wire &USART_REC_wire = dynamic_cast<Wire &> (*(c["USART_REC_WIRE"]));
+
+			DeviceEvent<Wire>::subscribe<PortB1>(this, &PortB1::on_wire_change, &DataBus);
+			DeviceEvent<Connection>::subscribe<PortB1>(this, &PortB1::on_connection_change, &DataLatch.Q());
+			DeviceEvent<Connection>::subscribe<PortB1>(this, &PortB1::on_connection_change, &TrisLatch.Q());
+			DeviceEvent<Connection>::subscribe<PortB1>(this, &PortB1::on_connection_change, &Tristate1.rd());
 
 			m_components["Data Latch"] = new LatchDiagram(DataLatch, true, 200.0, 130.0, m_area);
 			m_components["Tris Latch"] = new LatchDiagram(TrisLatch, true, 200.0, 220.0, m_area);
 			m_components["Data Bus"]   = new WireDiagram( DataBus,   100.0,  90.0, m_area);
 			m_components["Pin Wire"]   = new WireDiagram( PinWire,   0.0,  0.0, m_area);
-			m_components["Tristate1"]  = new TristateDiagram( Tristate1, true, 370.0, 145.0, m_area);
-			m_components["Tristate1 input"] = new ConnectionDiagram(DataLatch.Q(), 200, 90, m_area);
-			m_components["Tristate1 gate"]  = new ConnectionDiagram(TrisLatch.Q(), 200, 90, m_area);
-			m_components["Pin"]  = new PinDiagram(p0.pin(), 530, 145, 0, 1, m_area);
+			m_components["Tristate1"]  = new TristateDiagram( Tristate1, true, 370.0, 125.0, m_area);
+			m_components["Datalatch.Q"] = new ConnectionDiagram(DataLatch.Q(), 200, 90, m_area);
+			m_components["Trislatch.Q"]  = new ConnectionDiagram(TrisLatch.Q(), 200, 220, m_area);
+			m_components["Pin"]  = new PinDiagram(p1.pin(), 530, 125, 0, 1, m_area);
 			m_components["WR_PORTB"]  = new ConnectionDiagram(DataLatch.Ck(), 100, 90, m_area);
 			m_components["WR_TRISB"]  = new ConnectionDiagram(TrisLatch.Ck(), 100, 210, m_area);
 			m_components["Tristate2"]  = new TristateDiagram(Tristate2, false, 340, 375, m_area);
@@ -230,24 +274,34 @@ namespace app {
 			m_components["Inverter1 out"]  = new ConnectionDiagram(Inverter1.rd(), 365, 455, m_area);
 			m_components["Output.Q"]= new ConnectionDiagram(OutputLatch.Q(), 360.0, 320.0, m_area);
 			m_components["Clamp"]= new ClampDiagram(Clamp1, 515.0,145.0, m_area);
-			m_components["RBPU"]= new ConnectionDiagram(p0.RBPU(), 100.0, 50.0, m_area);
+			m_components["RBPU"]= new ConnectionDiagram(p1.RBPU(), 100.0, 50.0, m_area);
+			m_components["SPEN"]= new ConnectionDiagram(p1.SPEN(), 100.0, 70.0, m_area);
 			m_components["RBPU_AND"]= new ConnectionDiagram(RBPU.rd(), 100.0, 50.0, m_area);
-			m_components["INT_WIRE"] = new WireDiagram(Int_wire, 105, 490, m_area);
-			m_components["Schmitt"]  = new SchmittDiagram(Int_trigger, 430, 490, CairoDrawing::DIRECTION::LEFT, false, m_area);
+			m_components["Schmitt"]  = new SchmittDiagram(USART_trigger, 430, 490, CairoDrawing::DIRECTION::LEFT, false, m_area);
+			m_components["USART_REC_WIRE"] = new WireDiagram(USART_REC_wire, 105, 490, m_area);
+			m_components["Out_en"]= new ConnectionDiagram(Out_en.rd(), 315.0, 245.0, m_area);
+			m_components["dMUX"]= new ConnectionDiagram(dMux.rd(), 305.0, 125.0, m_area);
+			m_components["USART.out"]= new ConnectionDiagram(p1.USART_Data_Out(), 100.0, 110.0, m_area);
+			m_components["Peripheral.OE"]= new ConnectionDiagram(p1.Peripheral_OE(), 100.0, 320.0, m_area);
 
 			draw_data_bus();
-			draw_tristate1_input();
-			draw_tristate1_gate();
+			draw_datalatch_q();
+			draw_trislatch_q();
+			draw_out_enable();
 			draw_pin_wire();
 			draw_wr_portb();
 			draw_wr_trisb();
 			draw_rbpu();
+			draw_SPEN();
 			draw_rbpu_and();
 			draw_rd_trisb();
 			draw_rd_portb();
 			draw_inverter1_out();
 			draw_output_q();
-			draw_int_output();
+			draw_usart_rec();
+			draw_usart_out();
+			draw_peripheral_oe();
+			draw_datamux();
 		}
 
 	};
