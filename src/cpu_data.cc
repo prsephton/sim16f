@@ -140,6 +140,7 @@ CPU_DATA::CPU_DATA():
 }
 
 void CPU_DATA::register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+	std::cout << name << " = " << std::hex <<  (int)data[1] << std::endl;
 }
 
 
