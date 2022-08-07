@@ -1,2 +1,7 @@
 /Debug/
 /Release/
+/test/
+*.o
+*.d
+sim16f
+test_devices
