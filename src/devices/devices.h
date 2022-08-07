@@ -213,6 +213,8 @@ class PINS: public Device {
 
 
 class PORTA: public Device {
+	Connection Comp1;
+	Connection Comp2;
 	PINS &pins;
 	DeviceEventQueue eq;
 
@@ -234,8 +236,6 @@ class PORTA: public Device {
 	std::vector< SmartPtr<Device> > RA;
 	PORTA(PINS &a_pins): pins(a_pins) {
 		RA.resize(8);
-		Connection Comp1;
-		Connection Comp2;
 		DeviceEvent<Register>::subscribe<PORTA>(this, &PORTA::register_changed);
 		RA[0] = new SinglePortA_Analog(pins[PINS::pin_RA0], "RA0");
 		RA[1] = new SinglePortA_Analog(pins[PINS::pin_RA1], "RA1");
@@ -323,7 +323,7 @@ class PORTB: public Device {
 		RB.resize(8);
 		DeviceEvent<Register>::subscribe<PORTB>(this, &PORTB::register_changed);
 		RB[0] = new PortB_RB0(pins[PINS::pin_RB0], "RB0");
-		RB[1] = new BasicPortB(pins[PINS::pin_RB1], "RB1", 1);
+		RB[1] = new PortB_RB1(pins[PINS::pin_RB1], "RB1");
 		RB[2] = new BasicPortB(pins[PINS::pin_RB2], "RB2", 2);
 		RB[3] = new BasicPortB(pins[PINS::pin_RB3], "RB3", 3);
 		RB[4] = new BasicPortB(pins[PINS::pin_RB4], "RB4", 4);
