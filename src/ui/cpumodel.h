@@ -27,7 +27,7 @@ namespace app {
 				cr->text_path(int_to_hex(pc+n));
 				cr->move_to(35, 35+LINE_HEIGHT*n);
 				cr->text_path(int_to_hex(d));
-				cr->set_line_width((pc+n == m_execPC)?0.7:0.3);
+				cr->set_line_width((pc+n == m_execPC)?0.9:0.4);
 				cr->fill_preserve();
 				cr->stroke();
 			}
@@ -348,7 +348,7 @@ namespace app {
 			cr->text_path("    ");    cr->text_path(int_to_string(status >> 4 & 1));
 			cr->text_path("    ");    cr->text_path(int_to_string(status >> 1 & 1));
 			cr->text_path("    ");    cr->text_path(int_to_string(status & 1));
-			cr->set_line_width(0.4);
+			cr->set_line_width(0.5);
 			cr->fill_preserve();
 			cr->stroke();
 		}
