@@ -42,7 +42,7 @@ bool SRAM::calc_bank_ofs(WORD a_idx, BYTE &bank, BYTE &ofs, bool indirect) const
 				return false;
 			}
 		} else {
-			std::cout << "unknown register [" << std::hex << (int)a_idx << "]\n";
+//			std::cout << "unknown register [" << std::hex << (int)a_idx << "]\n";
 			return false;
 		}
 	} else {
@@ -72,14 +72,6 @@ void SRAM::reset() {
 	 for (int bank = 0; bank < RAM_BANKS; ++bank)
 		 for (int ofs = 0; ofs < BANK_SIZE; ++ofs)
 			 m_bank[bank][ofs] = 0;
-	 BYTE bank, ofs;
-	 calc_bank_ofs(STATUS, bank, ofs, false); m_bank[bank][ofs] = 0b00011000;
-	 calc_bank_ofs(OPTION, bank, ofs, false); m_bank[bank][ofs] = 0b11111111;
-	 calc_bank_ofs(TRISA,  bank, ofs, false); m_bank[bank][ofs] = 0b11111111;
-	 calc_bank_ofs(TRISB,  bank, ofs, false); m_bank[bank][ofs] = 0b11111111;
-	 calc_bank_ofs(PCON,   bank, ofs, false); m_bank[bank][ofs] = 0b00001000;
-	 calc_bank_ofs(PR2,    bank, ofs, false); m_bank[bank][ofs] = 0b11111111;
-	 calc_bank_ofs(TXSTA,  bank, ofs, false); m_bank[bank][ofs] = 0b00000010;
 }
 
 
