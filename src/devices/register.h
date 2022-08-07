@@ -25,12 +25,17 @@ class Register : public Device {
 	WORD index() { return m_idx; }
 	virtual ~Register() {}
 
+
+	void trigger_change(BYTE a_new, BYTE a_old, BYTE a_changed) {
+		eq.queue_event(new DeviceEvent<Register>(*this, m_name, {a_old, a_changed, a_new}));
+	}
+
 	bool get_value() { return m_value; }
 	bool set_value(BYTE a_value, BYTE a_old=0) {
 		BYTE changed = a_old ^ a_value; // all changing bits.
 		m_value = a_value;
 		if (changed) {
-			eq.queue_event(new DeviceEvent<Register>(*this, m_name, {a_old, changed, a_value}));
+			trigger_change(a_value, a_old, changed);
 			return true;
 		}
 		return false;
