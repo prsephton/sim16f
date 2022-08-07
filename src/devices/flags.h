@@ -92,6 +92,16 @@ class Flags {
 		static const BYTE BOR  = 0b00000001;
 
 	};
+	struct RCSTA {
+		static const BYTE SPEN = 0b10000000;
+		static const BYTE RX9  = 0b01000000;
+		static const BYTE SREN = 0b00100000;
+		static const BYTE CREN = 0b00010000;
+		static const BYTE ADEN = 0b00001000;
+		static const BYTE FERR = 0b00000100;
+		static const BYTE OERR = 0b00000010;
+		static const BYTE RX9D = 0b00000001;
+	};
 	struct TXSTA {
 		static const BYTE CSRC = 0b10000000;
 		static const BYTE TX9  = 0b01000000;
