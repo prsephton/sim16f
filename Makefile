@@ -5,24 +5,35 @@ GTKCFLAGS=$(shell pkg-config --cflags gtk+-3.0 gtkmm-3.0)
 GTKLFLAGS=$(shell pkg-config --libs gtk+-3.0 gtkmm-3.0)
 CFLAGS=-I. -Wall $(GTKCFLAGS)
 LFLAGS=$(GTKLFLAGS)
-LIBS=-lpthread -lstdc++
-SOURCE=$(wildcard *.cc)
-HDRS=$(wildcard *.h)
+LIBS=-lpthread -lstdc++ -lm
+SOURCE=$(wildcard src/*/*.cc src/*.cc)
+TSOURCE=$(wildcard test/*.cc)
+HDRS=$(wildcard src/*/*.h src/*.h)
 TARGET=sim16f
 OBJS=$(SOURCE:.cc=.o)
-DEPENDS=$(SOURCE:.cc=.d)
+TOBJS=$(TSOURCE:.cc=.o)
+DEPENDS=$(SOURCE:.cc=.d) $(TSOURCE:.cc=.d)
+
+#debug:
+#	echo $(SOURCE)
+#	echo $(HDRS)
 
 .PHONY: all clean
 
 all: $(TARGET)
 
+$(TARGET): TESTING_FLAGS=
 $(TARGET): $(OBJS) $(HDRS)
 	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS) $(LFLAGS) $(LIBS)
 
 -include $(DEPENDS)
 
 %.o: %.cc
-	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+	$(CC) $(TESTING_FLAGS) $(CFLAGS) -MMD -MP -c $< -o $@
+
+test: TESTING_FLAGS = -DTESTING
+test: $(TOBJS) $(OBJS) $(HDRS)
+	$(CC) $(TESTING_FLAGS) $(CFLAGS) -o test_devices $(TOBJS) $(OBJS) $(LFLAGS) $(LIBS)
 
 clean:
-	rm -f *.o *.d $(TARGET)
+	rm -f $(OBJS) $(TOBJS) $(TARGET)
