@@ -179,7 +179,7 @@ namespace app {
 			double dy = a_p2.y-p1.y;
 			double dx = a_p2.x-p1.x;
 			rotation = atan2(dy, dx);
-			printf("Rotation is %.2f\n", rotation);
+//			printf("Rotation is %.2f\n", rotation);
 			length = sqrt(dy*dy + dx*dx);
 		}
 	};
@@ -627,9 +627,9 @@ namespace app {
 			bool m_bold;
 
 			text(double a_x, double a_y, const std::string &a_text):
-					x(a_x), y(a_y), t(a_text), m_line_width(0.4), m_underscore(false), m_overscore(false), m_bold(false) {}
+					x(a_x), y(a_y), t(a_text), m_line_width(0.8), m_underscore(false), m_overscore(false), m_bold(false) {}
 
-			text &line_width(double w=0.4) { m_line_width = w; return *this; }
+			text &line_width(double w=0.8) { m_line_width = w; return *this; }
 			text &underscore(bool u=true)  { m_underscore = u; return *this; }
 			text &overscore(bool o=true)   { m_overscore = o; return *this; }
 			text &bold(bool b=true)        { m_bold = b; return *this; }
@@ -662,7 +662,7 @@ namespace app {
 				while (end < std::string::npos) {
 					auto start = end; end = t.t.find("\n", end);
 					cr->text_path(t.t.substr(start, end-start));
-					cr->set_line_width(t.m_bold?t.m_line_width*1.5:t.m_line_width);
+					cr->set_line_width(t.m_bold?t.m_line_width*1.2:t.m_line_width);
 					cr->fill_preserve();
 					cr->stroke();
 					if (t.m_overscore) {
@@ -744,6 +744,7 @@ namespace app {
 			}
 
 			draw_points(cr, m_points);
+			cr->set_source_rgba(0.15,0.15,0.35,1);
 			draw_text(cr, m_text);
 			draw_extra(cr);
 
