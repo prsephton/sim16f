@@ -53,7 +53,7 @@ void BasicPort::process_register_change(Register *r, const std::string &name, co
 }
 
 void BasicPort::on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
-	process_register_change(r, name, data);
+	process_register_change(r, name, data);   // call the virtual override if defined
 }
 
 BasicPort::BasicPort(Connection &a_Pin, const std::string &a_name, int port_no, int port_bit_ofs):
@@ -191,12 +191,12 @@ void SinglePortA_Analog::set_comparators_for_an0_and_an1(BYTE cmcon) {
 	}
 }
 
-void SinglePortA_Analog::on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+void SinglePortA_Analog::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	if  (name == "CMCON") {
 		BYTE cmcon = data[2];
 		set_comparators_for_an0_and_an1(cmcon);
 	} else {
-		process_register_change(r, name, data);  // handles TRIS/PORT changes
+		BasicPort::process_register_change(r, name, data);  // handles TRIS/PORT changes
 	}
 }
 
@@ -211,7 +211,7 @@ Connection &SinglePortA_Analog::comparator() { return Comparator; }
 //___________________________________________________________________________________
 //  A model for a single port for pin AN2.  This looks like AN0/AN1 except that
 //  it also has a voltage reference.
-void SinglePortA_Analog_RA2::on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+void SinglePortA_Analog_RA2::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	if        (name == "CMCON") {
 		BYTE cmcon = data[2];
 
@@ -251,7 +251,7 @@ void SinglePortA_Analog_RA2::on_register_change(Register *r, const std::string &
 		}
 		relay.in().set_value(vref, true);
 	} else {
-		process_register_change(r, name, data);  // handles TRIS/PORT changes
+		BasicPort::process_register_change(r, name, data);  // handles TRIS/PORT changes
 	}
 }
 
@@ -290,7 +290,7 @@ void SinglePortA_Analog_RA3::set_comparator(bool on) {
 	}
 }
 
-void SinglePortA_Analog_RA3::on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+void SinglePortA_Analog_RA3::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	if        (name == "CMCON") {
 		BYTE cmcon = data[2];
 		bool comparator_mode_switch = false;
@@ -318,7 +318,7 @@ void SinglePortA_Analog_RA3::on_register_change(Register *r, const std::string &
 		}
 		m_cmp_mode_sw.set_value(comparator_mode_switch * Vdd, true);
 	} else {
-		process_register_change(r, name, data);  // handles TRIS/PORT changes
+		BasicPort::process_register_change(r, name, data);  // handles TRIS/PORT changes
 	}
 }
 
@@ -368,9 +368,6 @@ Connection &SinglePortA_Analog_RA3::comparator() { return Comparator; }
 //	}
 //}
 
-void SinglePortA_Analog_RA4::on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
-	process_register_change(r, name, data);  // handles TRIS/PORT changes
-}
 
 SinglePortA_Analog_RA4::SinglePortA_Analog_RA4(Connection &a_Pin, Connection &comparator_out, const std::string &a_name) :
 	BasicPortA(a_Pin, a_name, 4), m_comparator_out(comparator_out)
@@ -414,18 +411,16 @@ Connection &SinglePortA_Analog_RA4::TMR0() {
 //  This port, and the next, RA6, just look like nothing else.  So we will model it from
 //  ground up.
 
-	void SinglePortA_MCLR_RA5::on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+	void SinglePortA_MCLR_RA5::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 		if (name=="CONFIG1") {
-			bool flag = data[2] & 0b100000;
-			MCLRE.set_value(Vdd*flag, false);
-		} else {
-
+			bool flag = data[1] & Flags::CONFIG::MCLRE;
+			MCLRE.set_value(Vdd*flag, true);
 		}
 	}
 
 
 	SinglePortA_MCLR_RA5::SinglePortA_MCLR_RA5(Connection &a_Pin, const std::string &a_name) :
-		Pin(a_Pin)
+		Pin(a_Pin), MCLRE((float)0.0, false, "MCLRE")
 	{
 		Wire *DataBus = new Wire(a_name+"::data");
 		Wire *PinWire = new Wire(a_name+"::pin");
@@ -433,15 +428,8 @@ Connection &SinglePortA_Analog_RA4::TMR0() {
 
 		Pin.set_value(Vdd, false);
 
-		PinWire->connect(Pin);
 		Schmitt *St1 = new Schmitt(S1);
 		Schmitt *St2 = new Schmitt(S2, S2_en, true, true);
-
-		PinWire->connect(S1);
-		PinWire->connect(S2);
-
-		MCLREWire->connect(MCLRE);
-		MCLREWire->connect(S2_en);
 
 		AndGate *g1 = new AndGate({&MCLRE, &St1->rd()}, true, "And1");
 
@@ -452,6 +440,13 @@ Connection &SinglePortA_Analog_RA4::TMR0() {
 
 		Tristate *Tristate3 = new Tristate(cVss, rdTris, false, true);  Tristate3->name(a_name+"::TS3");
 		DataBus->connect(Tristate3->rd());
+
+		PinWire->connect(Pin);
+		PinWire->connect(S1);
+		PinWire->connect(S2);
+
+		MCLREWire->connect(MCLRE);
+		MCLREWire->connect(S2_en);
 
 		m_components["Data Bus"] = DataBus;
 		m_components["Pin Wire"] = PinWire;
@@ -464,8 +459,6 @@ Connection &SinglePortA_Analog_RA4::TMR0() {
 		m_components["Tristate2"] = Tristate2;
 		m_components["Tristate3"] = Tristate3;
 
-
-		DeviceEvent<Register>::subscribe<SinglePortA_MCLR_RA5>(this, &SinglePortA_MCLR_RA5::on_register_change);
 	}
 	Wire &SinglePortA_MCLR_RA5::bus_line() { return dynamic_cast<Wire &>(*m_components["Data Bus"]); }
 	Connection &SinglePortA_MCLR_RA5::data() { return Data; }
@@ -493,7 +486,7 @@ Connection &SinglePortA_Analog_RA4::TMR0() {
 // configured for I/O, CLKOUT can also be output with FOSC=101,111.
 //  We should be able to derive this port from BasicPort.
 
-void SinglePortA_RA6_CLKOUT::on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+void SinglePortA_RA6_CLKOUT::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	if (name == "CONFIG1") {
 		m_fosc = (data[2] & 0b11) | ((data[2] >> 2) & 0b100);
 		m_OSC.set_value(Vss, true);
@@ -514,7 +507,7 @@ void SinglePortA_RA6_CLKOUT::on_register_change(Register *r, const std::string &
 		} else if (m_fosc == 0b000) { // LP osc on RA6 & RA7
 		}
 	} else {
-		process_register_change(r, name, data);  // handles TRIS/PORT changes
+		BasicPort::process_register_change(r, name, data);  // handles TRIS/PORT changes
 	}
 }
 
@@ -566,13 +559,13 @@ Connection &SinglePortA_RA6_CLKOUT::osc()   { return m_OSC; }
 // an internal oscillator determines whether RA7 can be used as an input/output pin.
 // For anything other than these internal oscillator modes, the pin leads straight
 // to the clock circuits.
-void PortA_RA7::on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+void PortA_RA7::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	if (name == "CONFIG1") {
 		BYTE fosc = (data[2] & 0b11) | ((data[2] >> 2) & 0b100);
 		m_Fosc.set_value(Vdd * (fosc==0b100 || fosc==0b101), false);
 		S1_en.set_value(Vdd * (fosc==0b100 || fosc==0b101), true);
 	} else {
-		process_register_change(r, name, data);  // handles TRIS/PORT changes
+		BasicPort::process_register_change(r, name, data);  // handles TRIS/PORT changes
 	}
 }
 
@@ -605,7 +598,7 @@ Connection &PortA_RA7::Fosc() { return m_Fosc; }
 //  A model for a most ports, which have a Tristate connected to the DataLatch
 // and TrisLatch, and clamps the port range.
 
-void BasicPortB::on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+void BasicPortB::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	if (name == "OPTION") {
 //		bit 7 RBPU: PORTB Pull-up Enable bit
 //			1 = PORTB pull-ups are disabled
@@ -624,16 +617,16 @@ void BasicPortB::on_register_change(Register *r, const std::string &name, const 
 //			0 = Prescaler is assigned to the Timer0 module
 //		bit 2-0 PS2:PS0: Prescaler Rate Select bits
 
-		RBPU().set_value((data[2] & Flags::OPTION::RBPU)?Vdd:Vss, true);
+		RBPU().set_value((data[1] & Flags::OPTION::RBPU)?Vdd:Vss, false);
 
 	} else {
-		process_register_change(r, name, data);  // handles TRIS/PORT changes
+		BasicPort::process_register_change(r, name, data);  // handles TRIS/PORT changes
 	}
 }
 
 
 BasicPortB::BasicPortB(Connection &a_Pin, const std::string &a_name, int port_bit_ofs):
-	BasicPort(a_Pin, a_name, 1, port_bit_ofs)
+	BasicPort(a_Pin, a_name, 1, port_bit_ofs), m_iRBPU(m_RBPU)
 {
 	auto &c = components();
 
@@ -663,14 +656,18 @@ BasicPortB::BasicPortB(Connection &a_Pin, const std::string &a_name, int port_bi
 	c["Out Buffer"] = b;
 	c["SR1"] = SR1;
 
-	Inverter *RBPU_INV = new Inverter(m_RBPU);
-	AndGate *RBPU_GATE = new AndGate({&RBPU_INV->rd(), &TrisLatch.Q()}, true, "RBPU NAND");
+	AndGate *RBPU_GATE = new AndGate({&m_iRBPU, &TrisLatch.Q()}, true, "RBPU NAND");
 
-	Connection VDD(Vdd, true, "Vdd");
-	FET *pFET1 = new FET(VDD, RBPU_GATE->rd(), false);
+	Voltage *VDD = new Voltage(Vdd, "Vdd");
+	c["VDD"] = VDD;
+
+	Inverse *iFETGate = new Inverse(RBPU_GATE->rd());
+	FET *pFET1 = new FET(*VDD, *iFETGate, false, name()=="RB0");
+	if (name() == "RB0") pFET1->rd().debug(true);
+
 	PinWire.connect(pFET1->rd());
 
-	c["RBPU_INV"] = RBPU_INV;
+	c["iFETGate"] = iFETGate;
 	c["RBPU_NAND"] = RBPU_GATE;
 	c["RBPU_FET"] = pFET1;
 
@@ -691,3 +688,42 @@ PortB_RB0::PortB_RB0(Connection &a_Pin, const std::string &a_name):
 	c["INT_WIRE"] = IntWire;
 
 }
+
+void PortB_RB1::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+	if (name == "RCSTA") {
+		SPEN().set_value((data[1] & Flags::RCSTA::SPEN)?Vdd:Vss, false);
+		Peripheral_OE().set_value((data[1] & Flags::RCSTA::SREN)?Vdd:Vss, false);
+	}
+	BasicPortB::process_register_change(r, name, data);
+}
+
+//___________________________________________________________________________
+//  RB1 adds a schmitt trigger connected to the USART receive input.
+PortB_RB1::PortB_RB1(Connection &a_Pin, const std::string &a_name):
+	BasicPortB(a_Pin, a_name, 7), m_iRBPU(RBPU()), m_iSPEN(m_SPEN)
+{
+	auto &c = components();
+	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
+	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
+	Tristate &TS1 = dynamic_cast<Tristate &>(*c["Tristate1"]);
+	AndGate &PU_en = dynamic_cast<AndGate &>(*c["RBPU_NAND"]);
+	PU_en.inputs({&m_iRBPU, &TrisLatch.Q(), &m_iSPEN});
+
+	Schmitt *trigger = new Schmitt(PinOut(), true, false);
+	Wire *USART_RECWire = new Wire(trigger->rd(), m_USART_Receive, "USART receive input");
+	Mux *dmux = new Mux({&m_USART_Data_Out, &DataLatch.Q()}, {&m_SPEN}, "Data Mux");
+	TS1.input(dmux->rd());
+
+	AndGate *Out_en = new AndGate({&TrisLatch.Q(), &m_Peripheral_OE});
+	TS1.gate(Out_en->rd());
+
+	c["USART_TRIGGER"] = trigger;
+	c["USART_REC_WIRE"] = USART_RECWire;
+	c["Data MUX"] = dmux;
+	c["Out Enable"] = Out_en;
+
+	SPEN().set_value(Vss, false);
+	Peripheral_OE().set_value(Vss, false);
+	USART_Data_Out().set_value(Vss, false);
+}
+
