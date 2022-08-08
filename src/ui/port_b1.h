@@ -273,7 +273,7 @@ namespace app {
 			m_components["RD_PORTB"]  = new ConnectionDiagram(Tristate2.gate(), 100, 400, m_area);
 			m_components["Inverter1 out"]  = new ConnectionDiagram(Inverter1.rd(), 365, 455, m_area);
 			m_components["Output.Q"]= new ConnectionDiagram(OutputLatch.Q(), 360.0, 320.0, m_area);
-			m_components["Clamp"]= new ClampDiagram(Clamp1, 515.0,145.0, m_area);
+			m_components["Clamp"]= new ClampDiagram(Clamp1, 515.0,125.0, m_area);
 			m_components["RBPU"]= new ConnectionDiagram(p1.RBPU(), 100.0, 50.0, m_area);
 			m_components["SPEN"]= new ConnectionDiagram(p1.SPEN(), 100.0, 70.0, m_area);
 			m_components["RBPU_AND"]= new ConnectionDiagram(RBPU.rd(), 100.0, 50.0, m_area);

@@ -11,7 +11,7 @@
 
 namespace app {
 
-	class PortB2: public CairoDrawing {
+	class PortB3: public CairoDrawing {
 		CPU_DATA &m_cpu;
 		Glib::RefPtr<Gtk::Builder> m_refGlade;
 	  protected:
@@ -27,7 +27,7 @@ namespace app {
 			cr->move_to(400, 20);
 			cr->scale(2.0, 2.0);
 			cr->set_line_width(0.1);
-			cr->text_path("Device RB2/TX/CK");
+			cr->text_path("Device RB3/CCP");
 			cr->fill_preserve(); cr->stroke();
 			cr->restore();
 			return false;
@@ -81,7 +81,7 @@ namespace app {
 		}
 
 		void draw_out_enable() {
-			ConnectionDiagram &out_en = dynamic_cast<ConnectionDiagram &>(*m_components["Out_en"]);
+			ConnectionDiagram &out_en = dynamic_cast<ConnectionDiagram &>(*m_components["CCP.Out_en"]);
 			out_en.add(new AndSymbol(0, 0, 0, false));
 			out_en.add(ConnectionDiagram::pt(45, 0).first());
 			out_en.add(ConnectionDiagram::pt(70, 0));
@@ -178,13 +178,13 @@ namespace app {
 			conn.add(ConnectionDiagram::text(0, -2, "RBPU").overscore());
 		}
 
-		void draw_SPEN() {
-			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["SPEN"]);
+		void draw_CCP1CON() {
+			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["CCP1CON"]);
 			conn.add(ConnectionDiagram::pt(   0,  0).first());
 			conn.add(ConnectionDiagram::pt( 268,  0).invert());
 			conn.add(ConnectionDiagram::pt( 210,  0).first().join());
 			conn.add(ConnectionDiagram::pt( 210, 30));
-			conn.add(ConnectionDiagram::text(0, -2, "SPEN"));
+			conn.add(ConnectionDiagram::text(0, -2, "CCP1CON"));
 		}
 
 		void draw_rbpu_and() {
@@ -194,11 +194,11 @@ namespace app {
 			conn.add(new FETSymbol(360, 10, 0, false, false, true));
 		}
 
-		void draw_usart_out() {
-			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["USART.out"]);
+		void draw_ccp_out() {
+			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["CCP.out"]);
 			conn.add(ConnectionDiagram::pt(   0,  0).first());
 			conn.add(ConnectionDiagram::pt( 205,  0));
-			conn.add(ConnectionDiagram::text(0, -2, "USART TX/CK Output"));
+			conn.add(ConnectionDiagram::text(0, -2, "CCP Output"));
 		}
 
 		void draw_peripheral_oe() {
@@ -210,11 +210,11 @@ namespace app {
 			conn.add(ConnectionDiagram::text(0, -2, "Peripheral OE").overscore());
 		}
 
-		void draw_usart_rec() {
-			WireDiagram &wire = dynamic_cast<WireDiagram &>(*m_components["USART_REC_WIRE"]);
+		void draw_ccp_rec() {
+			WireDiagram &wire = dynamic_cast<WireDiagram &>(*m_components["REC_WIRE"]);
 			wire.add(WireDiagram::pt(280, 0, true));
 			wire.add(WireDiagram::pt(0, 0));
-			wire.add(WireDiagram::text(8, -2, "USART Slave Clock In"));
+			wire.add(WireDiagram::text(8, -2, "CCP In"));
 			wire.add(new VssSymbol(0, 0, M_PI*0.5));
 		}
 
@@ -226,12 +226,12 @@ namespace app {
 			m_area->queue_draw();
 		}
 
-		PortB2(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
-			CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>::cast_dynamic(a_refGlade->get_object("dwg_RB2"))),
+		PortB3(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
+			CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>::cast_dynamic(a_refGlade->get_object("dwg_RB3"))),
 			m_cpu(a_cpu), m_refGlade(a_refGlade)
 		{
-			auto &p1 = dynamic_cast<PortB_RB2 &>(*(m_cpu.portb.RB[2]));
-			auto &c = p1.components();
+			auto &p3 = dynamic_cast<PortB_RB3 &>(*(m_cpu.portb.RB[3]));
+			auto &c = p3.components();
 			Latch &DataLatch = dynamic_cast<Latch &>(*(c["Data Latch"]));
 			Latch &TrisLatch = dynamic_cast<Latch &>(*(c["Tris Latch"]));
 			Wire &DataBus = dynamic_cast<Wire &> (*(c["Data Bus"]));
@@ -244,16 +244,16 @@ namespace app {
 			Clamp &Clamp1 = dynamic_cast<Clamp &> (*(c["PinClamp"]));
 			AndGate &RBPU = dynamic_cast<AndGate &> (*(c["RBPU_NAND"]));
 
-			Schmitt &USART_trigger = dynamic_cast<Schmitt &> (*(c["USART_TRIGGER"]));
+			Schmitt &trigger = dynamic_cast<Schmitt &> (*(c["TRIGGER"]));
 			Mux &dMux = dynamic_cast<Mux &>(*c["Data MUX"]);
 			AndGate &Out_en = dynamic_cast<AndGate &>(*c["Out Enable"]);
 
-			Wire &USART_REC_wire = dynamic_cast<Wire &> (*(c["USART_REC_WIRE"]));
+			Wire &REC_wire = dynamic_cast<Wire &> (*(c["CCP_REC_WIRE"]));
 
-			DeviceEvent<Wire>::subscribe<PortB2>(this, &PortB2::on_wire_change, &DataBus);
-			DeviceEvent<Connection>::subscribe<PortB2>(this, &PortB2::on_connection_change, &DataLatch.Q());
-			DeviceEvent<Connection>::subscribe<PortB2>(this, &PortB2::on_connection_change, &TrisLatch.Q());
-			DeviceEvent<Connection>::subscribe<PortB2>(this, &PortB2::on_connection_change, &Tristate1.rd());
+			DeviceEvent<Wire>::subscribe<PortB3>(this, &PortB3::on_wire_change, &DataBus);
+			DeviceEvent<Connection>::subscribe<PortB3>(this, &PortB3::on_connection_change, &DataLatch.Q());
+			DeviceEvent<Connection>::subscribe<PortB3>(this, &PortB3::on_connection_change, &TrisLatch.Q());
+			DeviceEvent<Connection>::subscribe<PortB3>(this, &PortB3::on_connection_change, &Tristate1.rd());
 
 			m_components["Data Latch"] = new LatchDiagram(DataLatch, true, 200.0, 130.0, m_area);
 			m_components["Tris Latch"] = new LatchDiagram(TrisLatch, true, 200.0, 220.0, m_area);
@@ -262,7 +262,7 @@ namespace app {
 			m_components["Tristate1"]  = new TristateDiagram( Tristate1, true, 370.0, 125.0, m_area);
 			m_components["Datalatch.Q"] = new ConnectionDiagram(DataLatch.Q(), 200, 90, m_area);
 			m_components["Trislatch.Q"]  = new ConnectionDiagram(TrisLatch.Q(), 200, 220, m_area);
-			m_components["Pin"]  = new PinDiagram(p1.pin(), 530, 125, 0, 1, m_area);
+			m_components["Pin"]  = new PinDiagram(p3.pin(), 530, 125, 0, 1, m_area);
 			m_components["WR_PORTB"]  = new ConnectionDiagram(DataLatch.Ck(), 100, 90, m_area);
 			m_components["WR_TRISB"]  = new ConnectionDiagram(TrisLatch.Ck(), 100, 210, m_area);
 			m_components["Tristate2"]  = new TristateDiagram(Tristate2, false, 340, 375, m_area);
@@ -274,15 +274,15 @@ namespace app {
 			m_components["Inverter1 out"]  = new ConnectionDiagram(Inverter1.rd(), 365, 455, m_area);
 			m_components["Output.Q"]= new ConnectionDiagram(OutputLatch.Q(), 360.0, 320.0, m_area);
 			m_components["Clamp"]= new ClampDiagram(Clamp1, 515.0,125.0, m_area);
-			m_components["RBPU"]= new ConnectionDiagram(p1.RBPU(), 100.0, 50.0, m_area);
-			m_components["SPEN"]= new ConnectionDiagram(p1.SPEN(), 100.0, 70.0, m_area);
+			m_components["RBPU"]= new ConnectionDiagram(p3.RBPU(), 100.0, 50.0, m_area);
+			m_components["CCP1CON"]= new ConnectionDiagram(p3.CCP1CON(), 100.0, 70.0, m_area);
 			m_components["RBPU_AND"]= new ConnectionDiagram(RBPU.rd(), 100.0, 50.0, m_area);
-			m_components["Schmitt"]  = new SchmittDiagram(USART_trigger, 430, 490, CairoDrawing::DIRECTION::LEFT, false, m_area);
-			m_components["USART_REC_WIRE"] = new WireDiagram(USART_REC_wire, 105, 490, m_area);
-			m_components["Out_en"]= new ConnectionDiagram(Out_en.rd(), 315.0, 245.0, m_area);
+			m_components["Schmitt"]  = new SchmittDiagram(trigger, 430, 490, CairoDrawing::DIRECTION::LEFT, false, m_area);
+			m_components["REC_WIRE"] = new WireDiagram(REC_wire, 105, 490, m_area);
+			m_components["CCP.Out_en"]= new ConnectionDiagram(Out_en.rd(), 315.0, 245.0, m_area);
 			m_components["dMUX"]= new ConnectionDiagram(dMux.rd(), 305.0, 125.0, m_area);
-			m_components["USART.out"]= new ConnectionDiagram(p1.USART_TX_CK_Out(), 100.0, 110.0, m_area);
-			m_components["Peripheral.OE"]= new ConnectionDiagram(p1.Peripheral_OE(), 100.0, 320.0, m_area);
+			m_components["CCP.out"]= new ConnectionDiagram(p3.CCP_Out(), 100.0, 110.0, m_area);
+			m_components["Peripheral.OE"]= new ConnectionDiagram(p3.Peripheral_OE(), 100.0, 320.0, m_area);
 
 			draw_data_bus();
 			draw_datalatch_q();
@@ -292,14 +292,14 @@ namespace app {
 			draw_wr_portb();
 			draw_wr_trisb();
 			draw_rbpu();
-			draw_SPEN();
+			draw_CCP1CON();
 			draw_rbpu_and();
 			draw_rd_trisb();
 			draw_rd_portb();
 			draw_inverter1_out();
 			draw_output_q();
-			draw_usart_rec();
-			draw_usart_out();
+			draw_ccp_rec();
+			draw_ccp_out();
 			draw_peripheral_oe();
 			draw_datamux();
 		}

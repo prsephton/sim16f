@@ -304,3 +304,21 @@ class PortB_RB2: public BasicPortB {
 	Connection &USART_Slave_Clock_in() { return m_USART_Slave_Clock_in; };
 };
 
+//___________________________________________________________________________________
+// RB3
+class PortB_RB3: public BasicPortB {
+	Connection m_CCP1CON;
+	Connection m_CCP_Out;
+	Connection m_Peripheral_OE;
+	Connection m_CCP_in;
+	Inverse m_iRBPU;
+
+	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+  public:
+	PortB_RB3(Connection &a_Pin, const std::string &a_name);
+	Connection &CCP1CON() { return m_CCP1CON; };
+	Connection &CCP_Out() { return m_CCP_Out; };
+	Connection &Peripheral_OE() { return m_Peripheral_OE; };
+	Connection &CCP_in() { return m_CCP_in; };
+};
+

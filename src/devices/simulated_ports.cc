@@ -765,3 +765,46 @@ PortB_RB2::PortB_RB2(Connection &a_Pin, const std::string &a_name):
 	USART_Slave_Clock_in().set_value(Vss, false);
 }
 
+
+void PortB_RB3::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+	if (name == "CCP1CON") {
+		// TODO: What gets set here depends on CCP1CON contents
+		CCP_Out().set_value(Vdd, false);
+	}
+
+	if (name == "RCSTA") {
+		Peripheral_OE().set_value((data[1] & Flags::RCSTA::SREN)?Vdd:Vss, false);
+	}
+	BasicPortB::process_register_change(r, name, data);
+}
+
+//___________________________________________________________________________
+//  RB3 is the last of the familiar looking port functions
+PortB_RB3::PortB_RB3(Connection &a_Pin, const std::string &a_name):
+	BasicPortB(a_Pin, a_name, 3), m_iRBPU(RBPU())
+{
+	auto &c = components();
+	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
+	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
+	Tristate &TS1 = dynamic_cast<Tristate &>(*c["Tristate1"]);
+	AndGate &PU_en = dynamic_cast<AndGate &>(*c["RBPU_NAND"]);
+	PU_en.inputs({&m_iRBPU, &TrisLatch.Q(), &m_CCP1CON});
+
+	Schmitt *trigger = new Schmitt(PinOut(), true, false);
+	Wire *CCP_RECWire = new Wire(trigger->rd(), m_CCP_Out, "CCP_in");
+	Mux *dmux = new Mux({&m_CCP_Out, &DataLatch.Q()}, {&m_CCP1CON}, "Data Mux");
+	TS1.input(dmux->rd());
+
+	AndGate *Out_en = new AndGate({&TrisLatch.Q(), &m_Peripheral_OE});
+	TS1.gate(Out_en->rd());
+
+	c["TRIGGER"] = trigger;
+	c["CCP_REC_WIRE"] = CCP_RECWire;
+	c["Data MUX"] = dmux;
+	c["Out Enable"] = Out_en;
+
+	CCP1CON().set_value(Vss, false);
+	Peripheral_OE().set_value(Vss, false);
+	CCP_in().set_value(Vss, false);
+}
+

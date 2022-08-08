@@ -7,7 +7,7 @@
 #include "port_b0.h"
 #include "port_b1.h"
 #include "port_b2.h"
-//#include "port_b3.h"
+#include "port_b3.h"
 //#include "port_b4.h"
 //#include "port_b5.h"
 //#include "port_b6.h"
@@ -36,7 +36,7 @@ namespace app {
 			b0 = new PortB0(a_cpu, a_refGlade);
 			b1 = new PortB1(a_cpu, a_refGlade);
 			b2 = new PortB2(a_cpu, a_refGlade);
-//			b3 = new PortB3(a_cpu, a_refGlade);
+			b3 = new PortB3(a_cpu, a_refGlade);
 //			b4 = new PortB4(a_cpu, a_refGlade);
 //			b5 = new PortB5(a_cpu, a_refGlade);
 //			b6 = new PortB6(a_cpu, a_refGlade);
