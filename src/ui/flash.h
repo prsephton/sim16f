@@ -186,14 +186,20 @@ namespace app {
 				if (apply) {
 					auto mne = mark->get_iter(); mne.forward_chars(6);
 					auto comment = mne; comment.forward_chars(15);
-
-					m_listing->erase(mne, comment);
-					mne = mark->get_iter(); mne.forward_chars(6);
-					m_listing->insert(mne, e.disassembly.substr(0, 15));
-
-					auto stx = mark->get_iter();
-					auto eol = stx; eol.forward_line();
-					m_listing->apply_tag(m_tags->lookup("highlight"), stx, eol);
+					if (e.OPCODE && e.disassembly.substr(0, 3) != "NOP") {   // don't do this for NOPS.
+						m_listing->erase(mne, comment);
+						mne = mark->get_iter(); mne.forward_chars(6);
+						m_listing->insert(mne, e.disassembly.substr(0, 15));
+						auto stx = mark->get_iter();
+						auto eol = stx; eol.forward_line();
+						m_listing->remove_tag(m_tags->lookup("italic"), stx, eol);
+						m_listing->apply_tag(m_tags->lookup("highlight"), stx, eol);
+					} else {
+						auto stx = mark->get_iter();
+						auto eol = stx; eol.forward_line();
+						m_listing->apply_tag(m_tags->lookup("highlight"), stx, eol);
+						m_listing->apply_tag(m_tags->lookup("italic"), stx, eol);
+					}
 				} else {
 					auto stx = mark->get_iter();
 					auto eol = stx; eol.forward_line();
