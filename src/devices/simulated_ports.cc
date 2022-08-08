@@ -1,6 +1,5 @@
 #include "simulated_ports.h"
 
-
 //___________________________________________________________________________________
 //   A basic port implements a Port latch and Tris latch having high impedence inputs
 // directly from the data bus.
@@ -649,9 +648,9 @@ BasicPortB::BasicPortB(Connection &a_Pin, const std::string &a_name, int port_bi
 	Tristate *Tristate3 = new Tristate(TrisLatch.Q(), rdTris, false, false);  Tristate3->name(a_name+"::TS3");
 	DataBus.connect(Tristate3->rd());
 
-	c["Tristate1"] = Tristate1;
-	c["Tristate2"] = Tristate2;
-	c["Tristate3"] = Tristate3;
+	c["Tristate1"] = Tristate1;   // connected to pin wire
+	c["Tristate2"] = Tristate2;   // connected to data bus and RD_PORTB
+	c["Tristate3"] = Tristate3;   // connected to data bus and RD_TRISB
 	c["PinClamp"] = PinClamp;
 	c["Out Buffer"] = b;
 	c["SR1"] = SR1;
@@ -806,5 +805,94 @@ PortB_RB3::PortB_RB3(Connection &a_Pin, const std::string &a_name):
 	CCP1CON().set_value(Vss, false);
 	Peripheral_OE().set_value(Vss, false);
 	CCP_in().set_value(Vss, false);
+}
+
+
+//___________________________________________________________________________
+//  RB4 is very different from the RB[1..3] designs.  Instead of
+// an AND gate before Tristate1, we have an OR gate combining LVP
+// and TrisLatch.Q.
+//  Where RB0..3 have a TTL buffer before an SR latch to read
+// input from the pin, we see instead two SR latches, with enable
+// connected to the Q1 and Q3 clock cycles. Q3 is dependent on a
+// simultaneous RD_PORTB signal (an AND gate).
+//  SR1.Q feeds Tristate2 which is connected to the data bus, while
+// both SR1.Q and SR2.Q are connected to an XOR gate, which in turn
+// leads to an AND gate, also having inputs iLVP and TrisLatch.Q.
+// Thus AND(iLVP, Trislatch.Q, XOR(SR1.Q, SR2.Q)) will set RBIF, as
+// will almost the same arrangement for the remaining pins RB[5,6,7]
+//
+
+void PortB_RB4::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+	if (name == "CONFIG") {
+		LVP().set_value((data[1] & Flags::CONFIG::LVP)?Vdd:Vss, false);
+	}
+	BasicPortB::process_register_change(r, name, data);
+}
+
+void PortB_RB4::on_iflag(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+	RBIF().set_value(D->rd(), false);
+}
+
+void PortB_RB4::on_clock(Clock *D, const std::string &name, const std::vector<BYTE> &data) {
+	if        (name == "Q1") {
+		Q1().set_value(Vdd, false);
+	} else if (name == "Q2") {
+		Q1().set_value(Vss, false);
+	} else if (name == "Q3") {
+		Q3().set_value(Vdd, false);
+	} else if (name == "Q4") {
+		Q3().set_value(Vss, false);
+	}
+}
+
+PortB_RB4::PortB_RB4(Connection &a_Pin, const std::string &a_name):
+	BasicPortB(a_Pin, a_name, 4), m_iRBPU(RBPU()), m_iLVP(LVP())
+{
+	auto &c = components();
+	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
+	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
+	ABuffer &b = dynamic_cast<ABuffer &>(*c["Out Buffer"]);
+
+	Tristate &TS1 = dynamic_cast<Tristate &>(*c["Tristate1"]);
+	Tristate &TS2 = dynamic_cast<Tristate &>(*c["Tristate2"]);
+	AndGate &PU_en = dynamic_cast<AndGate &>(*c["RBPU_NAND"]);
+	PU_en.inputs({&m_iRBPU, &TrisLatch.Q(), &m_iLVP});
+
+	Schmitt *trigger = new Schmitt(PinOut(), true, false);
+	c["TRIGGER"] = trigger;
+	c["PGM_RECWire"] = new Wire(trigger->rd(), m_PGM, "PGM input");
+	TS1.input(DataLatch.Q());
+
+	OrGate *Out_en = new OrGate({&TrisLatch.Q(), &m_LVP});
+	TS1.gate(Out_en->rd());
+	c["OR(TrisLatch.Q, LVP)"] = Out_en;
+
+	c.erase("Inverter1");  // smart pointer will clean up
+	c["AND(Q3,rdPort)"] = new AndGate({&rdPort, &Q3()});
+	AndGate &q3_and_rd = dynamic_cast<AndGate &>(*c["AND(Q3,rdPort)"]);
+
+	c["SR1"] = new Latch(b.rd(), Q1(), true, false);
+	c["SR2"] = new Latch(b.rd(), q3_and_rd.rd(), true, false);
+
+	Latch &SR1 = dynamic_cast<Latch &>(*c["SR1"]);
+	Latch &SR2 = dynamic_cast<Latch &>(*c["SR2"]);
+
+	TS2.input(SR1.Q());
+
+	SR1.set_name(a_name+"::Q1");;
+	SR2.set_name(a_name+"::Q3");;
+
+	c["XOR(SR1.Q, SR2.Q)"] = new XOrGate({&SR1.Q(), &SR2.Q()});
+	XOrGate &XOr1 = dynamic_cast<XOrGate &>(*c["XOR(SR1.Q, SR2.Q)"]);
+
+	c["AND(iLVP, TrisLatch.Q, XOr1)"] = new AndGate({&m_iLVP, &TrisLatch.Q(), &XOr1.rd()});
+	AndGate &IFlag = dynamic_cast<AndGate &>(*c["AND(iLVP, TrisLatch.Q, XOr1)"]);
+
+	DeviceEvent<Connection>::subscribe<PortB_RB4>(this, &PortB_RB4::on_iflag, &IFlag.rd());
+	DeviceEvent<Clock>::subscribe<PortB_RB4>(this, &PortB_RB4::on_clock);
+
+	PGM().set_value(Vss, false);
+	LVP().set_value(Vss, false);
 }
 
