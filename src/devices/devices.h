@@ -324,7 +324,7 @@ class PORTB: public Device {
 		DeviceEvent<Register>::subscribe<PORTB>(this, &PORTB::register_changed);
 		RB[0] = new PortB_RB0(pins[PINS::pin_RB0], "RB0");
 		RB[1] = new PortB_RB1(pins[PINS::pin_RB1], "RB1");
-		RB[2] = new BasicPortB(pins[PINS::pin_RB2], "RB2", 2);
+		RB[2] = new PortB_RB2(pins[PINS::pin_RB2], "RB2");
 		RB[3] = new BasicPortB(pins[PINS::pin_RB3], "RB3", 3);
 		RB[4] = new BasicPortB(pins[PINS::pin_RB4], "RB4", 4);
 		RB[5] = new BasicPortB(pins[PINS::pin_RB5], "RB5", 5);

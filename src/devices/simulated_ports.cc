@@ -677,7 +677,7 @@ BasicPortB::BasicPortB(Connection &a_Pin, const std::string &a_name, int port_bi
 //___________________________________________________________________________
 //  RB0 adds a schmitt trigger connected to an interrupt signal
 PortB_RB0::PortB_RB0(Connection &a_Pin, const std::string &a_name):
-	BasicPortB(a_Pin, a_name, 7)
+	BasicPortB(a_Pin, a_name, 0)
 {
 	auto &c = components();
 
@@ -700,7 +700,7 @@ void PortB_RB1::process_register_change(Register *r, const std::string &name, co
 //___________________________________________________________________________
 //  RB1 adds a schmitt trigger connected to the USART receive input.
 PortB_RB1::PortB_RB1(Connection &a_Pin, const std::string &a_name):
-	BasicPortB(a_Pin, a_name, 7), m_iRBPU(RBPU()), m_iSPEN(m_SPEN)
+	BasicPortB(a_Pin, a_name, 1), m_iRBPU(RBPU()), m_iSPEN(m_SPEN)
 {
 	auto &c = components();
 	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
@@ -725,5 +725,43 @@ PortB_RB1::PortB_RB1(Connection &a_Pin, const std::string &a_name):
 	SPEN().set_value(Vss, false);
 	Peripheral_OE().set_value(Vss, false);
 	USART_Data_Out().set_value(Vss, false);
+}
+
+void PortB_RB2::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+	if (name == "RCSTA") {
+		SPEN().set_value((data[1] & Flags::RCSTA::SPEN)?Vdd:Vss, false);
+		Peripheral_OE().set_value((data[1] & Flags::RCSTA::SREN)?Vdd:Vss, false);
+	}
+	BasicPortB::process_register_change(r, name, data);
+}
+
+//___________________________________________________________________________
+//  RB2 looks functionally identical to RB1, but some inputs differ
+PortB_RB2::PortB_RB2(Connection &a_Pin, const std::string &a_name):
+	BasicPortB(a_Pin, a_name, 2), m_iRBPU(RBPU()), m_iSPEN(m_SPEN)
+{
+	auto &c = components();
+	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
+	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
+	Tristate &TS1 = dynamic_cast<Tristate &>(*c["Tristate1"]);
+	AndGate &PU_en = dynamic_cast<AndGate &>(*c["RBPU_NAND"]);
+	PU_en.inputs({&m_iRBPU, &TrisLatch.Q(), &m_iSPEN});
+
+	Schmitt *trigger = new Schmitt(PinOut(), true, false);
+	Wire *USART_RECWire = new Wire(trigger->rd(), m_USART_TX_CK_Out, "USART_Slave_Clock_in");
+	Mux *dmux = new Mux({&m_USART_TX_CK_Out, &DataLatch.Q()}, {&m_SPEN}, "Data Mux");
+	TS1.input(dmux->rd());
+
+	AndGate *Out_en = new AndGate({&TrisLatch.Q(), &m_Peripheral_OE});
+	TS1.gate(Out_en->rd());
+
+	c["USART_TRIGGER"] = trigger;
+	c["USART_REC_WIRE"] = USART_RECWire;
+	c["Data MUX"] = dmux;
+	c["Out Enable"] = Out_en;
+
+	SPEN().set_value(Vss, false);
+	Peripheral_OE().set_value(Vss, false);
+	USART_Slave_Clock_in().set_value(Vss, false);
 }
 

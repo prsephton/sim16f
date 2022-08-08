@@ -266,7 +266,7 @@ class PortB_RB0: public BasicPortB {
 };
 
 //___________________________________________________________________________________
-// RB0 is a basic I/O port, which can also drive an interrupt signal.
+// RB1
 class PortB_RB1: public BasicPortB {
 	Connection m_SPEN;
 	Connection m_USART_Data_Out;
@@ -282,5 +282,25 @@ class PortB_RB1: public BasicPortB {
 	Connection &USART_Data_Out() { return m_USART_Data_Out; };
 	Connection &Peripheral_OE() { return m_Peripheral_OE; };
 	Connection &USART_Receive() { return m_USART_Receive; };
+};
+
+
+//___________________________________________________________________________________
+// RB2
+class PortB_RB2: public BasicPortB {
+	Connection m_SPEN;
+	Connection m_USART_TX_CK_Out;
+	Connection m_Peripheral_OE;
+	Connection m_USART_Slave_Clock_in;
+	Inverse m_iRBPU;
+	Inverse m_iSPEN;
+
+	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+  public:
+	PortB_RB2(Connection &a_Pin, const std::string &a_name);
+	Connection &SPEN() { return m_SPEN; };
+	Connection &USART_TX_CK_Out() { return m_USART_TX_CK_Out; };
+	Connection &Peripheral_OE() { return m_Peripheral_OE; };
+	Connection &USART_Slave_Clock_in() { return m_USART_Slave_Clock_in; };
 };
 
