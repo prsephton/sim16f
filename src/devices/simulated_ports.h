@@ -23,19 +23,24 @@
 
 class BasicPort: public Device {
 	std::map<std::string, SmartPtr<Device> > m_components;
+
+	void on_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data);
+	void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+
 protected:
+	DeviceEventQueue eq;
 	Connection &Pin;
-	Connection Data;    // This is the data bus value
-	Connection Port;    // write port
-	Connection Tris;    // write tris
-	Connection rdPort;  // read port
-	Connection rdTris;  // read tris
+	Connection Data;          // This is the data bus value
+	Connection Port;          // write port
+	Connection Tris;          // write tris
+	Connection rdPort;        // read port
+	Connection rdTris;        // read tris
 	bool       porta_select;  // false is portb
 	BYTE 	   port_mask;
-	DeviceEventQueue eq;
 	bool debug = false;
 
-	void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+	void queue_change();     // indicate that something about the current port has changed
+	virtual void process_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data);
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
 public:
@@ -208,8 +213,9 @@ class SinglePortA_RA6_CLKOUT: public  BasicPortA {
 	Connection m_Fosc2;  // also s1_en
 	BYTE m_fosc;
 
+
+	virtual void process_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data);
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
-	void on_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data);
 
 public:
 	SinglePortA_RA6_CLKOUT(Connection &a_Pin, const std::string &a_name);
@@ -335,13 +341,32 @@ class PortB_RB4: public BasicPortB {
 	Connection m_Q3;
 
 	virtual void on_iflag(Connection *D, const std::string &name, const std::vector<BYTE> &data);
-	virtual void on_clock(Clock *D, const std::string &name, const std::vector<BYTE> &data);
+	virtual void process_clock_change(Clock *D, const std::string &name, const std::vector<BYTE> &data);
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+
   public:
 	PortB_RB4(Connection &a_Pin, const std::string &a_name);
 	Connection &RBIF() { return m_RBIF; };
 	Connection &LVP()  { return m_LVP; };
 	Connection &PGM()  { return m_PGM; };
+	Connection &Q1()   { return m_Q1; };
+	Connection &Q3()   { return m_Q3; };
+};
+
+//___________________________________________________________________________________
+// RB5
+class PortB_RB5: public BasicPortB {
+	Connection m_RBIF;
+	Inverse m_iRBPU;
+	Connection m_Q1;
+	Connection m_Q3;
+
+	virtual void on_iflag(Connection *D, const std::string &name, const std::vector<BYTE> &data);
+	virtual void process_clock_change(Clock *D, const std::string &name, const std::vector<BYTE> &data);
+	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+  public:
+	PortB_RB5(Connection &a_Pin, const std::string &a_name);
+	Connection &RBIF() { return m_RBIF; };
 	Connection &Q1()   { return m_Q1; };
 	Connection &Q3()   { return m_Q3; };
 };

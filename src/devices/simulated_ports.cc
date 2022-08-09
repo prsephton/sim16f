@@ -16,43 +16,58 @@
 // buffer which is connected to TrisLatch.Qc.  The signal is then output to the data bus.
 // A similar strategy is employed for reading data from the InputLatch.Q.
 
-void BasicPort::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
-	auto c = components();  // simulates a data bus write operation to either port or tris
-	if ((data[0] & port_mask) == port_mask) {  // this port or tris is changing
-		if ((porta_select && name == "PORTA") || (!porta_select && name == "PORTB")) {
-			bool input = ((data[2] & port_mask) == port_mask);
-			if (debug) std::cout << this->name() << "; " << name << " = " << input << std::endl;
-			Data.set_value(input * Vdd, true);    // set the input value on the bus.
-			eq.process_events();            // basically propagate all events, and their events etc.
-			Port.set_value(Vdd, true);
-			eq.process_events();
-			Port.set_value(Vss, true);      // latch the value from the bus into Q
-			eq.process_events();
-		} else if ((porta_select && name == "TRISA") || (!porta_select && name == "TRISB")) {
-			bool input = ((data[2] & port_mask) == port_mask);
-			if (this->name() == "RA4") input = true;   // this port is a drain and expects a positive voltage
 
-			debug = (this->name() == "RA6" && Pin.name() == "RA6/OSC2/CLKOUT");
-			if (debug)
-				std::cout << std::string("  ! direction of ") <<  this->name() << "; " << name << " = " << (input?"input":"output") << std::endl;
+template<class T> class DeviceEvent<T>::registry DeviceEvent<T>::subscribers;           // define static member variable
 
-			Pin.impeded(!input);
-			Data.set_value(input * Vdd, true);
-			eq.process_events();
-			Tris.set_value(Vdd, true);
-			eq.process_events();
-			Tris.set_value(Vss, true); // clock the signal
-			eq.process_events();
-			Data.set_value(Data.rd(), true);    // impeded.
-			eq.process_events();
+void BasicPort::queue_change(){  // Add a voltage change event to the queue
+	eq.queue_event(new DeviceEvent<BasicPort>(*this, "Port Changed"));
+	eq.process_events();
+}
+
+void BasicPort::process_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data)  {}
+
+void BasicPort::on_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data) {
+
+	process_clock_change(c, name, data);  // call virtual function
+}
+
+
+//  data[0] == old value   data[1] == new value   data[2] == changed value
+void BasicPort::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {}
+
+void BasicPort::on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+	const std::set<std::string>  basic_registers({"TRISA", "TRISB", "PORTA", "PORTB"});
+	if (basic_registers.find(name) != basic_registers.end()) {
+		auto c = components();  // simulates a data bus write operation to either port or tris
+		if ((data[2] & port_mask) == port_mask) {  // this port or tris is changing
+			if ((porta_select && name == "PORTA") || (!porta_select && name == "PORTB")) {
+				bool input = ((data[1] & port_mask) == port_mask);
+				if (debug) std::cout << this->name() << "; " << name << " = " << input << std::endl;
+
+				Data.set_value(input * Vdd, true);    // set the input value on the bus.
+				Port.set_value(Vdd, true);
+				queue_change();
+
+				Port.set_value(Vss, true);      // latch the value from the bus into Q
+				queue_change();
+			} else if ((porta_select && name == "TRISA") || (!porta_select && name == "TRISB")) {
+				bool input = ((data[1] & port_mask) == port_mask);
+				if (this->name() == "RA4") input = true;   // this port is a drain and expects a positive voltage
+				Pin.impeded(!input);
+
+				Data.set_value(input * Vdd, true);
+				Tris.set_value(Vdd, true);
+				queue_change();
+
+				Tris.set_value(Vss, true); // clock the signal
+				queue_change();
+			}
 			if (debug)
 				std::cout << this->name() << ":" << Pin.name() << " is " << (Pin.impeded()?"":" not ") << "impeded" << std::endl;
 		}
 	}
-}
 
-void BasicPort::on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
-	process_register_change(r, name, data);   // call the virtual override if defined
+	process_register_change(r, name, data);   // call the port/pin-specific virtual override if defined
 }
 
 BasicPort::BasicPort(Connection &a_Pin, const std::string &a_name, int port_no, int port_bit_ofs):
@@ -76,6 +91,7 @@ BasicPort::BasicPort(Connection &a_Pin, const std::string &a_name, int port_no, 
 	m_components["Inverter1"] = NotPort;
 
 	DeviceEvent<Register>::subscribe<BasicPort>(this, &BasicPort::on_register_change);
+	DeviceEvent<Clock>::subscribe<BasicPort>(this, &BasicPort::on_clock_change);
 }
 
 Wire &BasicPort::bus_line() { return dynamic_cast<Wire &>(*m_components["Data Bus"]); }
@@ -192,10 +208,8 @@ void SinglePortA_Analog::set_comparators_for_an0_and_an1(BYTE cmcon) {
 
 void SinglePortA_Analog::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	if  (name == "CMCON") {
-		BYTE cmcon = data[2];
+		BYTE cmcon = data[1];
 		set_comparators_for_an0_and_an1(cmcon);
-	} else {
-		BasicPort::process_register_change(r, name, data);  // handles TRIS/PORT changes
 	}
 }
 
@@ -212,7 +226,7 @@ Connection &SinglePortA_Analog::comparator() { return Comparator; }
 //  it also has a voltage reference.
 void SinglePortA_Analog_RA2::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	if        (name == "CMCON") {
-		BYTE cmcon = data[2];
+		BYTE cmcon = data[1];
 
 		switch (cmcon & 0b111) {
 		case 0b000 :    // Comparators reset
@@ -234,7 +248,7 @@ void SinglePortA_Analog_RA2::process_register_change(Register *r, const std::str
 			break;
 		}
 	} else if (name == "VRCON") {
-		BYTE vrcon = data[2];
+		BYTE vrcon = data[1];
 		bool vroe = (vrcon & Flags::VRCON::VROE) == Flags::VRCON::VROE;  // VRef output enable
 		bool vren = (vrcon & Flags::VRCON::VREN) == Flags::VRCON::VREN;  // VRef enable
 		bool vrr  = (vrcon & Flags::VRCON::VRR)  == Flags::VRCON::VRR;   // VRef Range
@@ -249,8 +263,6 @@ void SinglePortA_Analog_RA2::process_register_change(Register *r, const std::str
 			}
 		}
 		relay.in().set_value(vref, true);
-	} else {
-		BasicPort::process_register_change(r, name, data);  // handles TRIS/PORT changes
 	}
 }
 
@@ -291,7 +303,7 @@ void SinglePortA_Analog_RA3::set_comparator(bool on) {
 
 void SinglePortA_Analog_RA3::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	if        (name == "CMCON") {
-		BYTE cmcon = data[2];
+		BYTE cmcon = data[1];
 		bool comparator_mode_switch = false;
 
 		switch (cmcon & 0b111) {
@@ -316,8 +328,6 @@ void SinglePortA_Analog_RA3::process_register_change(Register *r, const std::str
 			break;
 		}
 		m_cmp_mode_sw.set_value(comparator_mode_switch * Vdd, true);
-	} else {
-		BasicPort::process_register_change(r, name, data);  // handles TRIS/PORT changes
 	}
 }
 
@@ -487,7 +497,7 @@ Connection &SinglePortA_Analog_RA4::TMR0() {
 
 void SinglePortA_RA6_CLKOUT::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	if (name == "CONFIG1") {
-		m_fosc = (data[2] & 0b11) | ((data[2] >> 2) & 0b100);
+		m_fosc = (data[1] & 0b11) | ((data[1] >> 2) & 0b100);
 		m_OSC.set_value(Vss, true);
 		m_Fosc1.set_value(Vss, true);     // If High, select CLKOUT signal else port latch
 		m_Fosc2.set_value(Vss, true);     // If High, use pin for I/O
@@ -505,15 +515,13 @@ void SinglePortA_RA6_CLKOUT::process_register_change(Register *r, const std::str
 		} else if (m_fosc == 0b001) { // XT osc on RA6 & RA7
 		} else if (m_fosc == 0b000) { // LP osc on RA6 & RA7
 		}
-	} else {
-		BasicPort::process_register_change(r, name, data);  // handles TRIS/PORT changes
 	}
 }
 
-void SinglePortA_RA6_CLKOUT::on_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data) {
+void SinglePortA_RA6_CLKOUT::process_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data) {
 	if (name == "oscillator") {
 		if (m_fosc==0b010 || m_fosc==0b001 || m_fosc==0b000) {
-			m_OSC.set_value(((bool)data[0]) * Vdd, false);
+			m_OSC.set_value(((bool)data[1]) * Vdd, false);
 		}
 	} else if (name == "CLKOUT") {
 		m_CLKOUT.set_value(((bool)data[0]) * Vdd, false);
@@ -543,8 +551,6 @@ SinglePortA_RA6_CLKOUT::SinglePortA_RA6_CLKOUT(Connection &a_Pin, const std::str
 	c["And1"] = And1;
 	c["Nor1"] = Nor1;
 
-	DeviceEvent<Clock>::subscribe<SinglePortA_RA6_CLKOUT>(this, &SinglePortA_RA6_CLKOUT::on_clock_change);
-
 }
 
 Connection &SinglePortA_RA6_CLKOUT::fosc1() { return m_Fosc1; }
@@ -560,11 +566,9 @@ Connection &SinglePortA_RA6_CLKOUT::osc()   { return m_OSC; }
 // to the clock circuits.
 void PortA_RA7::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	if (name == "CONFIG1") {
-		BYTE fosc = (data[2] & 0b11) | ((data[2] >> 2) & 0b100);
+		BYTE fosc = (data[1] & 0b11) | ((data[1] >> 2) & 0b100);
 		m_Fosc.set_value(Vdd * (fosc==0b100 || fosc==0b101), false);
 		S1_en.set_value(Vdd * (fosc==0b100 || fosc==0b101), true);
-	} else {
-		BasicPort::process_register_change(r, name, data);  // handles TRIS/PORT changes
 	}
 }
 
@@ -617,9 +621,6 @@ void BasicPortB::process_register_change(Register *r, const std::string &name, c
 //		bit 2-0 PS2:PS0: Prescaler Rate Select bits
 
 		RBPU().set_value((data[1] & Flags::OPTION::RBPU)?Vdd:Vss, false);
-
-	} else {
-		BasicPort::process_register_change(r, name, data);  // handles TRIS/PORT changes
 	}
 }
 
@@ -674,7 +675,7 @@ BasicPortB::BasicPortB(Connection &a_Pin, const std::string &a_name, int port_bi
 }
 
 //___________________________________________________________________________
-//  RB0 adds a schmitt trigger connected to an interrupt signal
+//  RB0 adds a schmitt trigger connected to an external interrupt signal
 PortB_RB0::PortB_RB0(Connection &a_Pin, const std::string &a_name):
 	BasicPortB(a_Pin, a_name, 0)
 {
@@ -688,16 +689,15 @@ PortB_RB0::PortB_RB0(Connection &a_Pin, const std::string &a_name):
 
 }
 
+//___________________________________________________________________________
+//  RB1 adds a schmitt trigger connected to the USART receive input.
 void PortB_RB1::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	if (name == "RCSTA") {
 		SPEN().set_value((data[1] & Flags::RCSTA::SPEN)?Vdd:Vss, false);
 		Peripheral_OE().set_value((data[1] & Flags::RCSTA::SREN)?Vdd:Vss, false);
 	}
-	BasicPortB::process_register_change(r, name, data);
 }
 
-//___________________________________________________________________________
-//  RB1 adds a schmitt trigger connected to the USART receive input.
 PortB_RB1::PortB_RB1(Connection &a_Pin, const std::string &a_name):
 	BasicPortB(a_Pin, a_name, 1), m_iRBPU(RBPU()), m_iSPEN(m_SPEN)
 {
@@ -726,16 +726,15 @@ PortB_RB1::PortB_RB1(Connection &a_Pin, const std::string &a_name):
 	USART_Data_Out().set_value(Vss, false);
 }
 
+//___________________________________________________________________________
+//  RB2 looks functionally identical to RB1, but some inputs differ
 void PortB_RB2::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	if (name == "RCSTA") {
 		SPEN().set_value((data[1] & Flags::RCSTA::SPEN)?Vdd:Vss, false);
 		Peripheral_OE().set_value((data[1] & Flags::RCSTA::SREN)?Vdd:Vss, false);
 	}
-	BasicPortB::process_register_change(r, name, data);
 }
 
-//___________________________________________________________________________
-//  RB2 looks functionally identical to RB1, but some inputs differ
 PortB_RB2::PortB_RB2(Connection &a_Pin, const std::string &a_name):
 	BasicPortB(a_Pin, a_name, 2), m_iRBPU(RBPU()), m_iSPEN(m_SPEN)
 {
@@ -765,6 +764,8 @@ PortB_RB2::PortB_RB2(Connection &a_Pin, const std::string &a_name):
 }
 
 
+//___________________________________________________________________________
+//  RB3 is the last of the familiar looking port functions
 void PortB_RB3::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	if (name == "CCP1CON") {
 		// TODO: What gets set here depends on CCP1CON contents
@@ -774,11 +775,8 @@ void PortB_RB3::process_register_change(Register *r, const std::string &name, co
 	if (name == "RCSTA") {
 		Peripheral_OE().set_value((data[1] & Flags::RCSTA::SREN)?Vdd:Vss, false);
 	}
-	BasicPortB::process_register_change(r, name, data);
 }
 
-//___________________________________________________________________________
-//  RB3 is the last of the familiar looking port functions
 PortB_RB3::PortB_RB3(Connection &a_Pin, const std::string &a_name):
 	BasicPortB(a_Pin, a_name, 3), m_iRBPU(RBPU())
 {
@@ -827,14 +825,13 @@ void PortB_RB4::process_register_change(Register *r, const std::string &name, co
 	if (name == "CONFIG") {
 		LVP().set_value((data[1] & Flags::CONFIG::LVP)?Vdd:Vss, false);
 	}
-	BasicPortB::process_register_change(r, name, data);
 }
 
 void PortB_RB4::on_iflag(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
 	RBIF().set_value(D->rd(), false);
 }
 
-void PortB_RB4::on_clock(Clock *D, const std::string &name, const std::vector<BYTE> &data) {
+void PortB_RB4::process_clock_change(Clock *D, const std::string &name, const std::vector<BYTE> &data) {
 	if        (name == "Q1") {
 		Q1().set_value(Vdd, false);
 	} else if (name == "Q2") {
@@ -890,9 +887,71 @@ PortB_RB4::PortB_RB4(Connection &a_Pin, const std::string &a_name):
 	AndGate &IFlag = dynamic_cast<AndGate &>(*c["AND(iLVP, TrisLatch.Q, XOr1)"]);
 
 	DeviceEvent<Connection>::subscribe<PortB_RB4>(this, &PortB_RB4::on_iflag, &IFlag.rd());
-	DeviceEvent<Clock>::subscribe<PortB_RB4>(this, &PortB_RB4::on_clock);
 
 	PGM().set_value(Vss, false);
 	LVP().set_value(Vss, false);
+}
+
+
+//___________________________________________________________________________
+//  RB5 is a stripped down version of RB4  The RBIF logic is the same.
+void PortB_RB5::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+}
+
+void PortB_RB5::on_iflag(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+	RBIF().set_value(D->rd(), false);
+}
+
+void PortB_RB5::process_clock_change(Clock *D, const std::string &name, const std::vector<BYTE> &data) {
+	if        (name == "Q1") {
+		Q1().set_value(Vdd, false);
+	} else if (name == "Q2") {
+		Q1().set_value(Vss, false);
+	} else if (name == "Q3") {
+		Q3().set_value(Vdd, false);
+	} else if (name == "Q4") {
+		Q3().set_value(Vss, false);
+	}
+}
+
+PortB_RB5::PortB_RB5(Connection &a_Pin, const std::string &a_name):
+	BasicPortB(a_Pin, a_name, 5), m_iRBPU(RBPU())
+{
+	auto &c = components();
+	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
+	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
+	ABuffer &b = dynamic_cast<ABuffer &>(*c["Out Buffer"]);
+
+	Tristate &TS1 = dynamic_cast<Tristate &>(*c["Tristate1"]);
+	Tristate &TS2 = dynamic_cast<Tristate &>(*c["Tristate2"]);
+	AndGate &PU_en = dynamic_cast<AndGate &>(*c["RBPU_NAND"]);
+	PU_en.inputs({&m_iRBPU, &TrisLatch.Q()});
+
+	TS1.input(DataLatch.Q());
+	TS1.gate(TrisLatch.Q());
+
+	c.erase("Inverter1");  // smart pointer will clean up
+	c["AND(Q3,rdPort)"] = new AndGate({&rdPort, &Q3()});
+	AndGate &q3_and_rd = dynamic_cast<AndGate &>(*c["AND(Q3,rdPort)"]);
+
+	c["SR1"] = new Latch(b.rd(), Q1(), true, false);
+	c["SR2"] = new Latch(b.rd(), q3_and_rd.rd(), true, false);
+
+	Latch &SR1 = dynamic_cast<Latch &>(*c["SR1"]);
+	Latch &SR2 = dynamic_cast<Latch &>(*c["SR2"]);
+
+	TS2.input(SR1.Q());
+
+	SR1.set_name(a_name+"::Q1");;
+	SR2.set_name(a_name+"::Q3");;
+
+	c["XOR(SR1.Q, SR2.Q)"] = new XOrGate({&SR1.Q(), &SR2.Q()});
+	XOrGate &XOr1 = dynamic_cast<XOrGate &>(*c["XOR(SR1.Q, SR2.Q)"]);
+
+	c["AND(TrisLatch.Q, XOr1)"] = new AndGate({&TrisLatch.Q(), &XOr1.rd()});
+	AndGate &IFlag = dynamic_cast<AndGate &>(*c["AND(TrisLatch.Q, XOr1)"]);
+
+	DeviceEvent<Connection>::subscribe<PortB_RB5>(this, &PortB_RB5::on_iflag, &IFlag.rd());
+
 }
 

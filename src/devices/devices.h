@@ -327,7 +327,7 @@ class PORTB: public Device {
 		RB[2] = new PortB_RB2(pins[PINS::pin_RB2], "RB2");
 		RB[3] = new PortB_RB3(pins[PINS::pin_RB3], "RB3");
 		RB[4] = new PortB_RB4(pins[PINS::pin_RB4], "RB4");
-		RB[5] = new BasicPortB(pins[PINS::pin_RB5], "RB5", 5);
+		RB[5] = new PortB_RB5(pins[PINS::pin_RB5], "RB5");
 		RB[6] = new BasicPortB(pins[PINS::pin_RB6], "RB6", 6);
 		RB[7] = new BasicPortB(pins[PINS::pin_RB7], "RB7", 7);
 
