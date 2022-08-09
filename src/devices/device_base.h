@@ -18,6 +18,7 @@
 #include <queue>
 #include <tuple>
 #include <map>
+#include <set>
 #include <string>
 #include <cstring>
 #include <functional>
@@ -218,18 +219,18 @@ template <class T> class DeviceEvent: public QueueableEvent {
 		auto key = KeyType{ob, instance, *(void **)&callback};
 		if (subscribers.find(key) != subscribers.end()) {
 			subscribers.erase(key);
-		} else {
-			std::cout << "unsubscribe " << instance->name() << " Key not found!" << std::endl;
-			std::cout << "Subscriber registry size=" << subscribers.size() << std::endl;
-			std::cout << "Provided key=";
-			std::cout << "(" << ob << " : " << instance << " : " << &callback << ")" << std::endl;
-			std::cout << "registry keys:" << std::endl;
-			for(each_subscriber s = subscribers.begin(); s!= subscribers.end(); ++s) {
-				const void *l_ob = std::get<0>(s->first);
-				const T    *l_inst = std::get<1>(s->first);
-				const void *l_ref = std::get<2>(s->first);
-				std::cout << "(" << l_ob << " : " << l_inst << " : " << l_ref << ")" << std::endl;
-			}
+//		} else {
+//			std::cout << "unsubscribe " << instance->name() << " Key not found!" << std::endl;
+//			std::cout << "Subscriber registry size=" << subscribers.size() << std::endl;
+//			std::cout << "Provided key=";
+//			std::cout << "(" << ob << " : " << instance << " : " << &callback << ")" << std::endl;
+//			std::cout << "registry keys:" << std::endl;
+//			for(each_subscriber s = subscribers.begin(); s!= subscribers.end(); ++s) {
+//				const void *l_ob = std::get<0>(s->first);
+//				const T    *l_inst = std::get<1>(s->first);
+//				const void *l_ref = std::get<2>(s->first);
+//				std::cout << "(" << l_ob << " : " << l_inst << " : " << l_ref << ")" << std::endl;
+//			}
 		}
 	}
 };
@@ -290,6 +291,64 @@ class Connection: public Device {
 				std::cout << name() << ": V = " << V << std::endl;
 			queue_change();
 		}
+	}
+};
+
+
+//___________________________________________________________________________________
+//   A terminal for connections.  It is impeded by default, but any
+// inputs connected to the pin will allow the pin itself to become an input.
+// This makes a pin function a little like a "wire", but at the same time
+// it is also itself a "connection".
+//   A terminal without connections is always impeded (treated as an output).
+
+class Terminal: public Connection {
+	std::set<Connection*> m_connects;
+	bool m_terminal_impeded;
+
+  protected:
+	void recalc() {
+		double V = Vdd;
+		m_terminal_impeded = true;
+		for (auto &c : m_connects ) {
+			if (!c->impeded()) {
+				m_terminal_impeded = false;
+				float Vc = c->rd();
+				if (Vc < V) V = Vc;    // find lowest unimpeded connect
+			}
+		}
+		if (!impeded()) set_value(V, false);
+	}
+
+	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+		recalc();
+	}
+
+
+  public:
+	Terminal(const std::string name="Pin"): Connection(name), m_connects(), m_terminal_impeded(true) {}
+	virtual ~Terminal() {
+		for (auto &c : m_connects ) {
+			DeviceEvent<Connection>::unsubscribe<Terminal>(this, &Terminal::on_change, c);
+		}
+	}
+	void connect(Connection &c) {
+		if (m_connects.find(&c) == m_connects.end()) {
+			m_connects.insert(&c);
+			recalc();
+			DeviceEvent<Connection>::subscribe<Terminal>(this, &Terminal::on_change, &c);
+		}
+	}
+	void disconnect(Connection &c) {
+		if (m_connects.find(&c) != m_connects.end()) {
+			DeviceEvent<Connection>::unsubscribe<Terminal>(this, &Terminal::on_change, &c);
+			m_connects.erase(&c);
+			recalc();
+		}
+	}
+	void impeded(bool a_impeded) {}
+	virtual bool impeded() const {
+		return m_terminal_impeded;
 	}
 };
 
@@ -405,7 +464,6 @@ class ABuffer: public Device {
 	void wr(float in) { m_in.set_value(in, true); }
 	Connection &rd() { return m_out; }
 };
-
 
 //___________________________________________________________________________________
 // Inverts a high impedence input and outputs a signal
@@ -676,7 +734,7 @@ class Tristate: public Device {
 	}
 
 	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-//		std::cout << " on change " << name << std::endl;
+//		std::cout << " on change " << D->name() << name << std::endl;
 		recalc_output();
 	}
 

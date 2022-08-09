@@ -114,7 +114,7 @@ class EEPROM: public Device {
 
 class PINS: public Device {
 
-	Connection pins[PIN_COUNT];
+	Terminal pins[PIN_COUNT];
 
   public:
 
@@ -184,7 +184,7 @@ class PINS: public Device {
 			{14, "Vdd"}                               // 14
 	};
 
-	Connection &operator[] (BYTE idx) {
+	Terminal &operator[] (BYTE idx) {
 		if (idx==0 or idx > 18)
 			throw(std::string("PIN Index is out of range: ") + int_to_string(idx));
 		return pins[idx-1];

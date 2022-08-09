@@ -29,7 +29,7 @@ class BasicPort: public Device {
 
 protected:
 	DeviceEventQueue eq;
-	Connection &Pin;
+	Terminal   &Pin;          // A terminal for external connections
 	Connection Data;          // This is the data bus value
 	Connection Port;          // write port
 	Connection Tris;          // write tris
@@ -46,7 +46,7 @@ protected:
 public:
 	std::map<std::string, SmartPtr<Device> > &components();
 
-	BasicPort(Connection &a_Pin, const std::string &a_name, int port_no, int port_bit_ofs);
+	BasicPort(Terminal &a_Pin, const std::string &a_name, int port_no, int port_bit_ofs);
 	Wire &bus_line();
 	Connection &data();
 	Connection &pin();
@@ -63,7 +63,7 @@ protected:
 	Connection S1_en;
 
 public:
-	BasicPortA(Connection &a_Pin, const std::string &a_name, int port_bit_ofs);
+	BasicPortA(Terminal &a_Pin, const std::string &a_name, int port_bit_ofs);
 };
 
 
@@ -73,7 +73,7 @@ public:
 class SinglePortA: public BasicPortA {
 
   public:
-	SinglePortA(Connection &a_Pin, const std::string &a_name, int port_bit_ofs);
+	SinglePortA(Terminal &a_Pin, const std::string &a_name, int port_bit_ofs);
 };
 
 //___________________________________________________________________8________________
@@ -89,7 +89,7 @@ class SinglePortA_Analog: public SinglePortA {
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	SinglePortA_Analog(Connection &a_Pin, const std::string &a_name);
+	SinglePortA_Analog(Terminal &a_Pin, const std::string &a_name);
 	Connection &comparator();
 };
 
@@ -103,7 +103,7 @@ class SinglePortA_Analog_RA2: public  SinglePortA_Analog {
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	SinglePortA_Analog_RA2(Connection &a_Pin, const std::string &a_name);
+	SinglePortA_Analog_RA2(Terminal &a_Pin, const std::string &a_name);
 	Relay &VRef();
 };
 
@@ -125,7 +125,7 @@ class SinglePortA_Analog_RA3: public  BasicPortA {
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	SinglePortA_Analog_RA3(Connection &a_Pin, Connection &comparator_out, const std::string &a_name);
+	SinglePortA_Analog_RA3(Terminal &a_Pin, Connection &comparator_out, const std::string &a_name);
 	Connection &comparator();
 };
 
@@ -149,7 +149,7 @@ class SinglePortA_Analog_RA4: public BasicPortA {
 	Connection m_cmp_mode_sw;
 
   public:
-	SinglePortA_Analog_RA4(Connection &a_Pin, Connection &comparator_out, const std::string &a_name);
+	SinglePortA_Analog_RA4(Terminal &a_Pin, Connection &comparator_out, const std::string &a_name);
 	Connection &TMR0();
 
 };
@@ -188,7 +188,7 @@ protected:
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	SinglePortA_MCLR_RA5(Connection &a_Pin, const std::string &a_name);
+	SinglePortA_MCLR_RA5(Terminal &a_Pin, const std::string &a_name);
 	Wire &bus_line();
 	Connection &data();
 	Connection &pin();
@@ -218,7 +218,7 @@ class SinglePortA_RA6_CLKOUT: public  BasicPortA {
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
 public:
-	SinglePortA_RA6_CLKOUT(Connection &a_Pin, const std::string &a_name);
+	SinglePortA_RA6_CLKOUT(Terminal &a_Pin, const std::string &a_name);
 	Connection &fosc1();
 	Connection &fosc2();
 	Connection &osc();
@@ -238,7 +238,7 @@ class PortA_RA7: public BasicPortA {
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	PortA_RA7(Connection &a_Pin, const std::string &a_name);
+	PortA_RA7(Terminal &a_Pin, const std::string &a_name);
 	Connection &Fosc();
 };
 
@@ -256,7 +256,7 @@ protected:
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	BasicPortB(Connection &a_Pin, const std::string &a_name, int port_bit_ofs);
+	BasicPortB(Terminal &a_Pin, const std::string &a_name, int port_bit_ofs);
 	Connection &RBPU() { return m_RBPU; }
 	Connection &PinOut() { return m_PinOut; }
 };
@@ -267,7 +267,7 @@ class PortB_RB0: public BasicPortB {
 	Connection m_INT;
 
   public:
-	PortB_RB0(Connection &a_Pin, const std::string &a_name);
+	PortB_RB0(Terminal &a_Pin, const std::string &a_name);
 	Connection &INT() { return m_INT; };
 };
 
@@ -283,7 +283,7 @@ class PortB_RB1: public BasicPortB {
 
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
   public:
-	PortB_RB1(Connection &a_Pin, const std::string &a_name);
+	PortB_RB1(Terminal &a_Pin, const std::string &a_name);
 	Connection &SPEN() { return m_SPEN; };
 	Connection &USART_Data_Out() { return m_USART_Data_Out; };
 	Connection &Peripheral_OE() { return m_Peripheral_OE; };
@@ -303,7 +303,7 @@ class PortB_RB2: public BasicPortB {
 
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
   public:
-	PortB_RB2(Connection &a_Pin, const std::string &a_name);
+	PortB_RB2(Terminal &a_Pin, const std::string &a_name);
 	Connection &SPEN() { return m_SPEN; };
 	Connection &USART_TX_CK_Out() { return m_USART_TX_CK_Out; };
 	Connection &Peripheral_OE() { return m_Peripheral_OE; };
@@ -321,7 +321,7 @@ class PortB_RB3: public BasicPortB {
 
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
   public:
-	PortB_RB3(Connection &a_Pin, const std::string &a_name);
+	PortB_RB3(Terminal &a_Pin, const std::string &a_name);
 	Connection &CCP1CON() { return m_CCP1CON; };
 	Connection &CCP_Out() { return m_CCP_Out; };
 	Connection &Peripheral_OE() { return m_Peripheral_OE; };
@@ -345,7 +345,7 @@ class PortB_RB4: public BasicPortB {
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	PortB_RB4(Connection &a_Pin, const std::string &a_name);
+	PortB_RB4(Terminal &a_Pin, const std::string &a_name);
 	Connection &RBIF() { return m_RBIF; };
 	Connection &LVP()  { return m_LVP; };
 	Connection &PGM()  { return m_PGM; };
@@ -365,7 +365,7 @@ class PortB_RB5: public BasicPortB {
 	virtual void process_clock_change(Clock *D, const std::string &name, const std::vector<BYTE> &data);
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
   public:
-	PortB_RB5(Connection &a_Pin, const std::string &a_name);
+	PortB_RB5(Terminal &a_Pin, const std::string &a_name);
 	Connection &RBIF() { return m_RBIF; };
 	Connection &Q1()   { return m_Q1; };
 	Connection &Q3()   { return m_Q3; };

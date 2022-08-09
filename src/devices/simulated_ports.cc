@@ -52,6 +52,9 @@ void BasicPort::on_register_change(Register *r, const std::string &name, const s
 				queue_change();
 			} else if ((porta_select && name == "TRISA") || (!porta_select && name == "TRISB")) {
 				bool input = ((data[1] & port_mask) == port_mask);
+
+//				std::cout << this->name() << " input=" << (input?"true":"false") << std::endl;
+
 				if (this->name() == "RA4") input = true;   // this port is a drain and expects a positive voltage
 				Pin.impeded(!input);
 
@@ -70,7 +73,7 @@ void BasicPort::on_register_change(Register *r, const std::string &name, const s
 	process_register_change(r, name, data);   // call the port/pin-specific virtual override if defined
 }
 
-BasicPort::BasicPort(Connection &a_Pin, const std::string &a_name, int port_no, int port_bit_ofs):
+BasicPort::BasicPort(Terminal &a_Pin, const std::string &a_name, int port_no, int port_bit_ofs):
 	Device(a_name), Pin(a_Pin), porta_select(port_no==0), port_mask(1 << port_bit_ofs)
 {
 	Wire *DataBus = new Wire(a_name+"::data");
@@ -79,6 +82,7 @@ BasicPort::BasicPort(Connection &a_Pin, const std::string &a_name, int port_no, 
 	Latch *DataLatch = new Latch(Data, Port, false, true); DataLatch->set_name(a_name+"::DataLatch");
 	Latch *TrisLatch = new Latch(Data, Tris, false, true); TrisLatch->set_name(a_name+"::TrisLatch");
 
+	Pin.impeded(true);
 	PinWire->connect(Pin);
 
 	Inverter *NotPort = new Inverter(rdPort);
@@ -116,7 +120,7 @@ Connection &BasicPort::read_tris() {           // read the tris latch value
 }
 
 
-BasicPortA::BasicPortA(Connection &a_Pin, const std::string &a_name, int port_bit_ofs):
+BasicPortA::BasicPortA(Terminal &a_Pin, const std::string &a_name, int port_bit_ofs):
 	BasicPort(a_Pin, a_name, 0, port_bit_ofs)
 {
 	auto &c = components();
@@ -143,7 +147,7 @@ BasicPortA::BasicPortA(Connection &a_Pin, const std::string &a_name, int port_bi
 //___________________________________________________________________________________
 //  A model for a most ports, which have a Tristate connected to the DataLatch
 // and TrisLatch, and clamps the port range.
-SinglePortA::SinglePortA(Connection &a_Pin, const std::string &a_name, int port_bit_ofs):
+SinglePortA::SinglePortA(Terminal &a_Pin, const std::string &a_name, int port_bit_ofs):
 	BasicPortA(a_Pin, a_name, port_bit_ofs)
 {
 	auto &c = components();
@@ -213,7 +217,7 @@ void SinglePortA_Analog::process_register_change(Register *r, const std::string 
 	}
 }
 
-SinglePortA_Analog::SinglePortA_Analog(Connection &a_Pin, const std::string &a_name):
+SinglePortA_Analog::SinglePortA_Analog(Terminal &a_Pin, const std::string &a_name):
 		SinglePortA(a_Pin, a_name, a_name=="RA0"?0:a_name=="RA1"?1:a_name=="RA3"?2:a_name=="RA4"?3:0),
 		Comparator(Vss, true, a_name+"::Comparator")
 	{
@@ -266,7 +270,7 @@ void SinglePortA_Analog_RA2::process_register_change(Register *r, const std::str
 	}
 }
 
-SinglePortA_Analog_RA2::SinglePortA_Analog_RA2(Connection &a_Pin, const std::string &a_name) :
+SinglePortA_Analog_RA2::SinglePortA_Analog_RA2(Terminal &a_Pin, const std::string &a_name) :
 		SinglePortA_Analog(a_Pin, a_name)
 	{
 		auto &c = components();
@@ -331,7 +335,7 @@ void SinglePortA_Analog_RA3::process_register_change(Register *r, const std::str
 	}
 }
 
-SinglePortA_Analog_RA3::SinglePortA_Analog_RA3(Connection &a_Pin, Connection &comparator_out, const std::string &a_name) :
+SinglePortA_Analog_RA3::SinglePortA_Analog_RA3(Terminal &a_Pin, Connection &comparator_out, const std::string &a_name) :
 	BasicPortA(a_Pin, a_name, 3), m_comparator_out(comparator_out)
 {
 	auto &c = components();
@@ -378,7 +382,7 @@ Connection &SinglePortA_Analog_RA3::comparator() { return Comparator; }
 //}
 
 
-SinglePortA_Analog_RA4::SinglePortA_Analog_RA4(Connection &a_Pin, Connection &comparator_out, const std::string &a_name) :
+SinglePortA_Analog_RA4::SinglePortA_Analog_RA4(Terminal &a_Pin, Connection &comparator_out, const std::string &a_name) :
 	BasicPortA(a_Pin, a_name, 4), m_comparator_out(comparator_out)
 {
 
@@ -428,7 +432,7 @@ Connection &SinglePortA_Analog_RA4::TMR0() {
 	}
 
 
-	SinglePortA_MCLR_RA5::SinglePortA_MCLR_RA5(Connection &a_Pin, const std::string &a_name) :
+	SinglePortA_MCLR_RA5::SinglePortA_MCLR_RA5(Terminal &a_Pin, const std::string &a_name) :
 		Pin(a_Pin), MCLRE((float)0.0, false, "MCLRE")
 	{
 		Wire *DataBus = new Wire(a_name+"::data");
@@ -528,7 +532,7 @@ void SinglePortA_RA6_CLKOUT::process_clock_change(Clock *c, const std::string &n
 	}
 }
 
-SinglePortA_RA6_CLKOUT::SinglePortA_RA6_CLKOUT(Connection &a_Pin, const std::string &a_name) :
+SinglePortA_RA6_CLKOUT::SinglePortA_RA6_CLKOUT(Terminal &a_Pin, const std::string &a_name) :
 	BasicPortA(a_Pin, a_name, 6), m_fosc(0)
 {
 	auto &c = components();
@@ -539,6 +543,7 @@ SinglePortA_RA6_CLKOUT::SinglePortA_RA6_CLKOUT(Connection &a_Pin, const std::str
 
 	Wire &PinWire = dynamic_cast<Wire &>(*c["Pin Wire"]);
 	Clamp * PinClamp = new Clamp(Pin);
+//	PinWire.debug(true);
 
 	auto And1 = new AndGate({&TrisLatch.Q(), &m_Fosc2}, false, "And1");
 	auto Nor1 = new OrGate({&And1->rd(), &m_Fosc1}, true, "Nor1");
@@ -572,7 +577,7 @@ void PortA_RA7::process_register_change(Register *r, const std::string &name, co
 	}
 }
 
-PortA_RA7::PortA_RA7(Connection &a_Pin, const std::string &a_name):
+PortA_RA7::PortA_RA7(Terminal &a_Pin, const std::string &a_name):
 	BasicPortA(a_Pin, a_name, 7), m_Fosc()
 {
 	auto &c = components();
@@ -625,7 +630,7 @@ void BasicPortB::process_register_change(Register *r, const std::string &name, c
 }
 
 
-BasicPortB::BasicPortB(Connection &a_Pin, const std::string &a_name, int port_bit_ofs):
+BasicPortB::BasicPortB(Terminal &a_Pin, const std::string &a_name, int port_bit_ofs):
 	BasicPort(a_Pin, a_name, 1, port_bit_ofs), m_iRBPU(m_RBPU)
 {
 	auto &c = components();
@@ -676,7 +681,7 @@ BasicPortB::BasicPortB(Connection &a_Pin, const std::string &a_name, int port_bi
 
 //___________________________________________________________________________
 //  RB0 adds a schmitt trigger connected to an external interrupt signal
-PortB_RB0::PortB_RB0(Connection &a_Pin, const std::string &a_name):
+PortB_RB0::PortB_RB0(Terminal &a_Pin, const std::string &a_name):
 	BasicPortB(a_Pin, a_name, 0)
 {
 	auto &c = components();
@@ -698,7 +703,7 @@ void PortB_RB1::process_register_change(Register *r, const std::string &name, co
 	}
 }
 
-PortB_RB1::PortB_RB1(Connection &a_Pin, const std::string &a_name):
+PortB_RB1::PortB_RB1(Terminal &a_Pin, const std::string &a_name):
 	BasicPortB(a_Pin, a_name, 1), m_iRBPU(RBPU()), m_iSPEN(m_SPEN)
 {
 	auto &c = components();
@@ -735,7 +740,7 @@ void PortB_RB2::process_register_change(Register *r, const std::string &name, co
 	}
 }
 
-PortB_RB2::PortB_RB2(Connection &a_Pin, const std::string &a_name):
+PortB_RB2::PortB_RB2(Terminal &a_Pin, const std::string &a_name):
 	BasicPortB(a_Pin, a_name, 2), m_iRBPU(RBPU()), m_iSPEN(m_SPEN)
 {
 	auto &c = components();
@@ -777,7 +782,7 @@ void PortB_RB3::process_register_change(Register *r, const std::string &name, co
 	}
 }
 
-PortB_RB3::PortB_RB3(Connection &a_Pin, const std::string &a_name):
+PortB_RB3::PortB_RB3(Terminal &a_Pin, const std::string &a_name):
 	BasicPortB(a_Pin, a_name, 3), m_iRBPU(RBPU())
 {
 	auto &c = components();
@@ -843,7 +848,7 @@ void PortB_RB4::process_clock_change(Clock *D, const std::string &name, const st
 	}
 }
 
-PortB_RB4::PortB_RB4(Connection &a_Pin, const std::string &a_name):
+PortB_RB4::PortB_RB4(Terminal &a_Pin, const std::string &a_name):
 	BasicPortB(a_Pin, a_name, 4), m_iRBPU(RBPU()), m_iLVP(LVP())
 {
 	auto &c = components();
@@ -914,7 +919,7 @@ void PortB_RB5::process_clock_change(Clock *D, const std::string &name, const st
 	}
 }
 
-PortB_RB5::PortB_RB5(Connection &a_Pin, const std::string &a_name):
+PortB_RB5::PortB_RB5(Terminal &a_Pin, const std::string &a_name):
 	BasicPortB(a_Pin, a_name, 5), m_iRBPU(RBPU())
 {
 	auto &c = components();
