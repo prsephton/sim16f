@@ -136,11 +136,10 @@ CPU_DATA::CPU_DATA():
 	}
 
 	DeviceEvent<Register>::subscribe<CPU_DATA>(this, &CPU_DATA::register_changed);
-
 }
 
 void CPU_DATA::register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
-	std::cout << name << " = " << std::hex <<  (int)data[1] << std::endl;
+//	std::cout << name << " = " << std::hex <<  (int)data[1] << std::endl;
 }
 
 

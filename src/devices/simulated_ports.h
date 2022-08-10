@@ -37,7 +37,6 @@ protected:
 	Connection rdTris;        // read tris
 	bool       porta_select;  // false is portb
 	BYTE 	   port_mask;
-	bool debug = false;
 
 	void queue_change();     // indicate that something about the current port has changed
 	virtual void process_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data);

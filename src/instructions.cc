@@ -844,9 +844,13 @@ class BCF: public Instruction {
 		BYTE idx;
 		BYTE cbits;
 		decode(opcode, idx, cbits);
+		std::cout << "BCF: clear bit " << (int)cbits;
 		cbits = 1 << cbits;
-		WORD data = cpu.read_sram(idx);
+		BYTE data = cpu.read_sram(idx);
+		std::cout << " data=" << std::hex << (int)data;
+		std::cout << " data=" << std::hex << (int)data;
 		data = data & ~cbits;
+		std::cout << "; writing " << std::hex << (int)data << std::endl;
 		cpu.write_sram(idx, data);
 		return false;
 	}

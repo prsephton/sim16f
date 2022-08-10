@@ -93,10 +93,12 @@ namespace app {
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			bool signal = m_pin.signal();
+			bool indeterminate = !m_pin.determinate();
 
 			cr->save();
 			cr->translate(m_x, m_y);
-			if (signal) this->green(cr); else this->gray(cr);
+			if (indeterminate) this->indeterminate(cr); else if (signal) this->green(cr); else this->gray(cr);
+
 			cr->rotate(m_rotation);
 			cr->scale(m_scale, m_scale);
 			cr->rectangle(0,-10,20,20);

@@ -264,7 +264,7 @@ namespace app {
 			m_area->queue_draw();
 		}
 
-		void on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data) {
+		void on_port_change(BasicPort *conn, const std::string &name, const std::vector<BYTE> &data) {
 			m_area->queue_draw();
 		}
 
@@ -297,9 +297,7 @@ namespace app {
 			AndGate &RBIF = dynamic_cast<AndGate &> (*(c["AND(iLVP, TrisLatch.Q, XOr1)"]));
 
 			DeviceEvent<Wire>::subscribe<PortB4>(this, &PortB4::on_wire_change, &DataBus);
-			DeviceEvent<Connection>::subscribe<PortB4>(this, &PortB4::on_connection_change, &DataLatch.Q());
-			DeviceEvent<Connection>::subscribe<PortB4>(this, &PortB4::on_connection_change, &TrisLatch.Q());
-			DeviceEvent<Connection>::subscribe<PortB4>(this, &PortB4::on_connection_change, &Tristate1.rd());
+			DeviceEvent<BasicPort>::subscribe<PortB4>(this, &PortB4::on_port_change, &p4);
 
 			m_components["Data Latch"] = new LatchDiagram(DataLatch, true, 200.0, 90.0, m_area);
 			m_components["Tris Latch"] = new LatchDiagram(TrisLatch, true, 200.0, 180.0, m_area);

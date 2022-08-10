@@ -222,7 +222,7 @@ namespace app {
 			m_area->queue_draw();
 		}
 
-		void on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data) {
+		void on_port_change(BasicPort *conn, const std::string &name, const std::vector<BYTE> &data) {
 			m_area->queue_draw();
 		}
 
@@ -251,9 +251,7 @@ namespace app {
 			Wire &USART_REC_wire = dynamic_cast<Wire &> (*(c["USART_REC_WIRE"]));
 
 			DeviceEvent<Wire>::subscribe<PortB1>(this, &PortB1::on_wire_change, &DataBus);
-			DeviceEvent<Connection>::subscribe<PortB1>(this, &PortB1::on_connection_change, &DataLatch.Q());
-			DeviceEvent<Connection>::subscribe<PortB1>(this, &PortB1::on_connection_change, &TrisLatch.Q());
-			DeviceEvent<Connection>::subscribe<PortB1>(this, &PortB1::on_connection_change, &Tristate1.rd());
+			DeviceEvent<BasicPort>::subscribe<PortB1>(this, &PortB1::on_port_change, &p1);
 
 			m_components["Data Latch"] = new LatchDiagram(DataLatch, true, 200.0, 130.0, m_area);
 			m_components["Tris Latch"] = new LatchDiagram(TrisLatch, true, 200.0, 220.0, m_area);

@@ -222,9 +222,10 @@ namespace app {
 			m_area->queue_draw();
 		}
 
-		void on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data) {
+		void on_port_change(BasicPort *conn, const std::string &name, const std::vector<BYTE> &data) {
 			m_area->queue_draw();
 		}
+
 
 		PortB3(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
 			CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>::cast_dynamic(a_refGlade->get_object("dwg_RB3"))),
@@ -251,9 +252,7 @@ namespace app {
 			Wire &REC_wire = dynamic_cast<Wire &> (*(c["CCP_REC_WIRE"]));
 
 			DeviceEvent<Wire>::subscribe<PortB3>(this, &PortB3::on_wire_change, &DataBus);
-			DeviceEvent<Connection>::subscribe<PortB3>(this, &PortB3::on_connection_change, &DataLatch.Q());
-			DeviceEvent<Connection>::subscribe<PortB3>(this, &PortB3::on_connection_change, &TrisLatch.Q());
-			DeviceEvent<Connection>::subscribe<PortB3>(this, &PortB3::on_connection_change, &Tristate1.rd());
+			DeviceEvent<BasicPort>::subscribe<PortB3>(this, &PortB3::on_port_change, &p3);
 
 			m_components["Data Latch"] = new LatchDiagram(DataLatch, true, 200.0, 130.0, m_area);
 			m_components["Tris Latch"] = new LatchDiagram(TrisLatch, true, 200.0, 220.0, m_area);

@@ -48,7 +48,7 @@ class Device {
 
 	virtual ~Device() {}
 	void debug(bool flag) { m_debug = flag; }
-	bool debug() { return m_debug; }
+	bool debug() const { return m_debug; }
 	const std::string &name() const { return m_name; }
 	void name(const std::string &a_name) { m_name = a_name; }
 };
@@ -250,6 +250,7 @@ class Connection: public Device {
 	bool  m_determinate;         //  We know what the value of the voltage is
 	DeviceEventQueue eq;
 
+  protected:
 	void queue_change(){  // Add a voltage change event to the queue
 		eq.queue_event(new DeviceEvent<Connection>(*this, "Voltage Change"));
 		if (debug())
@@ -267,7 +268,11 @@ class Connection: public Device {
 
 	virtual	~Connection() { eq.remove_events_for(this); }
 
-	virtual float rd() const { return m_V; }
+	virtual float rd() const {
+		if (debug())
+			std::cout << "Connection " << name() << ": read value= " << m_V << std::endl;
+		return m_V;
+	}
 	virtual bool signal() const { return rd() > Vdd/2.0; }
 	virtual bool impeded() const { return m_impeded; }
 	virtual bool determinate() const { return m_determinate || !impeded(); }
@@ -275,7 +280,7 @@ class Connection: public Device {
 
 	void impeded(bool a_impeded) {
 		if (debug())
-			std::cout << name() << ": impeded " << m_impeded << " -> " << a_impeded << std::endl;
+			std::cout << "Connection " << name() << ": impeded " << m_impeded << " -> " << a_impeded << std::endl;
 		m_impeded = a_impeded;
 	}
 	void determinate(bool on) {
@@ -288,7 +293,7 @@ class Connection: public Device {
 			determinate(true);     // the moment we change the value of a connection the value is determined
 			m_V = V, impeded(a_impeded);
 			if (debug())
-				std::cout << name() << ": V = " << V << std::endl;
+				std::cout << "Connection " << name() << ": set value V = " << V << std::endl;
 			queue_change();
 		}
 	}
@@ -308,8 +313,12 @@ class Terminal: public Connection {
 
   protected:
 	void recalc() {
-		double V = Vdd;
+		bool iold = m_terminal_impeded;
+		float vold = rd();
+
+		float V = Vdd;
 		m_terminal_impeded = true;
+
 		for (auto &c : m_connects ) {
 			if (!c->impeded()) {
 				m_terminal_impeded = false;
@@ -318,6 +327,8 @@ class Terminal: public Connection {
 			}
 		}
 		if (!impeded()) set_value(V, false);
+		if (iold != m_terminal_impeded || vold != rd())
+			queue_change();
 	}
 
 	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
@@ -347,9 +358,7 @@ class Terminal: public Connection {
 		}
 	}
 	void impeded(bool a_impeded) {}
-	virtual bool impeded() const {
-		return m_terminal_impeded;
-	}
+	virtual bool impeded() const { return m_terminal_impeded; }
 };
 
 
@@ -376,8 +385,19 @@ public:
 // An inverted connection.  If the connection was high, we return low, and vica versa.
 class Inverse: public Connection {
 	Connection &c;
+
+	virtual void on_connection_change(Connection *c, const std::string &name, const std::vector<BYTE> &data)  {
+		queue_change();
+	}
+
   public:
-	Inverse(Connection &a_c): Connection(), c(a_c) {}
+
+	Inverse(Connection &a_c): Connection(), c(a_c) {
+		DeviceEvent<Connection>::subscribe<Inverse>(this, &Inverse::on_connection_change, &c);
+	}
+	virtual  ~Inverse() {
+		DeviceEvent<Connection>::unsubscribe<Inverse>(this, &Inverse::on_connection_change, &c);
+	}
 
 	virtual bool signal() const { return !c.signal(); }
 	virtual float rd() const { return signal()?Vdd:Vss; }
@@ -754,10 +774,10 @@ class Tristate: public Device {
 		DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_change, &m_in);
 		DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_gate_change, &m_gate);
 	}
-	bool signal() { return m_out.signal(); }
-	bool impeded() { return m_out.impeded(); }
-	bool inverted() { return m_invert_output; }
-	bool gate_invert() { return m_invert_gate; }
+	bool signal() const { return m_out.signal(); }
+	bool impeded() const { return m_out.impeded(); }
+	bool inverted() const { return m_invert_output; }
+	bool gate_invert() const { return m_invert_gate; }
 
 	Tristate &inverted(bool v) { m_invert_output = v; recalc_output(); return *this; }
 	Tristate &gate_invert(bool v) { m_invert_gate = v; recalc_output(); return *this; }

@@ -190,6 +190,12 @@ class PINS: public Device {
 		return pins[idx-1];
 	}
 
+	const Terminal &operator[] (BYTE idx) const {
+		if (idx==0 or idx > 18)
+			throw(std::string("PIN Index is out of range: ") + int_to_string(idx));
+		return pins[idx-1];
+	}
+
 	void reset() {
 		for (unsigned int i = 0; i < PIN_COUNT; ++i) {
 			pins[i].set_value(Vss, true);
@@ -219,17 +225,17 @@ class PORTA: public Device {
 	DeviceEventQueue eq;
 
 	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
-		if (name == "PORTA.read") {
-			std::cout << "Read PortA" << std::endl;
-			r->set_value(rd_port());
-		} else if (name == "TRISA.read") {
-			std::cout << "Read TrisA" << std::endl;
-			r->set_value(rd_tris());
-		} else if (name == "PORTA") {
-			std::cout << "Write PortA" << std::endl;
-		} else if (name == "TRISA") {
-			std::cout << "Write TrisA" << std::endl;
-		}
+//		if (name == "PORTA.read") {
+//			std::cout << "Read PortA" << std::endl;
+////			r->set_value(rd_port());
+//		} else if (name == "TRISA.read") {
+//			std::cout << "Read TrisA" << std::endl;
+////			r->set_value(rd_tris());
+//		} else if (name == "PORTA") {
+//			std::cout << "Write PortA" << std::endl;
+//		} else if (name == "TRISA") {
+//			std::cout << "Write TrisA" << std::endl;
+//		}
 	}
 
   public:
@@ -303,16 +309,16 @@ class PORTB: public Device {
 			if (changed & Flags::OPTION::INTEDG) {
 				rising_rb0_interrupt(pins, new_value & Flags::OPTION::INTEDG);
 			}
-		} else if (name == "PORTB.read") {
-			r->set_value(rd_port());
-			std::cout << "Read PortB" << std::endl;
-		} else if (name == "TRISB.read") {
-			r->set_value(rd_tris());
-			std::cout << "Read TrisB" << std::endl;
-		} else if (name == "PORTB") {
-			std::cout << "Write PortB" << std::endl;
-		} else if (name == "TRISB") {
-			std::cout << "Write TrisB" << std::endl;
+//		} else if (name == "PORTB.read") {
+////			r->set_value(rd_port());
+//			std::cout << "Read PortB" << std::endl;
+//		} else if (name == "TRISB.read") {
+////			r->set_value(rd_tris());
+//			std::cout << "Read TrisB" << std::endl;
+//		} else if (name == "PORTB") {
+//			std::cout << "Write PortB" << std::endl;
+//		} else if (name == "TRISB") {
+//			std::cout << "Write TrisB" << std::endl;
 		}
 	}
 

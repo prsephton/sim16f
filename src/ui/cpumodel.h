@@ -127,13 +127,23 @@ namespace app {
 			PortDiagram::do_draw(cr);
 			BYTE trisA = cpu.sram.read(cpu.sram.TRISA);
 			BYTE portA = cpu.sram.read(cpu.sram.PORTA);
+			const PINS &pins = cpu.pins;
 
 			cr->save();
 			for (int n = 0; n < 8; ++n) {
+				bool tris = trisA & 1;
+				bool port = portA & 1;
+
+				cr->move_to(9, margin - 5 + (n+1) * dh);
+				cr->text_path(port ? "1" : "0");
+
 				cr->move_to(22, margin - 5 + (n+1) * dh);
-				cr->text_path(trisA & 14 ? "i" : "o");
+				cr->text_path(tris ? "i" : "o");
+
 				cr->move_to(35, margin - 5 + (n+1) * dh);
-				cr->text_path(portA & 1 ? "1" : "0");
+				int pin_no = cpu.porta.pin_numbers[n];
+				cr->text_path(pins[pin_no].signal() ? "1" : "0");
+
 				trisA = trisA >> 1;
 				portA = portA >> 1;
 			}
@@ -172,13 +182,23 @@ namespace app {
 			PortDiagram::do_draw(cr);
 			BYTE trisB = cpu.sram.read(cpu.sram.TRISB);
 			BYTE portB = cpu.sram.read(cpu.sram.PORTB);
+			const PINS &pins = cpu.pins;
 
 			cr->save();
 			for (int n = 0; n < 8; ++n) {
+				bool tris = trisB & 1;
+				bool port = portB & 1;
+
+				cr->move_to(9, margin - 5 + (n+1) * dh);
+				cr->text_path(port ? "1" : "0");
+
 				cr->move_to(22, margin - 5 + (n+1) * dh);
-				cr->text_path(trisB & 1 ? "i" : "o");
+				cr->text_path(tris ? "i" : "o");
+
 				cr->move_to(35, margin - 5 + (n+1) * dh);
-				cr->text_path(portB & 1 ? "1" : "0");
+				int pin_no = cpu.portb.pin_numbers[n];
+				cr->text_path(pins[pin_no].signal() ? "1" : "0");
+
 				trisB = trisB >> 1;
 				portB = portB >> 1;
 			}
