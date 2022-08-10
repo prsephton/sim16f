@@ -22,8 +22,8 @@ class Timer0: public Device {
 
 	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 		if (name=="OPTION"){
-			BYTE changed = data[0];
-			BYTE new_value = data[2];
+			BYTE changed = data[Register::DVALUE::CHANGED];
+			BYTE new_value = data[Register::DVALUE::NEW];
 
 			if (changed & Flags::OPTION::T0CS) {
 				clock_source_select(new_value & Flags::OPTION::T0CS);
@@ -225,17 +225,6 @@ class PORTA: public Device {
 	DeviceEventQueue eq;
 
 	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
-//		if (name == "PORTA.read") {
-//			std::cout << "Read PortA" << std::endl;
-////			r->set_value(rd_port());
-//		} else if (name == "TRISA.read") {
-//			std::cout << "Read TrisA" << std::endl;
-////			r->set_value(rd_tris());
-//		} else if (name == "PORTA") {
-//			std::cout << "Write PortA" << std::endl;
-//		} else if (name == "TRISA") {
-//			std::cout << "Write TrisA" << std::endl;
-//		}
 	}
 
   public:
@@ -264,33 +253,6 @@ class PORTA: public Device {
 			PINS::pin_RA7
 	};
 
-
-	const BYTE rd_tris() {
-		BYTE data_bus;
-		for (int n = 0; n < 8; ++n) {
-			if (n == 5) {
-				SinglePortA_MCLR_RA5 &p = dynamic_cast<SinglePortA_MCLR_RA5 &>(*RA[n]);
-				data_bus = (data_bus << 1) | p.read_tris().signal();
-			} else {
-				BasicPort &p = dynamic_cast<BasicPort &>(*RA[n]);
-				data_bus = (data_bus << 1) | p.read_tris().signal();
-			}
-		}
-		return data_bus;
-	}
-	const BYTE rd_port() {
-		BYTE data_bus;
-		for (int n = 0; n < 8; ++n) {
-			if (n == 5) {
-				SinglePortA_MCLR_RA5 &p = dynamic_cast<SinglePortA_MCLR_RA5 &>(*RA[n]);
-				data_bus = (data_bus << 1) | p.read_port().signal();
-			} else {
-				BasicPort &p = dynamic_cast<BasicPort &>(*RA[n]);
-				data_bus = (data_bus << 1) | p.read_port().signal();
-			}
-		}
-		return data_bus;
-	}
 };
 
 
@@ -309,16 +271,6 @@ class PORTB: public Device {
 			if (changed & Flags::OPTION::INTEDG) {
 				rising_rb0_interrupt(pins, new_value & Flags::OPTION::INTEDG);
 			}
-//		} else if (name == "PORTB.read") {
-////			r->set_value(rd_port());
-//			std::cout << "Read PortB" << std::endl;
-//		} else if (name == "TRISB.read") {
-////			r->set_value(rd_tris());
-//			std::cout << "Read TrisB" << std::endl;
-//		} else if (name == "PORTB") {
-//			std::cout << "Write PortB" << std::endl;
-//		} else if (name == "TRISB") {
-//			std::cout << "Write TrisB" << std::endl;
 		}
 	}
 
@@ -350,22 +302,6 @@ class PORTB: public Device {
 			PINS::pin_RB7
 	};
 
-	const BYTE rd_tris() {
-		BYTE data_bus;
-		for (int n = 0; n < 8; ++n) {
-			BasicPort &p = dynamic_cast<BasicPort &>(*RB[n]);
-			data_bus = (data_bus << 1) | p.read_tris().signal();
-		}
-		return data_bus;
-	}
-	const BYTE rd_port() {
-		BYTE data_bus;
-		for (int n = 0; n < 8; ++n) {
-			BasicPort &p = dynamic_cast<BasicPort &>(*RB[n]);
-			data_bus = (data_bus << 1) | p.read_port().signal();
-		}
-		return data_bus;
-	}
 
 	void recalc_pullups(PINS &pins, bool RBPU) {}
 	void rising_rb0_interrupt(PINS &pins, bool rising) {}
