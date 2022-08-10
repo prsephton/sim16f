@@ -122,6 +122,7 @@ class CLRF: public Instruction {
 		BYTE Z = true;
 		BYTE &status = cpu.sram.status();
 		BYTE mask = Flags::STATUS::Z;
+		cpu.read_sram(idx);
 		cpu.write_sram(idx, (BYTE)0);
 		status = (status & ~mask) | Z;
 		return false;
@@ -425,6 +426,7 @@ class MOVWF: public Instruction {
 		BYTE idx;
 		decode(opcode, idx);
 		WORD data = cpu.W;
+		cpu.read_sram(idx);
 		cpu.write_sram(idx, data & 0xff);
 		return false;
 	}
@@ -704,8 +706,8 @@ class SUBLW: public Instruction {
 		BYTE &status = cpu.sram.status();
 		BYTE mask = Flags::STATUS::Z | Flags::STATUS::C | Flags::STATUS::DC;
 
-		return false;
 		status = (status & ~mask) | Z | C | DC ;
+		return false;
 	}
 };
 
@@ -844,13 +846,9 @@ class BCF: public Instruction {
 		BYTE idx;
 		BYTE cbits;
 		decode(opcode, idx, cbits);
-		std::cout << "BCF: clear bit " << (int)cbits;
 		cbits = 1 << cbits;
 		BYTE data = cpu.read_sram(idx);
-		std::cout << " data=" << std::hex << (int)data;
-		std::cout << " data=" << std::hex << (int)data;
 		data = data & ~cbits;
-		std::cout << "; writing " << std::hex << (int)data << std::endl;
 		cpu.write_sram(idx, data);
 		return false;
 	}
