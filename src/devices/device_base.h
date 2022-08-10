@@ -419,11 +419,21 @@ class Inverse: public Connection {
 class Output: public Connection {
 	Connection &c;
 	bool wrapper;
+
+	virtual void on_connection_change(Connection *c, const std::string &name, const std::vector<BYTE> &data)  {
+		queue_change();
+	}
+
   public:
 	Output(): Connection(), c(*this), wrapper(false) {}
-	Output(Connection &a_c): Connection(), c(a_c), wrapper(true) {}
+	Output(Connection &a_c): Connection(), c(a_c), wrapper(true) {
+		DeviceEvent<Connection>::subscribe<Output>(this, &Output::on_connection_change, &c);
+	}
 	Output(float V, const std::string &a_name=""): Connection(V, false, a_name), c(*this), wrapper(false) {};
-
+	virtual ~Output() {
+		if (wrapper)
+			DeviceEvent<Connection>::unsubscribe<Output>(this, &Output::on_connection_change, &c);
+	}
 
 	virtual bool signal() const { if (wrapper) return c.signal(); return Connection::signal(); }
 	virtual float rd() const { if (wrapper) return c.rd(); return Connection::rd(); }
@@ -445,10 +455,21 @@ class Output: public Connection {
 class Input: public Connection {
 	Connection &c;
 	bool wrapper;
+
+	virtual void on_connection_change(Connection *c, const std::string &name, const std::vector<BYTE> &data)  {
+		queue_change();
+	}
+
   public:
 	Input(): Connection(), c(*this), wrapper(false) {}
-	Input(Connection &a_c): Connection(), c(a_c), wrapper(true) {}
+	Input(Connection &a_c): Connection(), c(a_c), wrapper(true) {
+		DeviceEvent<Connection>::subscribe<Input>(this, &Input::on_connection_change, &c);
+	}
 	Input(float V, const std::string &a_name=""): Connection(V, false, a_name), c(*this), wrapper(false) {};
+	virtual ~Input() {
+		if (wrapper)
+			DeviceEvent<Connection>::unsubscribe<Input>(this, &Input::on_connection_change, &c);
+	}
 
 	virtual bool signal() const { if (wrapper) return c.signal(); return Connection::signal(); }
 	virtual float rd() const { if (wrapper) return c.rd(); return Connection::rd(); }
