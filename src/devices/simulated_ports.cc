@@ -85,6 +85,8 @@ void BasicPort::on_register_change(Register *r, const std::string &name, const s
 		}
 	} else if (input_registers.find(name) != input_registers.end()) {
 		bool getval = false;
+
+		Data.set_value(Vss, true);  // data is an input
 		if ((porta_select && name == "PORTA.read") || (!porta_select && name == "PORTB.read")) {
 			rdPort.set_value(Vdd, true);    // set the value of tristate 2 high.
 			getval = true;
