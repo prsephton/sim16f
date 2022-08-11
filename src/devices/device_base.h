@@ -496,7 +496,7 @@ class ABuffer: public Device {
 		m_out.set_value(D->rd());
 	}
 
-	ABuffer(Connection &in): Device(), m_in(in), m_out(Vss) {
+	ABuffer(Connection &in, const std::string &a_name=""): Device(a_name), m_in(in), m_out(Vss) {
 		DeviceEvent<Connection>::subscribe<ABuffer>(this, &ABuffer::on_change, &m_in);
 	}
 	virtual ~ABuffer() {
@@ -515,7 +515,7 @@ class Inverter: public ABuffer {
 	}
 
   public:
-	Inverter(Connection &in): ABuffer(in) {
+	Inverter(Connection &in, const std::string &a_name=""): ABuffer(in, a_name) {
 		m_out.set_value(!(in.signal()) * Vdd);
 	}
 };
@@ -659,13 +659,16 @@ class Wire: public Device {
 		float V = Vss;
 		indeterminate = true;
 
-		if (debug()) std::cout << "read wire " << name() << ": ";
+		if (debug()) std::cout << "read wire " << name() << ": [";
 		for (auto conn = connections.begin(); conn != connections.end(); ++conn) {
-			if (debug()) std::cout << (*conn)->name();
+			if (debug()) {
+				std::cout << (conn == connections.begin()?"":", ");
+				std::cout << (*conn)->name();
+			}
 			if ((*conn)->impeded())  {                 // Find lowest unimpeded (input) connection
-				if (debug()) std::cout << "[o]: ";
+//				if (debug()) std::cout << "[o]: ";
 			} else {
-				if (debug()) std::cout << "[i]: ";
+//				if (debug()) std::cout << "[i]: ";
 				float v = (*conn)->rd();
 				if (indeterminate) {
 					V = v;
@@ -673,43 +676,58 @@ class Wire: public Device {
 				} else {
 					V = (V>v)?v:V;
 				}
-				if (debug()) std::cout << "[" << v << "] ";
+//				if (debug()) std::cout << "[" << v << "] ";
 			}
 		}
-		if (debug()) std::cout << "(" << V << "V)" << std::endl;
+		if (debug()) {
+			if (indeterminate) {
+				std::cout << "] is indeterminate" << std::endl;
+			} else {
+				std::cout << "] = " << V << "v" << std::endl;
+			}
+		}
 		return V;
 	}
 
-	void assert_voltage() {  // fires signals to any impeded connections
-		float V = Voltage = recalc();
-		if (debug()) {
-			std::cout << "Wire: " << name() << " is " << (indeterminate?"unknown":"");
-			if (!indeterminate)	std::cout << V << "v";
-			std::cout << std::endl;
+	bool assert_voltage() {  // fires signals to any impeded connections
+		float V = recalc();
+		if (debug() && Voltage != V) {
+			if (!indeterminate) {
+				std::cout << "Wire: " << name() << " is at " << (indeterminate?"unknown":"");
+				if (!indeterminate)	std::cout << V << "v";
+				std::cout << std::endl;
+			}
 		}
 		for (auto conn = connections.begin(); conn != connections.end(); ++conn) {
 			if ((*conn)->impeded()) {
 				if (indeterminate)
 					(*conn)->determinate(false);
-				else  {
-					if (debug()) std::cout << std::string("    -- ") << (*conn)->name() << " set to " << V << "v" << std::endl;
+				else {
+//					if (debug()) std::cout << std::string("    -- ") << (*conn)->name() << " set to " << V << "v" << std::endl;
 					(*conn)->set_value(V, true);
 				}
 			}
 		}
+		if (Voltage != V) {
+			Voltage = V;
+			return true;
+		}
+		return false;
 	}
 
 	void queue_change(){  // Add a voltage change event to the queue
-		assert_voltage();         // determine wire voltage and update impeded connections
-		eq.queue_event(new DeviceEvent<Wire>(*this, "Wire Voltage Change"));
-		eq.process_events();
+		if (assert_voltage()) {        // determine wire voltage and update impeded connections
+			eq.queue_event(new DeviceEvent<Wire>(*this, "Wire Voltage Change"));
+			eq.process_events();
+		}
 	}
 
 	void on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data) {
 		if (debug()) {
 			const char *direction = " <-- ";
 			if (conn->impeded()) direction = " ->| ";
-			std::cout << "Wire " << this->name() << direction << "Connection " << name << " changed to " << conn->rd() << "V" << std::endl;
+			std::cout << "Wire " << this->name() << direction << "Event " << conn->name() << " changed to " << conn->rd() << "V [";
+			std::cout << (conn->impeded()?"o":"i") << "]" << std::endl;
 		}
 		queue_change();
 	}
@@ -728,8 +746,9 @@ class Wire: public Device {
 		}
 	}
 
-	void connect(Connection &connection) {
+	void connect(Connection &connection, const std::string &a_name="") {
 		connections.push_back(&connection);
+		if (a_name.length()) connection.name(a_name);
 		DeviceEvent<Connection>::subscribe<Wire>(this, &Wire::on_connection_change, &connection);
 		queue_change();
 	}
@@ -757,17 +776,25 @@ class Wire: public Device {
 //___________________________________________________________________________________
 // A buffer whos output impedence depends on a third state signal
 class Tristate: public Device {
+
+	void pr_debug_info(const std::string &what) {
+		std::cout << "  *** on " << what << ":" << this->name();
+		std::cout << " gate=" << ((m_gate->signal()^m_invert_gate)?"high":"low") << ": output set to " << (m_out.impeded()?"high impedence":"");
+		if (!m_out.impeded()) std::cout << m_out.rd();
+		std::cout << std::endl;
+	}
+
   protected:
-	Connection &m_in;
-	Connection &m_gate;
+	Connection *m_in;
+	Connection *m_gate;
 	Connection m_out;
 	bool m_invert_gate;
 	bool m_invert_output;
 
 
 	void recalc_output() {
-		bool impeded = !m_gate.signal();
-		bool out = m_in.signal();
+		bool impeded = !m_gate->signal();
+		bool out = m_in->signal();
 		if (m_invert_output) out = !out;
 		if (m_invert_gate) impeded = !impeded;
 		if (impeded) out = false;
@@ -775,26 +802,32 @@ class Tristate: public Device {
 	}
 
 	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-//		std::cout << " on change " << D->name() << name << std::endl;
 		recalc_output();
+		if (debug()) pr_debug_info("input change");
 	}
 
 	virtual void on_gate_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-//		std::cout << " on gate change " << name << std::endl;
 		recalc_output();
+		if (debug()) pr_debug_info("gate change");
 	}
 
   public:
 	Tristate(Connection &in, Connection &gate, bool invert_gate=false, bool invert_output=false, const std::string &a_name="ts"):
-		Device(a_name), m_in(in), m_gate(gate), m_out(name()+"::out"), m_invert_gate(invert_gate), m_invert_output(invert_output) {
-		DeviceEvent<Connection>::subscribe<Tristate>(this, &Tristate::on_change, &m_in);
-		DeviceEvent<Connection>::subscribe<Tristate>(this, &Tristate::on_gate_change, &m_gate);
+		Device(a_name), m_in(&in), m_gate(&gate), m_out(name()+"::out"), m_invert_gate(invert_gate), m_invert_output(invert_output) {
+		DeviceEvent<Connection>::subscribe<Tristate>(this, &Tristate::on_change, m_in);
+		DeviceEvent<Connection>::subscribe<Tristate>(this, &Tristate::on_gate_change, m_gate);
+
+		m_out.name(name()+".out");
 		recalc_output();
 	}
 	virtual ~Tristate() {
-		DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_change, &m_in);
-		DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_gate_change, &m_gate);
+		DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_change, m_in);
+		DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_gate_change, m_gate);
 	}
+	void set_name(const std::string &a_name) {
+		name(a_name);
+		m_out.name(name()+".output");
+	};
 	bool signal() const { return m_out.signal(); }
 	bool impeded() const { return m_out.impeded(); }
 	bool inverted() const { return m_invert_output; }
@@ -803,12 +836,23 @@ class Tristate: public Device {
 	Tristate &inverted(bool v) { m_invert_output = v; recalc_output(); return *this; }
 	Tristate &gate_invert(bool v) { m_invert_gate = v; recalc_output(); return *this; }
 
-	void wr(float in) { m_in.set_value(in, true); }
-	void input(Connection &in) { m_in = in; }
-	void gate(Connection &gate) { m_gate = gate; }
+	void wr(float in) { m_in->set_value(in, true); }
+	void input(Connection &in) {
+		DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_change, m_in);
+		m_in = &in; recalc_output();
+		DeviceEvent<Connection>::subscribe<Tristate>(this, &Tristate::on_change, m_in);
+		if (debug()) pr_debug_info("input replaced");
+	}
+	void gate(Connection &gate) {
+		DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_gate_change, m_gate);
+		m_gate = &gate;
+		DeviceEvent<Connection>::subscribe<Tristate>(this, &Tristate::on_gate_change, m_gate);
+		recalc_output();
+		if (debug()) pr_debug_info("gate replaced");
+	}
 
-	Connection &input() { return m_in; }
-	Connection &gate() { return m_gate; }
+	Connection &input() { return *m_in; }
+	Connection &gate() { return *m_gate; }
 	Connection &rd() { return m_out; }
 };
 
@@ -896,6 +940,7 @@ class Latch: public Device {
 		if (debug()) std::cout << this->name() << ": Ck is " << Ck->signal() << std::endl;
 		if ((m_positive ^ (!Ck->signal()))) {
 			m_Q.set_value(m_D.rd());
+			if (debug()) std::cout << this->name() << ": Q was set to " << m_Q.rd() << std::endl;
 		}
 	}
 
