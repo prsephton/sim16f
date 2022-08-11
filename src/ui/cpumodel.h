@@ -80,11 +80,25 @@ namespace app {
 		const CPU_DATA &m_cpu;
 		double x, y, w, h;
 
+		BYTE m_tris = 0xff;
+		BYTE m_port = 0;
+
 		virtual void draw_extra(const Cairo::RefPtr<Cairo::Context>& cr) {
 			do_draw(cr);
 		}
 
+		virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {}
+		void register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+			on_register_change(r, name, data);
+		}
+
 	  public:
+
+		void tris(BYTE t) { m_tris = t; }
+		BYTE tris() const { return m_tris; }
+
+		void port(BYTE p) { m_port = p; }
+		BYTE port() const { return m_port; }
 
 		void do_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->set_line_width(0.7);
@@ -97,19 +111,12 @@ namespace app {
 			cr->stroke();
 		}
 
-		void on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data) {
-			m_area->queue_draw_area(x, y, w, h);
-		}
-
 		PortDiagram(CPU_DATA &a_cpu, const std::string &name, double x, double y, double width, double height, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			BlockDiagram(x, y, width, height, "", a_area), m_cpu(a_cpu), x(x), y(y), w(width), h(height) {
 
 			add(BlockDiagram::text(0, -2, name));
 
-			for (int n = 0; n < 8; ++n) {
-				Connection &conn = a_cpu.pins[a_cpu.porta.pin_numbers[n]];
-				DeviceEvent<Connection>::subscribe<PortDiagram>(this, &PortDiagram::on_connection_change, &conn);
-			}
+			DeviceEvent<Register>::subscribe<PortDiagram>(this, &PortDiagram::register_change);
 		}
 	};
 
@@ -121,24 +128,29 @@ namespace app {
 		std::stack<PinDiagram *> pd;
 		std::vector<ConnectionDiagram *>pins;
 
+		virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+			if (name == "TRISA") tris(data[Register::DVALUE::NEW]);
+			if (name == "PORTA") port(data[Register::DVALUE::NEW]);
+		}
+
 	  public:
 
 		virtual void draw_extra(const Cairo::RefPtr<Cairo::Context>& cr) {
 			PortDiagram::do_draw(cr);
-			BYTE trisA = cpu.sram.read(cpu.sram.TRISA);
-			BYTE portA = cpu.sram.read(cpu.sram.PORTA);
 			const PINS &pins = cpu.pins;
 
 			cr->save();
+			BYTE trisA = tris();
+			BYTE portA = port();
 			for (int n = 0; n < 8; ++n) {
-				bool tris = trisA & 1;
-				bool port = portA & 1;
+				bool trisflag = trisA & 1;
+				bool portflag = portA & 1;
 
 				cr->move_to(9, margin - 5 + (n+1) * dh);
-				cr->text_path(port ? "1" : "0");
+				cr->text_path(portflag ? "1" : "0");
 
 				cr->move_to(22, margin - 5 + (n+1) * dh);
-				cr->text_path(tris ? "i" : "o");
+				cr->text_path(trisflag ? "i" : "o");
 
 				cr->move_to(35, margin - 5 + (n+1) * dh);
 				int pin_no = cpu.porta.pin_numbers[n];
@@ -176,24 +188,29 @@ namespace app {
 		std::vector<ConnectionDiagram *>pins;
 		std::stack<PinDiagram *> pd;
 
+		virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+			if (name == "TRISB") tris(data[Register::DVALUE::NEW]);
+			if (name == "PORTB") port(data[Register::DVALUE::NEW]);
+		}
+
 	  public:
 
 		virtual void draw_extra(const Cairo::RefPtr<Cairo::Context>& cr) {
 			PortDiagram::do_draw(cr);
-			BYTE trisB = cpu.sram.read(cpu.sram.TRISB);
-			BYTE portB = cpu.sram.read(cpu.sram.PORTB);
+			BYTE trisB = tris();
+			BYTE portB = port();
 			const PINS &pins = cpu.pins;
 
 			cr->save();
 			for (int n = 0; n < 8; ++n) {
-				bool tris = trisB & 1;
-				bool port = portB & 1;
+				bool trisflag = trisB & 1;
+				bool portflag = portB & 1;
 
 				cr->move_to(9, margin - 5 + (n+1) * dh);
-				cr->text_path(port ? "1" : "0");
+				cr->text_path(portflag ? "1" : "0");
 
 				cr->move_to(22, margin - 5 + (n+1) * dh);
-				cr->text_path(tris ? "i" : "o");
+				cr->text_path(trisflag ? "i" : "o");
 
 				cr->move_to(35, margin - 5 + (n+1) * dh);
 				int pin_no = cpu.portb.pin_numbers[n];
@@ -216,8 +233,8 @@ namespace app {
 				pd.push(new PinDiagram(conn, x + width + 15, y + margin - 10 + (n+1) * dh, 0, 0.5, a_area));
 				add(BlockDiagram::text(width+35, margin - 5 + (n+1) * dh, conn.name()));
 				pins.push_back(new ConnectionDiagram(conn, x+width, y + margin - 10 + (n+1) * dh, m_area));
-				pins[n]->add(ConnectionDiagram::pt( 0,  0, true));
-				pins[n]->add(ConnectionDiagram::pt(20,  0, false));
+				pins[n]->add(ConnectionDiagram::pt( 0,  0).first());
+				pins[n]->add(ConnectionDiagram::pt(20,  0));
 			}
 		}
 
