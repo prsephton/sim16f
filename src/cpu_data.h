@@ -168,16 +168,18 @@ class CPU_DATA {
 	}
 
 	std::string register_name(BYTE idx) {
-		BYTE bank, ofs;
-		if (!sram.calc_bank_ofs(idx, bank, ofs, false))
-			return int_to_hex(idx);
+		WORD index = sram.calc_index(idx, false);
 
-		idx = bank * BANK_SIZE + ofs;
+//		BYTE bank, ofs;
+//		if (!sram.calc_bank_ofs(idx, bank, ofs, false))
+//			return int_to_hex(idx);
+//
+//		idx = bank * BANK_SIZE + ofs;
 
 		if (RegisterNames.find(idx) == RegisterNames.end())
 			return int_to_hex(idx);
 		else
-			return RegisterNames[idx];
+			return RegisterNames[index];
 	}
 
 	void write_sram(BYTE idx, BYTE v) {
