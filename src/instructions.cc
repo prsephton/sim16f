@@ -840,6 +840,11 @@ class BCF: public Instruction {
 		BYTE idx;
 		BYTE cbits;
 		decode(opcode, idx, cbits);
+		BYTE bitmask = 1 << cbits;
+		if (idx == cpu.sram.STATUS && (bitmask == Flags::STATUS::RP0 || bitmask == Flags::STATUS::RP1)) {
+			BYTE &status = cpu.sram.status();
+			status &=  ~bitmask;
+		}
 		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
@@ -869,6 +874,11 @@ class BSF: public Instruction {
 		BYTE idx;
 		BYTE cbits;
 		decode(opcode, idx, cbits);
+		BYTE bitmask = 1 << cbits;
+		if (idx == cpu.sram.STATUS && (bitmask == Flags::STATUS::RP0 || bitmask == Flags::STATUS::RP1)) {
+			BYTE &status = cpu.sram.status();
+			status |= bitmask;
+		}
 		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
