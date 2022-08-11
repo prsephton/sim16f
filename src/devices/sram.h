@@ -70,8 +70,7 @@ class SRAM: public Device{
 
 	SRAM();
 
-
-	bool calc_bank_ofs(WORD a_idx, BYTE &bank, BYTE &ofs, bool indirect) const;
+	const WORD calc_index(const BYTE a_idx, bool indirect) const;
 
 	BYTE fsr() const {
 		return (m_bank[0][FSR]);
