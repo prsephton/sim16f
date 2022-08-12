@@ -154,7 +154,7 @@ bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &inst
 			++PC;  // all instructions are single word
 		}
 	}
-	return false;
+	return true;
 }
 
 void disassemble(CPU_DATA &cpu, InstructionSet &instructions, std::vector<Disasm> &listing) {

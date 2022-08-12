@@ -54,6 +54,7 @@ namespace app {
 		Glib::RefPtr<Gtk::ComboBoxText> m_fosc;
 		Glib::RefPtr<Gtk::Button> m_save_hex;
 		Glib::RefPtr<Gtk::Button> m_load_hex;
+		Glib::RefPtr<Gtk::Button> m_load_assembler;
 		FileSelection *m_file_chooser;
 		std::string m_filename;
 
@@ -80,8 +81,23 @@ namespace app {
 
 		void on_load_hex_clicked() {
 			std::string l_filename = m_file_chooser->load_hex_file();
-			if (l_filename.length() and load_hex(l_filename, m_cpu))
-				std::cout << "Hex file " << l_filename << " successfully laoded" << std::endl;
+			try {
+				if (l_filename.length() and load_hex(l_filename, m_cpu))
+					std::cout << "Hex file " << l_filename << " successfully laoded" << std::endl;
+			} catch(const std::string &err) {
+				std::cout << "An error occurred while loading " << l_filename << ": " << err << std::endl;
+			}
+		}
+
+		void on_load_assembler_clicked() {
+			std::string l_filename = m_file_chooser->load_asm_file();
+			InstructionSet instructions;
+			try {
+				if (l_filename.length() and assemble(l_filename, m_cpu, instructions))
+					std::cout << "Assembler file " << l_filename << " successfully laoded" << std::endl;
+			} catch(const std::string &err) {
+				std::cout << "An error occurred while assembling " << l_filename << ": " << err << std::endl;
+			}
 		}
 
 	  public:
@@ -104,6 +120,7 @@ namespace app {
 			m_bits["pwrte"] = make_BitConfig("config_pwrte", Flags::CONFIG::PWRTE);
 			m_bits["wdte"]  = make_BitConfig("config_wdte",  Flags::CONFIG::WDTE);
 
+
 			m_fosc = Glib::RefPtr<Gtk::ComboBoxText>::cast_dynamic(m_refGlade->get_object("config_fosc"));
 			m_fosc->signal_changed().connect(sigc::mem_fun(*this, &Config::on_fosc_changed));
 			WORD fosc_code = 7 - (((m_cpu.Config & 0b10000) >> 2) | (m_cpu.Config & 0b011));
@@ -111,12 +128,13 @@ namespace app {
 
 			m_save_hex = Glib::RefPtr<Gtk::Button>::cast_dynamic(m_refGlade->get_object("save_hex"));
 			m_load_hex = Glib::RefPtr<Gtk::Button>::cast_dynamic(m_refGlade->get_object("load_hex"));
+			m_load_assembler = Glib::RefPtr<Gtk::Button>::cast_dynamic(m_refGlade->get_object("load_assembler"));
 
 			m_save_hex->signal_clicked().connect(sigc::mem_fun(*this, &Config::on_save_hex_clicked));
 			m_load_hex->signal_clicked().connect(sigc::mem_fun(*this, &Config::on_load_hex_clicked));
+			m_load_assembler->signal_clicked().connect(sigc::mem_fun(*this, &Config::on_load_assembler_clicked));
 
 			m_refGlade->get_widget_derived("file_chooser", m_file_chooser);
-//			m_file_chooser->set_transient_for(*this);
 			m_filename = "test.hex";
 		}
 	};
