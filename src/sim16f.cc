@@ -5,9 +5,10 @@
 //___________________________________________________________________________________
 // Some runtime parameters
 typedef struct run_params {
-	CPU cpu;
+	CPU           cpu;
 	unsigned long delay_us;
-	bool debug;
+	bool          debug;
+	std::string   filename;
 } Params;
 
 //___________________________________________________________________________________
@@ -65,21 +66,6 @@ int main(int argc, char *argv[]) {
 	std::string outfile = "-";
 	unsigned long frequency = 8;
 
-	cpu.load_hex("test.hex");
-	pthread_t machine, clock;
-	unsigned long clock_speed_hz = frequency;
-	params.delay_us = 1000000 / clock_speed_hz;
-	params.debug = true;
-	pthread_create(&machine, 0, run_machine, &params);
-	pthread_create(&clock, 0, run_clock, &params);
-
-	run_application(cpu.cpu_data());
-	cpu.stop();
-
-	pthread_exit(NULL);
-
-	return 0;
-
 	CommandLine cmdline(argc, argv);
 	if (cmdline.cmdOptionExists("-h") || argc==1) {
 		std::cout << "A PIC16f6xxx simulator\n";
@@ -87,6 +73,7 @@ int main(int argc, char *argv[]) {
 		std::cout << "\n";
 		std::cout << "sim16f <options>\n";
 		std::cout << "  available options:\n";
+		std::cout << "    -i              - interactive: prevents a GTK window from being displayed.\n";
 		std::cout << "    -a filename     - assemble a list of instructions read from <filename>.\n";
 		std::cout << "    -x filename     - read a .hex file and configure the CPU.\n";
 		std::cout << "    -c config_words - configure the CPU. eg: 'sim16f -c 0x10,0x20 [,...]\n";
@@ -121,6 +108,7 @@ int main(int argc, char *argv[]) {
 			std::string fn = cmdline.getCmdOption("-x");
 			if (!FileExists(fn.c_str())) throw(std::string("File does not exist: ")+fn);
 			cpu.load_hex(fn);
+			params.filename = fn;
 		}
 		if (cmdline.cmdOptionExists("-a")) {
 			std::string fn = cmdline.getCmdOption("-a");
@@ -130,6 +118,7 @@ int main(int argc, char *argv[]) {
 			} catch (std::string &err) {
 				std::cout << "error in assembly: " << err << "\n";
 			}
+			params.filename = fn.substr(fn.find("."))+".hex";
 		}
 		if (cmdline.cmdOptionExists("-c")) {
 			cpu.configure(cmdline.getCmdOption("-c"));
@@ -152,15 +141,33 @@ int main(int argc, char *argv[]) {
 			if (fn.length()) cpu.dump_hex(fn);
 		}
 
-		if (cmdline.cmdOptionExists("-r") || cmdline.cmdOptionExists("-g")) {
-			pthread_t machine;
-			pthread_create(&machine, 0, run_machine, &cpu);
+
+		if (cmdline.cmdOptionExists("-i") ) {
+			if (cmdline.cmdOptionExists("-r") || cmdline.cmdOptionExists("-g")) {
+				pthread_t machine, clock;
+				unsigned long clock_speed_hz = frequency;
+				params.delay_us = 1000000 / clock_speed_hz;
+				params.debug = cmdline.cmdOptionExists("-g");
+				pthread_create(&machine, 0, run_machine, &params);
+				pthread_create(&clock, 0, run_clock, &params);
+
+				std::cout << "Running CPU clock: delay is: " << params.delay_us << " us\n";
+				// run it here
+			}
+		} else {
+			cpu.load_hex("test.hex");
+			pthread_t machine, clock;
 			unsigned long clock_speed_hz = frequency;
-			unsigned long delay_us = 1000000 / clock_speed_hz;
-			std::cout << "Running CPU clock: delay is: " << delay_us << "\n";
-			params.debug = cmdline.cmdOptionExists("-g");
-			// run it here
+			params.delay_us = 1000000 / clock_speed_hz;
+			params.debug = true;
+			pthread_create(&machine, 0, run_machine, &params);
+			pthread_create(&clock, 0, run_clock, &params);
+
+			run_application(cpu.cpu_data());
+			cpu.stop();
 		}
+
+
 	} catch (std::string &err) {
 		std::cerr << "Error: " << err << "\n";
 		return 0;
