@@ -2,6 +2,7 @@
 #include <gtkmm.h>
 #include <iostream>
 #include "../utils/hex.h"
+#include "../utils/assembler.h"
 
 namespace app {
 
@@ -9,6 +10,7 @@ namespace app {
 		Glib::RefPtr<Gtk::Builder> m_builder;
 
 	protected:
+		Glib::RefPtr<Gtk::Window> m_window;
 		Glib::RefPtr<Gtk::Button> m_ok_button;
 		Glib::RefPtr<Gtk::Button> m_cancel_button;
 		Glib::RefPtr<Gtk::Entry> m_filename;
@@ -62,6 +64,10 @@ namespace app {
 			m_cancel_button->signal_clicked().connect(sigc::mem_fun(*this, &FileSelection::on_cancel_clicked));
 			signal_selection_changed().connect(sigc::mem_fun(*this, &FileSelection::on_selection_changed));
 			this->signal_response().connect(sigc::mem_fun(*this, &FileSelection::on_response));
+
+			m_window = Glib::RefPtr<Gtk::Window>::cast_dynamic(m_builder->get_object("sim16f_main"));
+			Window *w = m_window.operator->();
+			this->set_transient_for(*w);
 
 		}
 
