@@ -102,11 +102,15 @@ class EEPROM: public Device {
 
 	void load(const std::string &a_file);
 
+	WORD size() {
+		return EEPROM_SIZE;
+	}
+
 	void clear() {
 		memset(data, 0, sizeof(data));
 	}
 	void set_data(WORD address, const std::string &ds) {
-		for(WORD n=0; n<ds.length() && n+address<EEPROM_SIZE; ++n)
+		for(WORD n=0; n<ds.length() && n+address<size(); ++n)
 			data[n+address] = ds[n];
 	}
 };
@@ -309,9 +313,12 @@ class PORTB: public Device {
 
 
 class Flash: public Device {
-  public:
+//	std::vector<WORD>data;
 
-	Flash() : Device("FLASH") {}
+  public:
+	Flash() : Device("FLASH") {
+
+	}
 	WORD data[FLASH_SIZE];
 
 	void load(const std::string &a_file);
@@ -324,8 +331,12 @@ class Flash: public Device {
 		memset(data, 0, sizeof(data));
 	}
 
+	WORD size() {
+		return FLASH_SIZE;
+	}
+
 	void set_data(WORD address, const std::string &ds) {
-		for(WORD n=0; n<ds.length() && n+address<FLASH_SIZE; n += 2)
+		for(WORD n=0; n<ds.length() && n+address<size(); n += 2)
 			data[(n+address)/2] = (((WORD)ds[n+1]) << 8) | (BYTE)ds[n];
 	}
 

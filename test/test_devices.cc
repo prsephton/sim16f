@@ -1,5 +1,6 @@
 #include <cassert>
 #include <iomanip>
+#include "run_tests.h"
 #include "../src/devices/device_base.h"
 
 
@@ -574,7 +575,7 @@ void prsep() {
 
 #ifdef TESTING
 
-int main(int a_argc, char *a_argv[]) {
+void test_devices() {
 	prsep(); test_connection();
 	prsep(); test_rails();
 	prsep(); test_inverse();
@@ -594,7 +595,6 @@ int main(int a_argc, char *a_argv[]) {
 	prsep(); test_FET();
 	prsep(); test_schmitt();
 	prsep();
-	return 0;
 };
 
 #endif
