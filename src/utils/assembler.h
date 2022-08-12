@@ -20,3 +20,8 @@ void disassemble(CPU_DATA &cpu, InstructionSet &instructions, std::vector<Disasm
 void disassemble(CPU_DATA &cpu, InstructionSet &instructions);
 void disassemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &instructions);
 
+#ifdef TESTING
+
+void test_assembler_parse_args();
+
+#endif
