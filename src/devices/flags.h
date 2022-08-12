@@ -3,7 +3,9 @@
 
 #ifndef __flags_h__
 #define __flags_h__
-
+#include <vector>
+#include <string>
+#include <map>
 
 class Flags {
   public:
@@ -13,11 +15,12 @@ class Flags {
 		static const WORD LVP   = (WORD)1 << 7;
 		static const WORD BOREN = (WORD)1 << 6;
 		static const WORD MCLRE = (WORD)1 << 5;
+		static const WORD FOSC2 = (WORD)1 << 4;
 		static const WORD PWRTE = (WORD)1 << 3;   // ...
 		static const WORD WDTE  = (WORD)1 << 2;
-		static const WORD FOSC2 = (WORD)1 << 4;
 		static const WORD FOSC1 = (WORD)1 << 1;
 		static const WORD FOSC0 = (WORD)1;        // bit 0
+		static const std::vector<std::string> bits;
 	};
 	struct STATUS {
 		static const BYTE IRP = 0b10000000;
@@ -28,6 +31,7 @@ class Flags {
 		static const BYTE Z   = 0b00000100;
 		static const BYTE DC  = 0b00000010;
 		static const BYTE C   = 0b00000001;
+		static const std::vector<std::string> bits;
 	};
 	struct OPTION {
 		static const BYTE RBPU   = 0b10000000;
@@ -38,6 +42,7 @@ class Flags {
 		static const BYTE PS2    = 0b00000100;
 		static const BYTE PS1    = 0b00000010;
 		static const BYTE PS0    = 0b00000001;
+		static const std::vector<std::string> bits;
 	};
 	struct TRISA {
 		static const BYTE TRISA7 = 0b10000000;
@@ -48,6 +53,7 @@ class Flags {
 		static const BYTE TRISA2 = 0b00000100;
 		static const BYTE TRISA1 = 0b00000010;
 		static const BYTE TRISA0 = 0b00000001;
+		static const std::vector<std::string> bits;
 	};
 	struct TRISB {
 		static const BYTE TRISB7 = 0b10000000;
@@ -58,6 +64,7 @@ class Flags {
 		static const BYTE TRISB2 = 0b00000100;
 		static const BYTE TRISB1 = 0b00000010;
 		static const BYTE TRISB0 = 0b00000001;
+		static const std::vector<std::string> bits;
 	};
 	struct INTCON {
 		static const BYTE GIE  = 0b10000000;
@@ -68,7 +75,7 @@ class Flags {
 		static const BYTE T0IF = 0b00000100;
 		static const BYTE INTF = 0b00000010;
 		static const BYTE RBIF = 0b00000001;
-
+		static const std::vector<std::string> bits;
 	};
 	struct PIE1 {
 		static const BYTE EEIE   = 0b10000000;
@@ -79,7 +86,7 @@ class Flags {
 		static const BYTE CCP1IE = 0b00000100;
 		static const BYTE TMR2IE = 0b00000010;
 		static const BYTE TMR1IE = 0b00000001;
-
+		static const std::vector<std::string> bits;
 	};
 	struct PCON {
 		static const BYTE na0  = 0b10000000;
@@ -90,7 +97,7 @@ class Flags {
 		static const BYTE na4  = 0b00000100;
 		static const BYTE POR  = 0b00000010;
 		static const BYTE BOR  = 0b00000001;
-
+		static const std::vector<std::string> bits;
 	};
 	struct RCSTA {
 		static const BYTE SPEN = 0b10000000;
@@ -101,6 +108,7 @@ class Flags {
 		static const BYTE FERR = 0b00000100;
 		static const BYTE OERR = 0b00000010;
 		static const BYTE RX9D = 0b00000001;
+		static const std::vector<std::string> bits;
 	};
 	struct TXSTA {
 		static const BYTE CSRC = 0b10000000;
@@ -111,6 +119,7 @@ class Flags {
 		static const BYTE BRGH = 0b00000100;
 		static const BYTE TRMT = 0b00000010;
 		static const BYTE TX9D = 0b00000001;
+		static const std::vector<std::string> bits;
 	};
 	struct EECON1 {
 		static const BYTE na0   = 0b10000000;
@@ -121,7 +130,7 @@ class Flags {
 		static const BYTE WREN  = 0b00000100;
 		static const BYTE WR    = 0b00000010;
 		static const BYTE RD    = 0b00000001;
-
+		static const std::vector<std::string> bits;
 	};
 	struct CMCON {
 		static const BYTE C2OUT = 0b10000000;
@@ -132,6 +141,7 @@ class Flags {
 		static const BYTE CM2   = 0b00000100;
 		static const BYTE CM1   = 0b00000010;
 		static const BYTE CM0   = 0b00000001;
+		static const std::vector<std::string> bits;
 	};
 	struct VRCON {
 		static const BYTE VREN = 0b10000000;
@@ -142,7 +152,7 @@ class Flags {
 		static const BYTE VR2  = 0b00000100;
 		static const BYTE VR1  = 0b00000010;
 		static const BYTE VR0  = 0b00000001;
-
+		static const std::vector<std::string> bits;
 	};
 	struct PORTA {
 		static const BYTE RA7 = 0b10000000;
@@ -153,7 +163,7 @@ class Flags {
 		static const BYTE RA2 = 0b00000100;
 		static const BYTE RA1 = 0b00000010;
 		static const BYTE RA0 = 0b00000001;
-
+		static const std::vector<std::string> bits;
 	};
 	struct PORTB {
 		static const BYTE RB7 = 0b10000000;
@@ -164,7 +174,9 @@ class Flags {
 		static const BYTE RB2 = 0b00000100;
 		static const BYTE RB1 = 0b00000010;
 		static const BYTE RB0 = 0b00000001;
+		static const std::vector<std::string> bits;
 	};
+	static const std::map<const WORD, const std::vector<std::string> > register_bits;
 };
 
 #endif
