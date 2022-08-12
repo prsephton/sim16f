@@ -170,12 +170,6 @@ class CPU_DATA {
 	std::string register_name(BYTE idx) {
 		WORD index = sram.calc_index(idx, false);
 
-//		BYTE bank, ofs;
-//		if (!sram.calc_bank_ofs(idx, bank, ofs, false))
-//			return int_to_hex(idx);
-//
-//		idx = bank * BANK_SIZE + ofs;
-
 		if (RegisterNames.find(idx) == RegisterNames.end())
 			return int_to_hex(idx);
 		else
