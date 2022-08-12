@@ -33,7 +33,7 @@ $(TARGET): $(OBJS) $(HDRS)
 
 test: TESTING_FLAGS = -DTESTING
 test: $(TOBJS) $(OBJS) $(HDRS)
-	$(CC) $(TESTING_FLAGS) $(CFLAGS) -o test_devices $(TOBJS) $(OBJS) $(LFLAGS) $(LIBS)
+	$(CC) $(TESTING_FLAGS) $(CFLAGS) -o run_tests $(TOBJS) $(OBJS) $(LFLAGS) $(LIBS)
 
 clean:
 	rm -f $(OBJS) $(TOBJS) $(TARGET)
