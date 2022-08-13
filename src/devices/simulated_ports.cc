@@ -1181,7 +1181,7 @@ void PortB_RB7::process_clock_change(Clock *D, const std::string &name, const st
 }
 
 PortB_RB7::PortB_RB7(Terminal &a_Pin, const std::string &a_name):
-	BasicPortB(a_Pin, a_name, 6), m_iRBPU(RBPU()), m_iT1OSCEN(T1OSCEN())
+	BasicPortB(a_Pin, a_name, 7), m_iRBPU(RBPU()), m_iT1OSCEN(T1OSCEN())
 {
 	auto &c = components();
 	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
