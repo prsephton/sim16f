@@ -59,12 +59,12 @@ class InstructionSet {
 	typedef struct tree_struct {
 		SmartPtr<struct tree_struct> left;
 		SmartPtr<struct tree_struct> right;
-		std::string mnemonic;
+		SmartPtr<Instruction> instruction;
 	} tree_type;
 	tree_type m_tree;
 
-	void add_tree(tree_type &a_tree, const std::string &a_mnemonic, short a_bits, WORD a_opcode);
-	const std::string &find_tree(const tree_type &a_tree, WORD a_opcode);
+	void add_tree(tree_type &a_tree, SmartPtr<Instruction> a_instruction, short a_bits, WORD a_opcode);
+	SmartPtr<Instruction> find_tree(const tree_type &a_tree, WORD a_opcode);
 
   public:
 	InstructionSet();

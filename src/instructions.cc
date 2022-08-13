@@ -19,21 +19,20 @@
  * itself reacts to clock events by processing instructions read from the flash device.
  *
  * We use a std::map to store instances of instruction classes keyed by mnemonic.  This
- * allows us to easily find instructions while assembling binary code from assembly language,
- * or during code execution.
+ * allows us to easily find instructions while assembling binary code from assembly language.
  *
- * For each instruction, we add its mnemonic to a binary tree, by traversing each bit in it's
- * OPCode until the total number of identifying bits have been visited.  This tree may then be
- * used to locate the appropriate mnemonic for an actual instruction to be executed.
+ * For each instruction, we also add its smart pointer to a binary tree, by traversing each
+ * bit in it's OPCode until the total number of identifying bits have been visited.  This
+ * tree may later be used to locate the appropriate instruction to be executed.
  *
  * To execute instructions, we retrieve the current instruction using the Program Counter,
  * locate the closest instruction using the binary tree by examining each bit in the OpCode
- * from the front, until we find a mnemonic.  We then use the mnemonic to retrieve the instance
- * of the appropriate instruction instance, and call it's execute() method.
+ * from the front, retrieving the appropriate instruction instance, and call it's
+ * execute() method.
  *
  * The way we decode instructions by shifting the OPCode left and comparing the value of the
- * top bit approximates the way a real CPU may decode instructions.  Of course, things go
- * south rather quickly from there.
+ * top bit approximates the way a real CPU may decode instructions. Of course, things go
+ * south rather quickly from there, but we do our best.
  *
  */
 
@@ -1112,28 +1111,29 @@ class CLRWDT: public Instruction {
 };
 
 
+
 //______________________________________________________________________________________________________________________
 // The instruction set represents the complete set of individual CPU instructions
-void InstructionSet::add_tree(struct tree_struct &a_tree, const std::string &a_mnemonic, short a_bits, WORD a_opcode) {
+void InstructionSet::add_tree(struct tree_struct &a_tree, SmartPtr<Instruction> a_instruction, short a_bits, WORD a_opcode) {
 	if (!a_bits) {
-		if (a_tree.mnemonic.length())
-			throw(std::string("Mnemonic Operand Clash: " + a_mnemonic + " redefines " + a_tree.mnemonic));
-		a_tree.mnemonic = a_mnemonic;
+		if (a_tree.instruction)
+			throw(std::string("Mnemonic Operand Clash: " + a_instruction->mnemonic + " redefines " + a_tree.instruction->mnemonic));
+		a_tree.instruction = a_instruction;
 	} else {
 		a_opcode = a_opcode << 1;
 		bool rhs = a_opcode & 0x4000;   // test bit 14
 		if (rhs) {
 			if (!a_tree.right) a_tree.right = new tree_type();
-			add_tree(*a_tree.right, a_mnemonic, --a_bits, a_opcode);
+			add_tree(*a_tree.right, a_instruction, --a_bits, a_opcode);
 		} else {
 			if (!a_tree.left) a_tree.left = new tree_type();
-			add_tree(*a_tree.left, a_mnemonic, --a_bits, a_opcode);
+			add_tree(*a_tree.left, a_instruction, --a_bits, a_opcode);
 		}
 	}
 }
 
-const std::string &InstructionSet::find_tree(const tree_type &a_tree, WORD a_opcode) {
-	if (a_tree.mnemonic.length()) return a_tree.mnemonic;
+SmartPtr<Instruction> InstructionSet::find_tree(const tree_type &a_tree, WORD a_opcode) {
+	if (a_tree.instruction) return a_tree.instruction;
 	a_opcode = a_opcode << 1;
 	bool rhs = a_opcode & 0x4000;   // test bit 14
 	if (rhs) {
@@ -1145,11 +1145,9 @@ const std::string &InstructionSet::find_tree(const tree_type &a_tree, WORD a_opc
 	}
 }
 
-
 SmartPtr<Instruction>InstructionSet::find(WORD opcode) {
 	try {
-		std::string mnemonic = find_tree(m_tree, opcode);
-		return operands[mnemonic];
+		return find_tree(m_tree, opcode);
 	} catch(std::string &error) {
 		std::cerr << error << ": " << "\n";
 		throw(error);
@@ -1205,7 +1203,7 @@ InstructionSet::InstructionSet() {
 	operands["CLRWDT"] = new CLRWDT();
 
 	for (operand_each i = operands.begin(); i != operands.end(); ++i) {
-		add_tree(m_tree, i->first, i->second->bits, i->second->opcode);
+		add_tree(m_tree, i->second, i->second->bits, i->second->opcode);
 	}
 	for (operand_each i = operands.begin(); i != operands.end(); ++i) {
 		SmartPtr<Instruction>ins = find(i->second->opcode);
