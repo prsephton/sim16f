@@ -4,4 +4,5 @@
 *.o
 *.d
 sim16f
-test_devices
+assembler_test.a
+run_tests
