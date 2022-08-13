@@ -1,5 +1,8 @@
 //__________________________________________________________________________________________________
 // Definitions for flags in various registers
+//
+//  This class implements everything as static members, so it all gets initialised at startup,
+// and the class does not need to be instantiated before being used.
 
 #ifndef __flags_h__
 #define __flags_h__
