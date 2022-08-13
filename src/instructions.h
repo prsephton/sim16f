@@ -28,11 +28,11 @@
 // A CPU instruction.
 class Instruction {
 public:
-	WORD opcode:14;
-	BYTE bits;
-	std::string mnemonic;
-	std::string description;
-	char cycles;
+	WORD opcode:14;                  // The OP Code
+	BYTE bits;                       // The number of identifying bits in the OP Code
+	std::string mnemonic;            // Instruction mnemonic
+	std::string description;         // A description for the instruction
+	char cycles;                     // Clock cycles required for this instruction
 	Instruction(
 			WORD a_opcode, BYTE a_bits, BYTE a_cycles,
 			const std::string &a_mnemonic, const std::string & a_description):
