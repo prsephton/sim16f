@@ -31,6 +31,10 @@
  * from the front, until we find a mnemonic.  We then use the mnemonic to retrieve the instance
  * of the appropriate instruction instance, and call it's execute() method.
  *
+ * The way we decode instructions by shifting the OPCode left and comparing the value of the
+ * top bit approximates the way a real CPU may decode instructions.  Of course, things go
+ * south rather quickly from there.
+ *
  */
 
 #include <iostream>
