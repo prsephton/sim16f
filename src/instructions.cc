@@ -1,3 +1,38 @@
+/*
+ * Here we implement each of the CPU instructions, every one as a class specialisation of
+ * the 'Instruction' class.  Each instruction initialises itself with an OPCode, the number
+ * of identifying bits in the OPCode, the number of clock cycles needed for execution, a
+ * mnemonic and a description.
+ *
+ * The instruction implements methods for assembling binary code, disassembling from binary,
+ * and executing the instruction.
+ *
+ * Executing an instruction performs changes to registers and CPU state.  In the PIC, a
+ * status register contains flags such as zero, carry, and so forth which other processors
+ * may do differently.
+ *
+ * Devices are implemented to monitor changes to particular registers, and update state
+ * accordingly.  Register changes may be monitored via a publish-subscribe queue.
+ *
+ * Devices themselves have their own queue; for example, the clock device publishes
+ * clock events which are monitored by other devices, and in fact, the CPU implementation
+ * itself reacts to clock events by processing instructions read from the flash device.
+ *
+ * We use a std::map to store instances of instruction classes keyed by mnemonic.  This
+ * allows us to easily find instructions while assembling binary code from assembly language,
+ * or during code execution.
+ *
+ * For each instruction, we add its mnemonic to a binary tree, by traversing each bit in it's
+ * OPCode until the total number of identifying bits have been visited.  This tree may then be
+ * used to locate the appropriate mnemonic for an actual instruction to be executed.
+ *
+ * To execute instructions, we retrieve the current instruction using the Program Counter,
+ * locate the closest instruction using the binary tree by examining each bit in the OpCode
+ * from the front, until we find a mnemonic.  We then use the mnemonic to retrieve the instance
+ * of the appropriate instruction instance, and call it's execute() method.
+ *
+ */
+
 #include <iostream>
 #include <cstdio>
 #include "cpu_data.h"
@@ -6,7 +41,6 @@
 #include "utils/utility.h"
 #include "devices/constants.h"
 #include "devices/flags.h"
-
 
 std::string pad(const std::string &payload) {
 	std::string padded = std::string("\t") + payload + "                        ";
@@ -1119,9 +1153,10 @@ SmartPtr<Instruction>InstructionSet::find(WORD opcode) {
 }
 
 WORD InstructionSet::assemble(const std::string &mnemonic, WORD f, WORD b, bool d) {
-	if (operands.find(mnemonic) == operands.end())
+	auto instruction = operands.find(mnemonic);
+	if ( instruction == operands.end())
 		throw(std::string("Invalid OP code in assembly: ") + mnemonic);
-	SmartPtr<Instruction>ins = operands[mnemonic];
+	SmartPtr<Instruction>ins = instruction->second;
 	return ins->assemble(f, b, d);
 }
 
