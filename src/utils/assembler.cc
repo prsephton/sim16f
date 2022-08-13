@@ -154,6 +154,7 @@ bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &inst
 			BYTE warg=0;
 			bool to_file=false;
 			directive_skip = false;
+			std::map<std::string, SmartPtr<Register> >::iterator found_register;
 
 			if (PC > cpu.flash.size())
 				throw(std::string("PC exceeds device limits: @") + int_to_hex(PC));
@@ -208,6 +209,7 @@ bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &inst
 							throw(std::string("Invalid RADIX directive: [")+address+"] @"+int_to_hex(PC));
 					} else if (address.length()) {
 						directive_skip = false;
+						found_register = cpu.Registers.end();
 
 						if (label.length()) {
 							if (!(is_decimal(label) || is_hex(label))) {    // Not a real label
@@ -235,10 +237,12 @@ bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &inst
 							waddr = strtoul(address.c_str(), &p, 16);
 							if (!p) throw(std::string("Invalid hex digits found: [")+address+"] @"+int_to_hex(PC));
 						} else {   // a label or file register name
+
 							if (labels.find(address) != labels.end()) {
 								waddr = labels[address];
 							} else {
-								if (cpu.Registers.find(address)==cpu.Registers.end())
+								found_register = cpu.Registers.find(address);
+								if (found_register==cpu.Registers.end())
 									throw(std::string("Unknown file register name [")+address+"] @"+int_to_hex(PC));
 								waddr = cpu.Registers[address]->index();
 							}
@@ -252,9 +256,15 @@ bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &inst
 								warg = 0;
 								to_file = false;
 							} else {
-								char *p;
-								warg = strtoul(arg.c_str(), &p, 10);
-								if (!p) throw(std::string("Invalid argument value: [")+arg+"] @"+int_to_hex(PC));
+								if (is_decimal(arg.c_str())) {
+									char *p;
+									warg = strtoul(arg.c_str(), &p, 10);
+									if (!p) throw(std::string("Invalid argument value: [")+arg+"] @"+int_to_hex(PC));
+								} else if (found_register != cpu.Registers.end()) {
+									if (!Flags::bit_number_for_bitname(found_register->second->index(), arg, warg)) {
+										throw(std::string("Bit name: [" + arg + "] does not apply to register [") + buf + "] @"+int_to_hex(PC));
+									}
+								}
 							}
 						}
 					} else {  // a mnemonic with no address or arg

@@ -845,7 +845,8 @@ class BCF: public Instruction {
 			BYTE &status = cpu.sram.status();
 			status &=  ~bitmask;
 		}
-		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
+		const std::string bitname = Flags::bit_name_for_register_bit(idx, cbits);
+		return mnemonic + pad(cpu.register_name(idx) + "," + (bitname.length()?bitname:int_to_string(cbits))) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -879,7 +880,8 @@ class BSF: public Instruction {
 			BYTE &status = cpu.sram.status();
 			status |= bitmask;
 		}
-		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
+		const std::string bitname = Flags::bit_name_for_register_bit(idx, cbits);
+		return mnemonic + pad(cpu.register_name(idx) + "," + (bitname.length()?bitname:int_to_string(cbits))) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -908,7 +910,8 @@ class BTFSC: public Instruction {
 		BYTE idx;
 		BYTE cbits;
 		decode(opcode, idx, cbits);
-		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
+		const std::string bitname = Flags::bit_name_for_register_bit(idx, cbits);
+		return mnemonic + pad(cpu.register_name(idx) + "," + (bitname.length()?bitname:int_to_string(cbits))) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;
@@ -935,7 +938,8 @@ class BTFSS: public Instruction {
 		BYTE idx;
 		BYTE cbits;
 		decode(opcode, idx, cbits);
-		return mnemonic + pad(cpu.register_name(idx) + "," + int_to_string(cbits)) + description;
+		const std::string bitname = Flags::bit_name_for_register_bit(idx, cbits);
+		return mnemonic + pad(cpu.register_name(idx) + "," + (bitname.length()?bitname:int_to_string(cbits))) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
 		BYTE idx;

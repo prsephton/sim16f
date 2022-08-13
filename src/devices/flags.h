@@ -177,6 +177,8 @@ class Flags {
 		static const std::vector<std::string> bits;
 	};
 	static const std::map<const WORD, const std::vector<std::string> > register_bits;
+	static bool bit_number_for_bitname(WORD register_index, const std::string &bit_name, BYTE &bit_number);           // false if not found
+	static const std::string bit_name_for_register_bit(WORD register_index, BYTE bit_number);  // empty string if not found
 };
 
 #endif

@@ -35,3 +35,29 @@ const std::map<const WORD, const std::vector<std::string> > Flags::register_bits
 		{ (WORD)SRAM::PORTA,  Flags::PORTA::bits },
 		{ (WORD)SRAM::PORTB,  Flags::PORTB::bits }
 };
+
+const std::vector<std::string> bitnames_for_register(WORD index) {
+	std::vector<std::string> empty({});
+
+	std::map<const WORD, const std::vector<std::string> >::const_iterator all_register_bits = Flags::register_bits.find(index);
+	if (all_register_bits == Flags::register_bits.end())
+		return empty;
+	return all_register_bits->second;
+}
+
+bool Flags::bit_number_for_bitname(WORD register_index, const std::string & bit_name, BYTE &bit_number) {          // false if not found
+	const std::vector<std::string> &bit_names = bitnames_for_register(register_index);
+	for (WORD n=0; n < bit_names.size(); ++n)
+		if (bit_names[n] == bit_name) {
+			bit_number = n; return true;
+		}
+	return false;
+}
+
+const std::string Flags::bit_name_for_register_bit(WORD register_index, BYTE bit_number) {  // empty string if not found
+	const std::vector<std::string> &bit_names = bitnames_for_register(register_index);
+	if (bit_names.size() > bit_number) {
+		return bit_names[bit_number];
+	}
+	return "";
+}
