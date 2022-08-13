@@ -1208,7 +1208,7 @@ PortB_RB7::PortB_RB7(Terminal &a_Pin, const std::string &a_name):
 
 
 	c["AND(iT1OSCEN, Trigger)"] = new AndGate({&m_iT1OSCEN, &trigger->rd()});
-	AndGate &SPROG_en = dynamic_cast<AndGate &>(*c["AND(iT1OSCEN, Trigger"]);
+	AndGate &SPROG_en = dynamic_cast<AndGate &>(*c["AND(iT1OSCEN, Trigger)"]);
 
 
 	c["SPROG"] = new Wire(SPROG_en.rd(), m_SPROG, "Serial Programming input");
