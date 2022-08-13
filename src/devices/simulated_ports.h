@@ -396,3 +396,32 @@ class PortB_RB6: public BasicPortB {
 	Connection &Q3()          { return m_Q3; };
 };
 
+//___________________________________________________________________________________
+// RB7  does not have the additional Tristate buffer of RB6 as an input, but does
+// have one as output to RB6 (actually the same one we see on RB6, so we won't need
+// it here.  It also has an additional OR(T1OSCNC, Smitt.out) gate, which disables
+// the serial programming input unless T1OSCEN is active.
+class PortB_RB7: public BasicPortB {
+	Connection m_RBIF;
+	Connection m_T1OSCEN;
+	Connection m_T1OSC;      // to RB6
+	Connection m_SPROG;      // Serial programming input
+	Inverse m_iRBPU;
+	Inverse m_iT1OSCEN;
+	Connection m_Q1;
+	Connection m_Q3;
+
+	virtual void on_iflag(Connection *D, const std::string &name, const std::vector<BYTE> &data);
+	virtual void process_clock_change(Clock *D, const std::string &name, const std::vector<BYTE> &data);
+	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+
+  public:
+	PortB_RB7(Terminal &a_Pin, const std::string &a_name);
+	Connection &RBIF()        { return m_RBIF; };
+	Connection &T1OSC()       { return m_T1OSC; };
+	Connection &T1OSCEN()     { return m_T1OSCEN; };
+	Connection &SPROG()  { return m_SPROG; };
+	Connection &Q1()          { return m_Q1; };
+	Connection &Q3()          { return m_Q3; };
+};
+
