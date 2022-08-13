@@ -16,6 +16,8 @@ const std::vector<std::string> Flags::TXSTA::bits({"TX9D","TRMT","BRGH","","SYNC
 const std::vector<std::string> Flags::EECON1::bits({"RD","WR","WREN","WRERR","","","",""});
 const std::vector<std::string> Flags::CMCON::bits({"CM0","CM1","CM2","CIS","C1INV","C2INV","C1OUT","C2OUT"});
 const std::vector<std::string> Flags::VRCON::bits({"VR0","VR1","VR2","VR3","","VRR","VROE","VREN"});
+const std::vector<std::string> Flags::T1CON::bits({"TMR1ON","TMR1CS","T1SYNC","T1OSCEN","T1CKPS0","T1CKPS1","",""});
+const std::vector<std::string> Flags::T2CON::bits({"T2CKPS0","T2CKPS1","TMR2ON","TOUTPS0","TOUTPS1","TOUTPS2","TOUTPS3",""});
 const std::vector<std::string> Flags::PORTA::bits({"RA0","RA1","RA2","RA3","RA4","RA5","RA6","RA7"});
 const std::vector<std::string> Flags::PORTB::bits({"RB0","RB1","RB2","RB3","RB4","RB5","RB6","RB7"});
 
@@ -32,6 +34,8 @@ const std::map<const WORD, const std::vector<std::string> > Flags::register_bits
 		{ (WORD)SRAM::EECON1, Flags::EECON1::bits },
 		{ (WORD)SRAM::CMCON,  Flags::CMCON::bits },
 		{ (WORD)SRAM::VRCON,  Flags::VRCON::bits },
+		{ (WORD)SRAM::T1CON,  Flags::T1CON::bits },
+		{ (WORD)SRAM::T2CON,  Flags::T2CON::bits },
 		{ (WORD)SRAM::PORTA,  Flags::PORTA::bits },
 		{ (WORD)SRAM::PORTB,  Flags::PORTB::bits }
 };

@@ -370,3 +370,29 @@ class PortB_RB5: public BasicPortB {
 	Connection &Q3()   { return m_Q3; };
 };
 
+//___________________________________________________________________________________
+// RB6
+class PortB_RB6: public BasicPortB {
+	Connection m_RBIF;
+	Connection m_T1OSCEN;
+	Connection m_T1OSC;      // from RB7
+	Connection m_TMR1_Clock;
+	Inverse m_iRBPU;
+	Inverse m_iT1OSCEN;
+	Connection m_Q1;
+	Connection m_Q3;
+
+	virtual void on_iflag(Connection *D, const std::string &name, const std::vector<BYTE> &data);
+	virtual void process_clock_change(Clock *D, const std::string &name, const std::vector<BYTE> &data);
+	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+
+  public:
+	PortB_RB6(Terminal &a_Pin, const std::string &a_name);
+	Connection &RBIF()        { return m_RBIF; };
+	Connection &T1OSC()       { return m_T1OSC; };
+	Connection &T1OSCEN()     { return m_T1OSCEN; };
+	Connection &TMR1_Clock()  { return m_TMR1_Clock; };
+	Connection &Q1()          { return m_Q1; };
+	Connection &Q3()          { return m_Q3; };
+};
+

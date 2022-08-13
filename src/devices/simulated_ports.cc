@@ -1055,3 +1055,96 @@ PortB_RB5::PortB_RB5(Terminal &a_Pin, const std::string &a_name):
 
 }
 
+
+//___________________________________________________________________________
+//  RB6 is very similar to RB4, but with a few variations.  RB4::LVP is replaced by
+// RB6::T1OSCEN,  which input now also feeds a tristate gate, controlling whether
+// or not RB6::TMR1_Oscillator (from Port RB7) is raised on the pin wire. T1OSCEN is
+// also inverted on an AND gate (which replaces RB4::TTL_Buffer) and switches off
+// the pin signal to the SR latches which normally would drive RdPortB.
+//  Other than that, the design is essentially that of RB4.
+void PortB_RB6::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+	if (name == "T1CON") {
+		T1OSCEN().set_value((data[Register::DVALUE::NEW] & Flags::T1CON::T1OSCEN)?Vdd:Vss, false);
+	}
+	BasicPortB::process_register_change(r, name, data);
+}
+
+void PortB_RB6::on_iflag(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+	RBIF().set_value(D->rd(), false);
+}
+
+void PortB_RB6::process_clock_change(Clock *D, const std::string &name, const std::vector<BYTE> &data) {
+	if        (name == "Q1") {
+		Q1().set_value(Vdd, false);
+	} else if (name == "Q2") {
+		Q1().set_value(Vss, false);
+	} else if (name == "Q3") {
+		Q3().set_value(Vdd, false);
+	} else if (name == "Q4") {
+		Q3().set_value(Vss, false);
+	}
+	queue_change();
+}
+
+PortB_RB6::PortB_RB6(Terminal &a_Pin, const std::string &a_name):
+	BasicPortB(a_Pin, a_name, 6), m_iRBPU(RBPU()), m_iT1OSCEN(T1OSCEN())
+{
+	auto &c = components();
+	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
+	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
+
+	Wire &PinWire = dynamic_cast<Wire &>(*c["Pin Wire"]);
+
+	c.erase("Out Buffer");
+
+	c["Out Buffer"] = new AndGate({&m_iT1OSCEN, &PinOut()});
+	AndGate &Out_Buffer = dynamic_cast<AndGate &>(*c["Out Buffer"]);
+
+	c["TMR1 Osc"] = new Tristate(m_T1OSC, m_T1OSCEN, false, true);
+	Tristate &TMR1Osc = dynamic_cast<Tristate &>(*c["TMR1 Osc"]);
+	PinWire.connect(TMR1Osc.rd());
+
+	Tristate &TS1 = dynamic_cast<Tristate &>(*c["Tristate1"]);
+	Tristate &TS2 = dynamic_cast<Tristate &>(*c["Tristate2"]);
+	AndGate &PU_en = dynamic_cast<AndGate &>(*c["RBPU_NAND"]);
+	PU_en.inputs({&m_iRBPU, &TrisLatch.Q(), &m_iT1OSCEN});
+
+	Schmitt *trigger = new Schmitt(PinOut(), true, false);
+	c["TRIGGER"] = trigger;
+	c["TMR1_CkWire"] = new Wire(trigger->rd(), m_TMR1_Clock, "TMR1 Clock input");
+	TS1.input(DataLatch.Q());
+
+	OrGate *Out_en = new OrGate({&TrisLatch.Q(), &m_T1OSCEN});
+	TS1.gate(Out_en->rd());
+
+	c["OR(TrisLatch.Q, LVP)"] = Out_en;
+
+	c.erase("Inverter1");  // smart pointer will clean up
+	c["AND(Q3,rdPort)"] = new AndGate({&rdPort, &Q3()});
+	AndGate &q3_and_rd = dynamic_cast<AndGate &>(*c["AND(Q3,rdPort)"]);
+
+	c["SR1"] = new Latch(Out_Buffer.rd(), Q1(), true, false);
+	c["SR2"] = new Latch(Out_Buffer.rd(), q3_and_rd.rd(), true, false);
+
+	Latch &SR1 = dynamic_cast<Latch &>(*c["SR1"]);
+	Latch &SR2 = dynamic_cast<Latch &>(*c["SR2"]);
+
+	TS2.input(SR1.Q());
+
+	SR1.set_name(a_name+"::Q1");;
+	SR2.set_name(a_name+"::Q3");;
+
+	c["XOR(SR1.Q, SR2.Q)"] = new XOrGate({&SR1.Q(), &SR2.Q()});
+	XOrGate &XOr1 = dynamic_cast<XOrGate &>(*c["XOR(SR1.Q, SR2.Q)"]);
+
+	c["AND(iT1OSCEN, TrisLatch.Q, XOr1)"] = new AndGate({&m_iT1OSCEN, &TrisLatch.Q(), &XOr1.rd()});
+	AndGate &IFlag = dynamic_cast<AndGate &>(*c["AND(iT1OSCEN, TrisLatch.Q, XOr1)"]);
+
+	DeviceEvent<Connection>::subscribe<PortB_RB6>(this, &PortB_RB6::on_iflag, &IFlag.rd());
+
+	TMR1_Clock().set_value(Vss, false);
+	T1OSCEN().set_value(Vss, false);
+	T1OSC().set_value(Vss, false);
+}
+

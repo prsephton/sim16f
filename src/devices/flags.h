@@ -157,6 +157,28 @@ class Flags {
 		static const BYTE VR0  = 0b00000001;
 		static const std::vector<std::string> bits;
 	};
+	struct T1CON {
+		static const BYTE na2     = 0b10000000;
+		static const BYTE na1     = 0b01000000;
+		static const BYTE T1CKPS1 = 0b00100000;
+		static const BYTE T1CKPS0 = 0b00010000;
+		static const BYTE T1OSCEN = 0b00001000;
+		static const BYTE T1SYNC  = 0b00000100;
+		static const BYTE TMR1CS  = 0b00000010;
+		static const BYTE TMR1ON  = 0b00000001;
+		static const std::vector<std::string> bits;
+	};
+	struct T2CON {
+		static const BYTE na2     = 0b10000000;
+		static const BYTE TOUTPS3 = 0b01000000;
+		static const BYTE TOUTPS2 = 0b00100000;
+		static const BYTE TOUTPS1 = 0b00010000;
+		static const BYTE TOUTPS0 = 0b00001000;
+		static const BYTE TMR2ON  = 0b00000100;
+		static const BYTE T2CKPS1 = 0b00000010;
+		static const BYTE T2CKPS0 = 0b00000001;
+		static const std::vector<std::string> bits;
+	};
 	struct PORTA {
 		static const BYTE RA7 = 0b10000000;
 		static const BYTE RA6 = 0b01000000;
