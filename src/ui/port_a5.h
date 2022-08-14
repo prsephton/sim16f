@@ -158,6 +158,13 @@ namespace app {
 			m_area->queue_draw();
 		}
 
+		virtual ~PortA5() {
+			auto &p5 = dynamic_cast<SinglePortA_MCLR_RA5 &>(*(m_cpu.porta.RA[5]));
+			auto &c = p5.components();
+			Wire &DataBus = dynamic_cast<Wire &> (*(c["Data Bus"]));
+			DeviceEvent<Wire>::unsubscribe<PortA5>(this, &PortA5::on_wire_change, &DataBus);
+		}
+
 		PortA5(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
 			CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>::cast_dynamic(a_refGlade->get_object("dwg_RA5"))),
 			m_cpu(a_cpu), m_refGlade(a_refGlade)

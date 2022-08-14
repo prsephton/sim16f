@@ -226,6 +226,14 @@ namespace app {
 			m_area->queue_draw();
 		}
 
+		virtual ~PortB2() {
+			auto &p2 = dynamic_cast<PortB_RB2 &>(*(m_cpu.portb.RB[2]));
+			auto &c = p2.components();
+
+			Wire &DataBus = dynamic_cast<Wire &> (*(c["Data Bus"]));
+			DeviceEvent<Wire>::unsubscribe<PortB2>(this, &PortB2::on_wire_change, &DataBus);
+			DeviceEvent<BasicPort>::unsubscribe<PortB2>(this, &PortB2::on_port_change, &p2);
+		}
 
 		PortB2(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
 			CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>::cast_dynamic(a_refGlade->get_object("dwg_RB2"))),

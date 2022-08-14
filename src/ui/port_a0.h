@@ -19,6 +19,7 @@ namespace app {
 	  public:
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+//			std::cout << "Draw Content RA0" << std::endl;
 			cr->save();
 			white(cr);
 			cr->paint();
@@ -159,6 +160,19 @@ namespace app {
 
 		void on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data) {
 			m_area->queue_draw();
+		}
+
+		virtual ~PortA0() {
+			auto &p0 = dynamic_cast<SinglePortA_Analog &>(*(m_cpu.porta.RA[0]));
+			auto &c = p0.components();
+			Latch &DataLatch = dynamic_cast<Latch &>(*(c["Data Latch"]));
+			Latch &TrisLatch = dynamic_cast<Latch &>(*(c["Tris Latch"]));
+			Wire &DataBus = dynamic_cast<Wire &> (*(c["Data Bus"]));
+			Tristate &Tristate1 = dynamic_cast<Tristate &> (*(c["Tristate1"]));
+			DeviceEvent<Wire>::unsubscribe<PortA0>(this, &PortA0::on_wire_change, &DataBus);
+			DeviceEvent<Connection>::unsubscribe<PortA0>(this, &PortA0::on_connection_change, &DataLatch.Q());
+			DeviceEvent<Connection>::unsubscribe<PortA0>(this, &PortA0::on_connection_change, &TrisLatch.Q());
+			DeviceEvent<Connection>::unsubscribe<PortA0>(this, &PortA0::on_connection_change, &Tristate1.rd());
 		}
 
 		PortA0(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
