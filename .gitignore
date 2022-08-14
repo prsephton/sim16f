@@ -6,3 +6,7 @@
 sim16f
 assembler_test.a
 run_tests
+*.old
+*.out
+*.profile
+*.data
