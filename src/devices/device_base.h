@@ -316,17 +316,19 @@ class Terminal: public Connection {
 		bool iold = m_terminal_impeded;
 		float vold = rd();
 
-		float V = Vdd;
-		m_terminal_impeded = true;
+		if (m_connects.size()) {   // don't change value unless at least one connection
+			float V = Vdd;
+			m_terminal_impeded = true;
 
-		for (auto &c : m_connects ) {
-			if (!c->impeded()) {
-				m_terminal_impeded = false;
-				float Vc = c->rd();
-				if (Vc < V) V = Vc;    // find lowest unimpeded connect
+			for (auto &c : m_connects ) {
+				if (!c->impeded()) {
+					m_terminal_impeded = false;
+					float Vc = c->rd();
+					if (Vc < V) V = Vc;    // find lowest unimpeded connect
+				}
 			}
+			if (!impeded()) set_value(V, false);
 		}
-		if (!impeded()) set_value(V, false);
 		if (iold != m_terminal_impeded || vold != rd())
 			queue_change();
 	}
@@ -357,8 +359,8 @@ class Terminal: public Connection {
 			recalc();
 		}
 	}
-	void impeded(bool a_impeded) {}
-	virtual bool impeded() const { return m_terminal_impeded; }
+	void impeded(bool a_impeded) { Connection::impeded(a_impeded); }
+	virtual bool impeded() const { if (m_connects.size()) return m_terminal_impeded; return Connection::impeded(); }
 };
 
 

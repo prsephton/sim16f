@@ -46,6 +46,7 @@ public:
 	std::map<std::string, SmartPtr<Device> > &components();
 
 	BasicPort(Terminal &a_Pin, const std::string &a_name, int port_no, int port_bit_ofs);
+	virtual ~BasicPort();
 	Wire &bus_line();
 	Connection &data();
 	Connection &pin();

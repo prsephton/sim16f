@@ -28,6 +28,7 @@ void BasicPort::queue_change(){  // Add a voltage change event to the queue
 void BasicPort::process_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data)  {}
 
 void BasicPort::on_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data) {
+	if (debug() && name[0]=='Q') std::cout << this->name() << ": Clock signal: [" << name << "]" << std::endl;
 	if      (name == "Q4") {     // read happens at the start of an instruction cycle
 		if (rdPort.signal()) {
 			rdPort.set_value(Vss, true);   // Tristate 2 low
@@ -83,8 +84,8 @@ void BasicPort::on_register_change(Register *r, const std::string &name, const s
 
 				Data.set_value(input * Vdd, false);    // set the input value on the bus.
 				Port.set_value(Vdd, true);             // clock data into latch
-				queue_change();
 
+				queue_change();
 			} else if ((porta_select && name == "TRISA") || (!porta_select && name == "TRISB")) {
 				if (debug()) {
 					std::cout << "======================================================";
@@ -181,7 +182,10 @@ BasicPort::BasicPort(Terminal &a_Pin, const std::string &a_name, int port_no, in
 	DeviceEvent<Register>::subscribe<BasicPort>(this, &BasicPort::on_register_change);
 	DeviceEvent<Clock>::subscribe<BasicPort>(this, &BasicPort::on_clock_change);
 }
-
+BasicPort::~BasicPort() {
+	DeviceEvent<Register>::unsubscribe<BasicPort>(this, &BasicPort::on_register_change);
+	DeviceEvent<Clock>::unsubscribe<BasicPort>(this, &BasicPort::on_clock_change);
+}
 Wire &BasicPort::bus_line() { return dynamic_cast<Wire &>(*m_components["Data Bus"]); }
 Connection &BasicPort::data() { return Data; }
 Connection &BasicPort::pin() { return Pin; }
@@ -211,9 +215,14 @@ BasicPortA::BasicPortA(Terminal &a_Pin, const std::string &a_name, int port_bit_
 	Inverter &NotPort = dynamic_cast<Inverter &>(*c["Inverter1"]);
 	Wire &DataBus = dynamic_cast<Wire &>(*c["Data Bus"]);
 	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
+	Wire &PinWire = dynamic_cast<Wire &>(*c["Pin Wire"]);
 
-	Schmitt *trigger = new Schmitt(S1, S1_en);
+	Schmitt *trigger = new Schmitt(S1, S1_en, false, false, false);
 	Latch *SR1 = new Latch(trigger->rd(), NotPort.rd(), true, false); SR1->set_name(a_name+"::InLatch");
+	PinWire.connect(S1);
+
+//	S1.name("S1"); S1.debug(true);
+//	S1_en.name("S1_en"); S1_en.debug(true);
 
 	Tristate *Tristate2 = new Tristate(SR1->Q(), rdPort);  Tristate2->name(a_name+"::TS(rdData)");
 	DataBus.connect(Tristate2->rd());
