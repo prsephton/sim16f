@@ -76,7 +76,6 @@ class CpuEvent {
 	}
 
 	static void subscribe(void *ob,  CpuStatus callback) {
-
 		subscribers[ob] = callback;
 	};
 
