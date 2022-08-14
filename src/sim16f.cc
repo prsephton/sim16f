@@ -19,7 +19,7 @@ void *run_machine(void *a_params) {
 	CPU &cpu = params.cpu;
 	try {
 		while (cpu.running()) {
-			usleep(10);
+			usleep(500);    // 500 microsecond
 			try {
 				cpu.process_queue();
 			} catch (std::string &error) {
@@ -27,11 +27,11 @@ void *run_machine(void *a_params) {
 			}
 		}
 	} catch(const char *message) {
-		std::cerr << "Machine Exit: " << message << "\n";
+		std::cerr << "Machine Abnormal Exit: " << message << "\n";
 	} catch(const std::string &message) {
-		std::cerr << "Machine Exit: " << message << "\n";
+		std::cerr << "Machine Abnormal Exit: " << message << "\n";
 	}
-
+	std::cout << "Machine exiting" << std::endl;
 	pthread_exit(NULL);
 	return 0;
 }
@@ -46,9 +46,9 @@ void *run_clock(void *a_params) {
 	try {
 		cpu.run(params.delay_us, params.debug);
 	} catch(const std::string &message) {
-		std::cerr << "CPU Exit: " << message << "\n";
+		std::cerr << "CPU Abnormal Exit: " << message << "\n";
 	}
-
+	std::cout << "Clock stopped" << std::endl;
 	pthread_exit(NULL);
 	return 0;
 }
@@ -152,7 +152,11 @@ int main(int argc, char *argv[]) {
 				pthread_create(&clock, 0, run_clock, &params);
 
 				std::cout << "Running CPU clock: delay is: " << params.delay_us << " us\n";
-				// run it here
+
+				// do stuff, cpu.stop()
+				pthread_join(machine, NULL);
+				pthread_join(clock, NULL);
+				std::cout << "Application terminating" << std::endl;
 			}
 		} else {
 			cpu.load_hex("test.hex");
@@ -160,11 +164,15 @@ int main(int argc, char *argv[]) {
 			unsigned long clock_speed_hz = frequency;
 			params.delay_us = 1000000 / clock_speed_hz;
 			params.debug = true;
+
 			pthread_create(&machine, 0, run_machine, &params);
 			pthread_create(&clock, 0, run_clock, &params);
 
 			run_application(cpu.cpu_data());
 			cpu.stop();
+			pthread_join(machine, NULL);
+			pthread_join(clock, NULL);
+			std::cout << "Application terminating" << std::endl;
 		}
 
 
@@ -173,6 +181,5 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 
-	pthread_exit(NULL);
 }
 #endif
