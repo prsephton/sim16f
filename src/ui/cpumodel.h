@@ -111,6 +111,10 @@ namespace app {
 			cr->stroke();
 		}
 
+		virtual ~PortDiagram() {
+			DeviceEvent<Register>::unsubscribe<PortDiagram>(this, &PortDiagram::register_change);
+		}
+
 		PortDiagram(CPU_DATA &a_cpu, const std::string &name, double x, double y, double width, double height, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			BlockDiagram(x, y, width, height, "", a_area), m_cpu(a_cpu), x(x), y(y), w(width), h(height) {
 
@@ -543,6 +547,10 @@ namespace app {
 		}
 
 
+		virtual ~CPUDrawing() {
+//			CpuEvent::unsubscribe((void *)this, &CPUDrawing::status_monitor);
+		}
+
 		CPUDrawing(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
 			CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>::cast_dynamic(a_refGlade->get_object("cpu_model"))),
 			m_cpu(a_cpu), m_execPC(0), m_idx(0), m_file(0), m_refGlade(a_refGlade)
@@ -681,6 +689,9 @@ namespace app {
 			cpu_drawing->clock(name);
 		}
 
+		virtual ~CPUModel() {
+			DeviceEvent<Clock>::unsubscribe<CPUModel>(this, &CPUModel::clock_event);
+		}
 
 		CPUModel(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
 			m_cpu(a_cpu), m_refGlade(a_refGlade)
