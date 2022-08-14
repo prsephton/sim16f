@@ -55,6 +55,7 @@ class CPU {
 			if (skip)
 				current = instructions.find(0);
 			else {
+//				if (debug) std::cout << "Fetch instruction @" << std::hex << (int)PC << std::endl;
 				opcode = data.flash.fetch(PC);
 				current = instructions.find(opcode);
 			}
@@ -68,10 +69,12 @@ class CPU {
 	void execute() {
 		if (cycles) --cycles;
 		if (current) {
+//			if (debug) std::cout << "Execute instruction " << current->mnemonic << std::endl;
 			skip = current->execute(opcode, data);
 			disassembled = current->disasm(opcode, data);
 			CpuEvent(opcode, data.execPC, data.SP, data.W, disassembled);
 		} else if (disassembled.length()) {   // fetch/flush cycle
+//			if (debug) std::cout << "Cycle" << std::endl;
 			auto st = disassembled.substr(0, 10) + "*" + disassembled.substr(11);
 			CpuEvent(opcode, data.execPC, data.SP, data.W, st);
 		}
@@ -173,16 +176,16 @@ class CPU {
 		}
 	}
 
-	void run(unsigned long delay_us, bool a_debug=false) {
+	void run(unsigned long delay_us, bool a_debug=false) {  // run the clock
 		debug = a_debug;
-		try {
-			while (running()) {
-				usleep(delay_us);
-				toggle_clock();
-			}
-		} catch(const std::string &message) {
-			std::cerr << "Exiting: " << message << "\n";
+		while (running()) {
+			usleep(delay_us);
+			toggle_clock();
 		}
+	}
+
+	virtual ~CPU() {
+		DeviceEvent<Clock>::unsubscribe<CPU>(this, &CPU::clock_event);
 	}
 
 	CPU(): active(true), debug(true), paused(true), skip(false), cycles(0), nsteps(0) {
