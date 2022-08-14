@@ -235,6 +235,8 @@ namespace app {
 				m_bank_3->set_state((bank==2)?Gtk::STATE_SELECTED:Gtk::STATE_NORMAL);
 				m_bank_4->set_state((bank==3)?Gtk::STATE_SELECTED:Gtk::STATE_NORMAL);
 
+			} else {
+				usleep(500);  // idle, nothing to do
 			}
 			return !m_exiting;
 		}
