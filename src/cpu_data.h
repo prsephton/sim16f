@@ -121,18 +121,19 @@ class CPU_DATA {
 	std::map<std::string, SmartPtr<Register> > Registers;
 	std::map<BYTE, std::string> RegisterNames;
 
-	SRAM   sram;
-	PINS   pins;
-	Clock  clock;
-	EEPROM eeprom;
-	WDT    wdt;     // watch dog timer
-	PORTA  porta;
-	PORTB  portb;
-	Timer0 tmr0;
-	Timer1 tmr1;
-	Timer2 tmr2;
-	CONFIG cfg1;
-	CONFIG cfg2;
+	SRAM       sram;
+	PINS       pins;
+	Clock      clock;
+	EEPROM     eeprom;
+	WDT        wdt;     // watch dog timer
+	PORTA      porta;
+	PORTB      portb;
+	Comparator cmp0;
+	Timer0     tmr0;
+	Timer1     tmr1;
+	Timer2     tmr2;
+	CONFIG     cfg1;
+	CONFIG     cfg2;
 
 	std::queue<ControlEvent> control;
 	DeviceEventQueue device_events;
@@ -158,6 +159,7 @@ class CPU_DATA {
 	}
 
 	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data);
+	void comparator_changed(Comparator *c, const std::string &name, const std::vector<BYTE> &data);
 
 	WORD pop() {
 		WORD value = stack[SP];
@@ -196,6 +198,7 @@ class CPU_DATA {
 	}
 
 	CPU_DATA();
+	~CPU_DATA();
 };
 
 #endif

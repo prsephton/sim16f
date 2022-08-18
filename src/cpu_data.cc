@@ -136,10 +136,21 @@ CPU_DATA::CPU_DATA():
 	}
 
 	DeviceEvent<Register>::subscribe<CPU_DATA>(this, &CPU_DATA::register_changed);
+	DeviceEvent<Comparator>::subscribe<CPU_DATA>(this, &CPU_DATA::comparator_changed);
+}
+
+CPU_DATA::~CPU_DATA() {
+	DeviceEvent<Register>::unsubscribe<CPU_DATA>(this, &CPU_DATA::register_changed);
+	DeviceEvent<Comparator>::unsubscribe<CPU_DATA>(this, &CPU_DATA::comparator_changed);
 }
 
 void CPU_DATA::register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 //	std::cout << name << " = " << std::hex <<  (int)data[1] << std::endl;
+}
+
+void CPU_DATA::comparator_changed(Comparator *c, const std::string &name, const std::vector<BYTE> &data) {
+	if (Registers.find("CMCON") != Registers.end())
+		Registers["CMCON"]->write(sram, data[Register::DVALUE::NEW]);   // this signal event from comparator module
 }
 
 
