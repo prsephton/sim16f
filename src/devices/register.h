@@ -32,6 +32,7 @@ class Register : public Device {
 
 	void trigger_change(BYTE a_new, BYTE a_old, BYTE a_changed) {
 		eq.queue_event(new DeviceEvent<Register>(*this, name(), {a_old, a_changed, a_new}));
+//		eq.process_events();
 	}
 
 	BYTE get_value() {

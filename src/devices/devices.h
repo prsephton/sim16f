@@ -6,12 +6,8 @@
 #include "../utils/utility.h"
 #include "register.h"
 #include "clock.h"
+#include "comparator.h"
 #include "simulated_ports.h"
-
-//___________________________________________________________________________________
-class Comparator: public Device {
-
-};
 
 //___________________________________________________________________________________
 class Timer0: public Device {
@@ -239,8 +235,8 @@ class PORTA: public Device {
 		RA[0] = new SinglePortA_Analog(pins[PINS::pin_RA0], "RA0");
 		RA[1] = new SinglePortA_Analog(pins[PINS::pin_RA1], "RA1");
 		RA[2] = new SinglePortA_Analog_RA2(pins[PINS::pin_RA2], "RA2");
-		RA[3] = new SinglePortA_Analog_RA3(pins[PINS::pin_RA3], Comp1, "RA3");
-		RA[4] = new SinglePortA_Analog_RA4(pins[PINS::pin_RA4], Comp2, "RA4");
+		RA[3] = new SinglePortA_Analog_RA3(pins[PINS::pin_RA3], "RA3");
+		RA[4] = new SinglePortA_Analog_RA4(pins[PINS::pin_RA4], "RA4");
 		RA[5] = new SinglePortA_MCLR_RA5(pins[PINS::pin_RA5], "RA5");
 		RA[6] = new SinglePortA_RA6_CLKOUT(pins[PINS::pin_RA6], "RA6");
 		RA[7] = new PortA_RA7(pins[PINS::pin_RA7], "RA7");

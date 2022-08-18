@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cmath>
 #include <iomanip>
 #include "run_tests.h"
 #include "../src/devices/device_base.h"
@@ -37,6 +38,146 @@ void test_connection() {
 	std::cout << "[C1] at 0v no longer emits a signal" << std::endl;
 }
 
+
+void test_terminals() {
+	std::cout << "Testing Connections" << std::endl;
+	std::cout << "===================" << std::endl;
+
+	std::cout << "Terminals work just like connections excepting when there are other connections to the terminal" << std::endl;
+	Terminal t0;
+	assert(t0.impeded());            // A newly created connection is impeded
+	assert(!t0.determinate());       // Unless specified, the value set is indeterminate
+	std::cout << "Created a new default connection[T0], impeded and indeterminate" << std::endl;
+
+	t0.set_value(5, true);           // set_value(V, impeded)
+	assert(t0.rd() == 5);            // This connection is at 5v
+	assert(t0.impeded());            // This connection is impeded
+	assert(t0.determinate());        // The value is now determined
+	std::cout << "[T0] now has a determined value of 5v, and is impeded" << std::endl;
+	t0.impeded(false);
+	assert(!t0.impeded());           // This connection is no longer impeded
+	std::cout << "[T0] no longer has any resistence, and may be used as an output" << std::endl;
+
+	Terminal t1(5);                  // Create a connection at 5v
+	assert(t1.impeded());            // A newly created connection is impeded
+	assert(t1.determinate());        // A new connection with a value set is determinate
+	assert(t1.rd() == 5);            // This connection is at 5v
+	std::cout << "Created a new connection[T1], impeded and determinate, at 5v" << std::endl;
+	assert(t1.signal());             // c1 is emitting a signal
+	std::cout << "[T1] at 5v emits a positive signal" << std::endl;
+	t1.set_value(t1.Vss, false);     // set_value(V, impeded)
+	assert(!t1.signal());            // c1 no longer emits a signal
+	assert(t1.determinate());        // c1 still has a known value
+	assert(!t1.impeded());           // c1 has zero resistence
+	std::cout << "[T1] at 0v no longer emits a signal" << std::endl;
+
+	/*
+	 *  Now some more interesting behaviour;
+	 *  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+	 *  When a terminal has connections, the terminal manages those connections in the same way
+	 *    a Device::Wire does, but represents the sum of those connections as a single connection.
+	 *  A wire, or another device connecting to the terminal will then see an output connection
+	 *    if all connections in the terminal pool are outputs.  If one of the pool is an input,
+	 *    the terminal will represent that input connection.
+	 *  If more than one input happens to be in the pool, the terminal  pretends to be a wire to
+	 *    the pool, and appears to be a single connection on the other (connecting) side.
+	 */
+
+	t1.set_value(t1.Vdd, true);     // set_value(V, impeded)
+//	t1.debug(true);
+	t1.set_vdrop(3);                 // tell t1 that there is a voltage drop from 5v to 3v over t1.R
+	std::cout << "[T1] can be told that there is a voltage drop over its internal resistance." << std::endl;
+	std::cout << "   For example, we have just told T1 that it has 3v at its output instead of 5v." << std::endl;
+	assert(t1.vDrop() == -2);
+	std::cout << "   The voltage difference is 3v - 5v = -2v." << std::endl;
+	assert(t1.rd() == 3);
+	std::cout << "   When we read T1, we see a value of 3v." << std::endl;
+	t1.R(100);                       // pretend we have a 100 ohm internal resistance
+	std::cout << "   If we tell T1 that it's internal resistance is 100 Ohm," << std::endl;
+	assert(fabs(t1.I() + 0.02) < 1e-6);    // sounds right: 2v / 100 Ohm = 20 mA
+	std::cout << "   then we can query it's current.  I = V/R = -2/100 = 0.02A, or 20mA." << std::endl;
+	assert(t1.signal());
+	std::cout << "   Since the terminal output is 3V, it emits a positive signal." << std::endl;
+	t1.set_vdrop(2);                 // tell t1 that there is a voltage drop from 5v to 2v over t1.R
+	std::cout << "   If we set the output voltage at 2v instead of 3v," << std::endl;
+
+	assert(not t1.signal());         // no longer emit a signal below the limit
+	std::cout << "   T1 no longer emits a signal." << std::endl;
+	assert(t1.rd() == 2);            // our external voltage is 2v
+	assert(t1.rd(false) == 5);       // our internal voltage is still 5v
+	std::cout << "   T1 reads an output of 2v when queried, but T1 still retains it's internal voltage at 5v." << std::endl;
+	assert(t1.impeded());
+	std::cout << "   All of this behaviour works whether or not T1 is set as an input or output." << std::endl;
+
+	Connection c0("Out1");
+	Connection c1("4v");
+	Connection c2("5v");
+
+	c0.set_value(4, true);           // an impeded connection
+	c1.set_value(4, false);          // an voltage source at 4v
+	c1.R(100);                       // with an internal resistance of 100 Ohm
+	c2.set_value(5, false);          // an voltage source at 5v
+	c2.R(50);                        // with an internal resistance of 100 Ohm
+
+	std::cout << "Let us create three new connections:" << std::endl;
+	std::cout << "          c0[output] is 4v." << std::endl;
+	std::cout << "          c1[input] is 4v, with a resistance of 100 Ohm" << std::endl;
+	std::cout << "          c2[input] is 5v, with a resistance of 50 Ohm" << std::endl;
+
+	t1.connect(c0);
+	assert(t1.impeded());
+	std::cout << "  If we connect just C1, T1 remains impeded." << std::endl;
+
+
+	t1.connect(c1);                  // Connect them into the terminal
+	t1.connect(c2);
+	assert(not t1.impeded());
+	std::cout << "  ... but as soon as we add the two inputs c1 & c2 to the termninal pool," << std::endl;
+	std::cout << "      t1 immediately shows itself to be unimpeded (IOW, an input too)." << std::endl;
+
+	/*
+	 *  I1 + I2 = 0
+	 *  (V1 - Vi)/R1 + (V2 - Vi)/R2 = 0          :    I = V/R, Vi is the common terminal voltage
+	 *  4v/100 - Vi/100 + 5v/50 - Vi/50 = 0      :    substitute, simplify
+	 *  -Vi/100 - Vi/50 = -4v/100 - 5v/50
+	 *  -Vi/100 - 2Vi/100 = -4v/100 - 10v/100    : common denominator
+	 *  Vi + 2Vi = 4v + 10v                      : multiply by -100
+	 *  3Vi = 14v
+	 *  Vi = 14/3 = 4.66667v
+	 */
+	assert(t1.rd() - 4.66667 < 1e-6);
+	assert(c0.rd() - 4.66667 < 1e-6); // check the output too
+	assert(t1.R() - 33.3333 < 1.0e-4);
+
+	std::cout << "  T1 does much more than that.  It calculates the voltage output from T1 as 4.6667v," << std::endl;
+	std::cout << "    and updates the output c0 to reflect that voltage as well." << std::endl;
+	std::cout << "  Furthermore, T1 calculates the resistance across the inputs to be 33.3333 Ohm." << std::endl;
+	std::cout << "    and updates itself to reflect those parameters as internal voltage and resistance." << std::endl;
+
+	// t1 now looks like a voltage source of 4.66667v behind an internal resistance of 1/(1/R1 + 1/R2)= 33.3333 Ohms
+	//     this simplifies things a whole lot going forward.
+	t1.set_vdrop(3);                  // tell t1 that there is a voltage drop from 4.66667 to 3v.
+	std::cout << t1.vDrop() << std::endl;
+	assert(t1.vDrop() + 1.666667 < 1e-4);
+	assert(t1.I() + 0.05 < 1e-3);    //  A vDrop of  3 - 4.667 = -1.667v over R=33.33 gives I = V/R = 1.667/33.33 = 0.05A, or 50mA
+
+	std::cout << "  If we give T1 an output voltage of 3V now, it calculate sthe voltage drop as " << std::endl;
+	std::cout << "       vDrop =  3v - 4.6667v" << std::endl;
+	std::cout << "             =  -1.6667v" << std::endl;
+	std::cout << "  We can now also query the current " << std::endl;
+	std::cout << "            I = V/R " << std::endl;
+	std::cout << "              = -1.6667v/33.3333 Ohm" << std::endl;
+	std::cout << "              = 0.05A (or 50 mA)" << std::endl;
+
+	c1.impeded(true);   // turn c1 into an output
+	c2.impeded(true);   // turn c2 into an output too
+
+	assert(t1.impeded());  // a pool of impeded-only connections reverts a terminal to its original setting
+
+	std::cout << "  If we change the two input connections in the terminal pool (c1 & c2) to outputs," << std::endl;
+	std::cout << "    then T1 reflects that change by itself showing as a high impedance output." << std::endl;
+}
+
 void test_rails() {
 	std::cout << "Testing Rails" << std::endl;
 	std::cout << "=============" << std::endl;
@@ -63,7 +204,6 @@ void test_rails() {
 void test_wires() {
 	std::cout << "Testing Wires" << std::endl;
 	std::cout << "=============" << std::endl;
-
 	Connection c[3] = {Connection("c0"),Connection("c1"),Connection("c2") };
 	Wire w("wire");
 //	c[0].debug(true);
@@ -92,10 +232,24 @@ void test_wires() {
 
 	c[0].set_value(5, false);
 	c[1].set_value(3, false);
-	assert(w.rd() == 3);
-	std::cout << "A wire voltage is determined by the least of deterministic inputs" << std::endl;
-	assert(c[2].rd() == 3);
+	assert(w.rd() == 4);
+	std::cout << "A wire voltage is calculated based on resistance of deterministic inputs" << std::endl;
+	assert(c[2].rd() == 4);
 	std::cout << "... and any impeded connections (outputs) are determined by wire.V" << std::endl;
+
+//	Terminal t("TRM");
+//	c[0].set_value(1, false);
+//	t.set_value(5, false);
+//	t.R(10000);
+//
+//	t.debug(true);
+//	w.connect(t);
+//	std::cout << t.rd() << std::endl;
+//	std::cout << t.vDrop() << std::endl;
+//	std::cout << w.rd() << std::endl;
+//
+//
+//	exit(0);
 }
 
 void test_inverse() {
@@ -482,25 +636,30 @@ void test_FET() {
 	std::cout << "Testing a nFET & pFET" << std::endl;
 	std::cout << "=====================" << std::endl;
 
-	Input in, i2, gate;
+	Connection in, i2, gate;
+	Ground gnd;
 
 	FET nFET(in, gate, true);         // positive signal at gate allows current through device
 	FET pFET(i2, gate, false);        // negative signal at gate allows current through device
 
-	assert(nFET.rd().rd() == in.Vss);
-	assert(pFET.rd().rd() == i2.Vss);
+	gnd.connect(nFET.rd());
+	gnd.connect(pFET.rd());
+
+	assert(nFET.rd().rd(false) == in.Vss);
+	assert(pFET.rd().rd(false) == i2.Vss);
 	std::cout << "Similar to a voltage controlled switch, a FET requires an input voltage" << std::endl;
 
-	in.set_value(in.Vdd);
-	i2.set_value(i2.Vdd);
-	assert(nFET.rd().rd() == in.Vss);
+	in.set_value(in.Vdd, true);
+	i2.set_value(i2.Vdd, true);
+	assert(nFET.rd().rd(false) == in.Vss);
+
 	std::cout << "An nFET conducts with a positive gate signal" << std::endl;
-	assert(pFET.rd().rd() == i2.Vdd);
+	assert(pFET.rd().rd(false) == i2.Vdd);
 	std::cout << " and a pFET conducts with a negative gate signal" << std::endl;
 
-	gate.set_value(gate.Vdd);
-	assert(nFET.rd().rd() == in.Vdd);
-	assert(pFET.rd().rd() == i2.Vss);
+	gate.set_value(gate.Vdd, true);
+	assert(nFET.rd().rd(false) == in.Vdd);
+	assert(pFET.rd().rd(false) == i2.Vss);
 	std::cout << "So switching gate voltage with respect to source voltage" << std::endl;
 	std::cout << "  lets you control current between drain (Anode) and source (Cathode)" << std::endl;
 }
@@ -577,6 +736,7 @@ void prsep() {
 
 void test_devices() {
 	prsep(); test_connection();
+	prsep(); test_terminals();
 	prsep(); test_rails();
 	prsep(); test_inverse();
 	prsep(); test_input_output();
