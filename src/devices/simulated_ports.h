@@ -3,6 +3,7 @@
 #include "sram.h"
 #include "flags.h"
 #include "clock.h"
+#include "comparator.h"
 
 
 //___________________________________________________________________________________
@@ -82,14 +83,15 @@ class SinglePortA: public BasicPortA {
 class SinglePortA_Analog: public SinglePortA {
 
   protected:
-	Connection Comparator;
+	Connection m_comparator;
 
 	void set_comparator(bool on);
 	void set_comparators_for_an0_and_an1(BYTE cmcon);
-	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+	void comparator_changed(Comparator *c, const std::string &name, const std::vector<BYTE> &data);
 
   public:
 	SinglePortA_Analog(Terminal &a_Pin, const std::string &a_name);
+	virtual ~SinglePortA_Analog();
 	Connection &comparator();
 };
 
@@ -100,6 +102,7 @@ class SinglePortA_Analog_RA2: public  SinglePortA_Analog {
 	Connection m_vref_sw;
 	Connection m_vref_in;
 
+  protected:
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
   public:
@@ -117,15 +120,16 @@ class SinglePortA_Analog_RA2: public  SinglePortA_Analog {
 // mode of 0b110, otherwise the Q output of the data latch is selected
 
 class SinglePortA_Analog_RA3: public  BasicPortA {
-	Connection &m_comparator_out;
-	Connection m_cmp_mode_sw;
-	Connection Comparator;
+	Connection m_comparator_out;  // output from the comparator
+	Connection m_cmp_mode_sw;     // Schmit trigger enable switch
+	Connection m_comparator;      // analog output to the comparator
 
 	void set_comparator(bool on);
-	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+	void comparator_changed(Comparator *c, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	SinglePortA_Analog_RA3(Terminal &a_Pin, Connection &comparator_out, const std::string &a_name);
+	SinglePortA_Analog_RA3(Terminal &a_Pin, const std::string &a_name);
+	virtual ~SinglePortA_Analog_RA3();
 	Connection &comparator();
 };
 
@@ -145,11 +149,14 @@ class SinglePortA_Analog_RA3: public  BasicPortA {
 // and no pin clamp.
 
 class SinglePortA_Analog_RA4: public BasicPortA {
-	Connection &m_comparator_out;
+	Connection m_comparator_out;
 	Connection m_cmp_mode_sw;
+	Connection m_fet_drain;
 
+	void comparator_changed(Comparator *c, const std::string &name, const std::vector<BYTE> &data);
   public:
-	SinglePortA_Analog_RA4(Terminal &a_Pin, Connection &comparator_out, const std::string &a_name);
+	SinglePortA_Analog_RA4(Terminal &a_Pin, const std::string &a_name);
+	~SinglePortA_Analog_RA4();
 	Connection &TMR0();
 
 };

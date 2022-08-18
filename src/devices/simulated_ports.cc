@@ -26,7 +26,6 @@ void BasicPort::queue_change(){  // Add a voltage change event to the queue
 }
 
 void BasicPort::process_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data)  {}
-
 void BasicPort::on_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data) {
 	if (debug() && name[0]=='Q') std::cout << this->name() << ": Clock signal: [" << name << "]" << std::endl;
 	if      (name == "Q4") {     // read happens at the start of an instruction cycle
@@ -65,7 +64,6 @@ void BasicPort::on_clock_change(Clock *c, const std::string &name, const std::ve
 
 //  data[0] == old value   data[1] == changed bits  data[2] == new value
 void BasicPort::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {}
-
 void BasicPort::on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	const std::set<std::string>  output_registers({"TRISA", "TRISB", "PORTA", "PORTB"});
 	const std::set<std::string>  input_registers({"TRISA.read", "TRISB.read", "PORTA.read", "PORTB.read"});
@@ -96,8 +94,7 @@ void BasicPort::on_register_change(Register *r, const std::string &name, const s
 				bool input = ((data[Register::DVALUE::NEW] & port_mask) == port_mask);
 				if (debug()) std::cout << this->name() << ":" << name << ": input=" << (input?"true":"false") << std::endl;
 
-				if (this->name() == "RA4") input = true;   // this port is a drain and expects a positive voltage
-				Pin.impeded(input);
+				Pin.impeded(!input);
 
 				Data.set_value(input * Vdd, false);
 				Tris.set_value(Vdd, true);
@@ -209,7 +206,7 @@ Connection &BasicPort::read_tris() {           // read the tris latch value
 
 
 BasicPortA::BasicPortA(Terminal &a_Pin, const std::string &a_name, int port_bit_ofs):
-	BasicPort(a_Pin, a_name, 0, port_bit_ofs)
+	BasicPort(a_Pin, a_name, 0, port_bit_ofs), S1("Scmitt1.in"), S1_en("Schmitt1.en")
 {
 	auto &c = components();
 	Inverter &NotPort = dynamic_cast<Inverter &>(*c["Inverter1"]);
@@ -217,7 +214,7 @@ BasicPortA::BasicPortA(Terminal &a_Pin, const std::string &a_name, int port_bit_
 	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
 	Wire &PinWire = dynamic_cast<Wire &>(*c["Pin Wire"]);
 
-	Schmitt *trigger = new Schmitt(S1, S1_en, false, false, false);
+	Schmitt *trigger = new Schmitt(S1, S1_en, false, true, false);
 	Latch *SR1 = new Latch(trigger->rd(), NotPort.rd(), true, false); SR1->set_name(a_name+"::InLatch");
 	PinWire.connect(S1);
 
@@ -261,30 +258,26 @@ SinglePortA::SinglePortA(Terminal &a_Pin, const std::string &a_name, int port_bi
 //  These are standard ports, but with a comparator output
 void SinglePortA_Analog::set_comparator(bool on) {
 	if (on) {
-		S1_en.set_value(Vss, true);   // schmitt trigger enable active low
-		Comparator.set_value(Comparator.rd(), false);    // low impedence
+		S1_en.set_value(Vdd, true);   // schmitt trigger enable active low
+		m_comparator.set_value(m_comparator.rd(), true);    // low impedence
 	} else {
-		S1_en.set_value(Vdd, true);
-		Comparator.set_value(Comparator.rd(), true);
+		S1_en.set_value(Vss, true);
+		m_comparator.set_value(m_comparator.rd(), true);
 	}
 }
 
 void SinglePortA_Analog::set_comparators_for_an0_and_an1(BYTE cmcon) {
+	if (debug()) std::cout << name() << ": Comparator mode = " << (int)(cmcon &0b111) << std::endl;
 	switch (cmcon & 0b111) {
-	case 0b000 :    // Comparators reset
-		S1_en.set_value(Vss, true);
-		Comparator.set_value(Vss, false);
-		break;
 	case 0b001 :    // 3 inputs Multiplexed 2 Comparators
-		if (name() == "AN0" || name() == "RA0")
+		if (name() == "RA0")
 			set_comparator((cmcon & Flags::CMCON::CIS) == 0);
 		else
 			set_comparator(true);
 		break;
 	case 0b010 :    // 4 inputs Multiplexed 2 Comparators
-		set_comparator((cmcon & Flags::CMCON::CIS) == 0);
-		break;
 	case 0b011 :    // 2 common reference comparators
+	case 0b110 :    // Two common reference comparators with outputs
 	case 0b100 :    // Two independent comparators
 		set_comparator(true);
 		break;
@@ -294,49 +287,53 @@ void SinglePortA_Analog::set_comparators_for_an0_and_an1(BYTE cmcon) {
 		else
 			set_comparator(true);
 		break;
-	case 0b110 :    // Two common reference comparators with outputs
-		set_comparator(true);
-		break;
+	case 0b000 :    // Comparators reset
 	case 0b111 :    // Comparators off
 		set_comparator(false);
 		break;
 	}
 }
 
-void SinglePortA_Analog::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
-	if  (name == "CMCON") {
-		BYTE cmcon = data[Register::DVALUE::NEW];
-		set_comparators_for_an0_and_an1(cmcon);
-	}
+void SinglePortA_Analog::comparator_changed(Comparator *c, const std::string &name, const std::vector<BYTE> &data) {
+	BYTE cmcon = data[Comparator::DVALUE::NEW];
+	set_comparators_for_an0_and_an1(cmcon);
 }
 
 SinglePortA_Analog::SinglePortA_Analog(Terminal &a_Pin, const std::string &a_name):
-		SinglePortA(a_Pin, a_name, a_name=="RA0"?0:a_name=="RA1"?1:a_name=="RA2"?2:a_name=="RA3"?3:0),
-		Comparator(Vss, true, a_name+"::Comparator")
-	{
-		set_comparators_for_an0_and_an1(0b111);
-	}
-Connection &SinglePortA_Analog::comparator() { return Comparator; }
+			SinglePortA(a_Pin, a_name, a_name=="RA0"?0:a_name=="RA1"?1:a_name=="RA2"?2:a_name=="RA3"?3:0),
+			m_comparator(Vss, true, a_name+"::Comparator") {
+	auto &c = components();
+	set_comparators_for_an0_and_an1(0b111);
+	Wire &PinWire = dynamic_cast<Wire &>(*c["Pin Wire"]);
+	PinWire.connect(comparator());
+
+	DeviceEvent<Comparator>::subscribe<SinglePortA_Analog>(this, &SinglePortA_Analog::comparator_changed);
+}
+SinglePortA_Analog::~SinglePortA_Analog(){
+	DeviceEvent<Comparator>::unsubscribe<SinglePortA_Analog>(this, &SinglePortA_Analog::comparator_changed);
+}
+
+Connection &SinglePortA_Analog::comparator() { return m_comparator; }
 
 //___________________________________________________________________________________
 //  A model for a single port for pin AN2.  This looks like AN0/AN1 except that
 //  it also has a voltage reference.
+
 void SinglePortA_Analog_RA2::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	if        (name == "CMCON") {
 		BYTE cmcon = data[Register::DVALUE::NEW];
 
+		if (debug()) std::cout << "cmcon mode is " << (int)(cmcon & 7) << std::endl;
 		switch (cmcon & 0b111) {
 		case 0b000 :    // Comparators reset
 			S1_en.set_value(Vss, true);
-			Comparator.set_value(Vss, false);
-			break;
-		case 0b010 :    // 4 inputs Multiplexed 2 Comparators
-			set_comparator((cmcon & Flags::CMCON::CIS) != 0);
+			m_comparator.set_value(Vss, false);
 			break;
 		case 0b101 :    // One independent comparator
 		case 0b011 :    // 2 common reference comparators
 		case 0b100 :    // Two independent comparators
 		case 0b001 :    // 3 inputs Multiplexed 2 Comparators
+		case 0b010 :    // 4 inputs Multiplexed 2 Comparators
 		case 0b110 :    // Two common reference comparators with outputs
 			set_comparator(true);
 			break;
@@ -354,25 +351,27 @@ void SinglePortA_Analog_RA2::process_register_change(Register *r, const std::str
 		relay.sw().set_value(vroe*Vdd, true);
 		if (vren) {
 			if (vrr) {
-				vref = ((vrcon & 0b111) / 24.0) * Vdd;
+				vref = ((vrcon & 0b1111) / 24.0) * Vdd;
 			} else {
-				vref = ((vrcon & 0b111) / 32.0) * Vdd + Vdd/4;
+				vref = ((vrcon & 0b1111) / 32.0) * Vdd + Vdd/4;
 			}
-		}
+		};
 		relay.in().set_value(vref, true);
 	}
 }
 
 SinglePortA_Analog_RA2::SinglePortA_Analog_RA2(Terminal &a_Pin, const std::string &a_name) :
-		SinglePortA_Analog(a_Pin, a_name)
-	{
-		auto &c = components();
-		Wire &PinWire = dynamic_cast<Wire &>(*c["Pin Wire"]);
-		Relay *VRef = new Relay(m_vref_in, m_vref_sw, "VRef");
-		c["VRef"] = VRef;
-		PinWire.connect(VRef->rd());
+		SinglePortA_Analog(a_Pin, a_name) {
 
-	}
+	auto &c = components();
+	Wire &PinWire = dynamic_cast<Wire &>(*c["Pin Wire"]);
+	m_vref_in.name("VREF");                   // a change to this will be detected by the Comparator module.
+	Relay *VRef = new Relay(m_vref_in, m_vref_sw, "VRef");
+	c["VRef"] = VRef;
+	PinWire.connect(VRef->rd());
+	VRef->rd().name(a_name+"::Comparator");   // This connection doubles for the output to the comparator
+}
+
 Relay &SinglePortA_Analog_RA2::VRef() {
 	auto &c = components();
 	Relay &vref = dynamic_cast<Relay &>(*c["VRef"]);
@@ -389,47 +388,44 @@ Relay &SinglePortA_Analog_RA2::VRef() {
 // mode of 0b110, otherwise the Q output of the data latch is selected
 
 void SinglePortA_Analog_RA3::set_comparator(bool on) {
+	if (debug()) std::cout << "s1_en is " << (on?"true":"false") << std::endl;
 	if (on) {
-		S1_en.set_value(Vss, true);   // schmitt trigger enable active low
-		Comparator.set_value(Comparator.rd(), false);    // low impedence
+		S1_en.set_value(Vdd, true);      // schmitt trigger enable active low
+		m_comparator.set_value(m_comparator.rd(), true);    // low impedence
 	} else {
-		S1_en.set_value(Vdd, true);
-		Comparator.set_value(Comparator.rd(), true);
+		S1_en.set_value(Vss, true);
+		m_comparator.set_value(m_comparator.rd(), true);
 	}
 }
 
-void SinglePortA_Analog_RA3::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
-	if        (name == "CMCON") {
-		BYTE cmcon = data[Register::DVALUE::NEW];
-		bool comparator_mode_switch = false;
+void SinglePortA_Analog_RA3::comparator_changed(Comparator *c, const std::string &name, const std::vector<BYTE> &data) {
+	m_comparator_out.set_value((bool)(data[0] & Flags::CMCON::C1OUT) * Vdd, true);
+	BYTE cmcon = data[Comparator::DVALUE::NEW];
 
-		switch (cmcon & 0b111) {
-		case 0b000 :    // Comparators reset
-			S1_en.set_value(Vss, true);
-			Comparator.set_value(Vss, false);
-			break;
-		case 0b010 :    // 4 inputs Multiplexed 2 Comparators
-			set_comparator((cmcon & Flags::CMCON::CIS) != 0);
-			break;
-		case 0b110 :    // Two common reference comparators with outputs
-			comparator_mode_switch = true;
-			/* no break */
-		case 0b100 :    // Two independent comparators
-			set_comparator(true);
-			break;
-		case 0b101 :    // One independent comparator
-		case 0b011 :    // 2 common reference comparators
-		case 0b001 :    // 3 inputs Multiplexed 2 Comparators
-		case 0b111 :    // Comparators off
-			set_comparator(false);
-			break;
-		}
-		m_cmp_mode_sw.set_value(comparator_mode_switch * Vdd, true);
+	if (debug())
+		std::cout << this->name() << ": Comparator mode is now set to: " << (int)(cmcon & 7) << std::endl;
+
+	bool comparator_mode_switch = false;
+	switch (cmcon & 0b111) {
+	case 0b110 :    // Two common reference comparators with outputs
+		comparator_mode_switch = true;
+		/* no break */
+	case 0b100 :    // Two independent comparators
+	case 0b010 :    // 4 inputs Multiplexed 2 Comparators
+	case 0b101 :    // One independent comparator - thats us
+	case 0b011 :    // 2 common reference comparators
+	case 0b001 :    // 3 inputs Multiplexed 2 Comparators
+		set_comparator(true);
+		break;
+	case 0b000 :    // Comparators reset
+	case 0b111 :    // Comparators off
+		set_comparator(false);
 	}
+	m_cmp_mode_sw.set_value(comparator_mode_switch * Vdd, true);
 }
 
-SinglePortA_Analog_RA3::SinglePortA_Analog_RA3(Terminal &a_Pin, Connection &comparator_out, const std::string &a_name) :
-	BasicPortA(a_Pin, a_name, 3), m_comparator_out(comparator_out)
+SinglePortA_Analog_RA3::SinglePortA_Analog_RA3(Terminal &a_Pin, const std::string &a_name) :
+	BasicPortA(a_Pin, a_name, 3), m_comparator(Vss, true, a_name+"::Comparator")
 {
 	auto &c = components();
 	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
@@ -438,14 +434,23 @@ SinglePortA_Analog_RA3::SinglePortA_Analog_RA3(Terminal &a_Pin, Connection &comp
 
 	c["Mux"] = mux;  // remember our mux component
 	Tristate *Tristate1 = new Tristate(mux->rd(), TrisLatch.Q(), true);
+	c["Tristate1"] = Tristate1;    // smart pointer should discard old Tristate1
+
 	Wire &PinWire = dynamic_cast<Wire &>(*c["Pin Wire"]);
 	PinWire.connect(Tristate1->rd());
-	c["Tristate1"] = Tristate1;    // smart pointer should discard old Tristate1
-	PinWire.connect(Comparator);
+	PinWire.connect(m_comparator);
+
 	Clamp * PinClamp = new Clamp(Pin);
 	c["PinClamp"] = PinClamp;
+	m_comparator_out.set_value(0, true);   // This must be tied to comparator output C1
+	DeviceEvent<Comparator>::subscribe<SinglePortA_Analog_RA3>(this, &SinglePortA_Analog_RA3::comparator_changed);
 }
-Connection &SinglePortA_Analog_RA3::comparator() { return Comparator; }
+
+SinglePortA_Analog_RA3::~SinglePortA_Analog_RA3() {
+	DeviceEvent<Comparator>::unsubscribe<SinglePortA_Analog_RA3>(this, &SinglePortA_Analog_RA3::comparator_changed);
+}
+
+Connection &SinglePortA_Analog_RA3::comparator() { return m_comparator; }
 
 //___________________________________________________________________________________
 //  A model for the pin RA4/AN4.
@@ -474,25 +479,41 @@ Connection &SinglePortA_Analog_RA3::comparator() { return Comparator; }
 //	}
 //}
 
+void SinglePortA_Analog_RA4::comparator_changed(Comparator *c, const std::string &name, const std::vector<BYTE> &data) {
+	m_comparator_out.set_value(((data[Comparator::DVALUE::NEW] & Flags::CMCON::C2OUT) == Flags::CMCON::C2OUT) * Vdd, true);
+	m_cmp_mode_sw.set_value(((data[Comparator::DVALUE::NEW] & 7) == 0b110) * Vdd, true);
+}
 
-SinglePortA_Analog_RA4::SinglePortA_Analog_RA4(Terminal &a_Pin, Connection &comparator_out, const std::string &a_name) :
-	BasicPortA(a_Pin, a_name, 4), m_comparator_out(comparator_out)
+
+SinglePortA_Analog_RA4::SinglePortA_Analog_RA4(Terminal &a_Pin, const std::string &a_name) :
+	BasicPortA(a_Pin, a_name, 4)
 {
 	auto &c = components();
 	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
 	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
-	Mux *mux = new Mux({&DataLatch.Q(), &m_comparator_out}, {&m_cmp_mode_sw});
+	Wire &PinWire = dynamic_cast<Wire &>(*c["Pin Wire"]);
+	Mux *mux = new Mux({&DataLatch.Q(), &m_comparator_out}, {&m_cmp_mode_sw}, "MUX1");
 
-	OrGate *Nor1 = new OrGate({&mux->rd(), &TrisLatch.Q()}, true);
+	OrGate *Nor1 = new OrGate({&mux->rd(), &TrisLatch.Q()}, true, "NOR1");
 
-	FET *nFET1 = new FET(Pin, Nor1->rd());
+	FET *nFET1 = new FET(m_fet_drain, Nor1->rd());
 	nFET1->rd().set_value(Vss, false);
+	PinWire.connect(m_fet_drain);
+	m_fet_drain.name("RA4::FET::drain");
 
 	c["Mux"] = mux;  // remember our mux component
 	c["NOR Gate"] = Nor1;
 	c["FET1"] = nFET1;
 
-	S1_en.set_value(Vdd, true);
+	S1_en.set_value(Vss, true);            // always enabled
+
+	m_cmp_mode_sw.set_value(0, true);      // Mux selects DataLatch.Q on startup
+	m_comparator_out.set_value(0, true);   // This must be tied to comparator output C2
+	DeviceEvent<Comparator>::subscribe<SinglePortA_Analog_RA4>(this, &SinglePortA_Analog_RA4::comparator_changed);
+}
+
+SinglePortA_Analog_RA4::~SinglePortA_Analog_RA4(){
+	DeviceEvent<Comparator>::unsubscribe<SinglePortA_Analog_RA4>(this, &SinglePortA_Analog_RA4::comparator_changed);
 }
 
 Connection &SinglePortA_Analog_RA4::TMR0() {
