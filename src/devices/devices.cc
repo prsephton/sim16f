@@ -159,7 +159,8 @@ void Clock::toggle() {
 	Q3 = phase == 3; if (Q3 and high) eq.queue_event(new DeviceEvent<Clock>(*this, "Q3"));
 	Q4 = phase == 4; if (Q4 and high) eq.queue_event(new DeviceEvent<Clock>(*this, "Q4"));
 
-	eq.queue_event(new DeviceEvent<Clock>(*this, "CLKOUT", {(BYTE)(phase/2?1:0)}));
+	if (phase % 2)
+		eq.queue_event(new DeviceEvent<Clock>(*this, "CLKOUT", {(BYTE)(phase/2?1:0)}));
 
 	if (high and Q1) {
 		eq.queue_event(new DeviceEvent<Clock>(*this, "cycle"));

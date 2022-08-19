@@ -187,23 +187,24 @@ Wire &BasicPort::bus_line() { return dynamic_cast<Wire &>(*m_components["Data Bu
 Connection &BasicPort::data() { return Data; }
 Connection &BasicPort::pin() { return Pin; }
 std::map<std::string, SmartPtr<Device> > &BasicPort::components() { return m_components; }
-Connection &BasicPort::read_port() {           // read the port
-	auto c = components();
-	rdPort.set_value(Vdd, true);    // raise a read signal on the port read control line
-	eq.process_events();            // basically propagate all events, and their events etc.
-	rdPort.set_value(Vss, true);    // lower the read singal.  The result is on the bus.
-	eq.process_events();            // basically propagate all events, and their events etc.
-	return Data;
-}
-Connection &BasicPort::read_tris() {           // read the tris latch value
-	auto c = components();
-	rdTris.set_value(Vdd, true);    // raise a read signal on the port read control line
-	eq.process_events();            // basically propagate all events, and their events etc.
-	rdTris.set_value(Vss, true);    // lower the read singal.  The result is on the bus.
-	eq.process_events();            // basically propagate all events, and their events etc.
-	return Data;
-}
 
+//Connection &BasicPort::read_port() {           // read the port
+//	auto c = components();
+//	rdPort.set_value(Vdd, true);    // raise a read signal on the port read control line
+//	eq.process_events();            // basically propagate all events, and their events etc.
+//	rdPort.set_value(Vss, true);    // lower the read singal.  The result is on the bus.
+//	eq.process_events();            // basically propagate all events, and their events etc.
+//	return Data;
+//}
+//Connection &BasicPort::read_tris() {           // read the tris latch value
+//	auto c = components();
+//	rdTris.set_value(Vdd, true);    // raise a read signal on the port read control line
+//	eq.process_events();            // basically propagate all events, and their events etc.
+//	rdTris.set_value(Vss, true);    // lower the read singal.  The result is on the bus.
+//	eq.process_events();            // basically propagate all events, and their events etc.
+//	return Data;
+//}
+//
 
 BasicPortA::BasicPortA(Terminal &a_Pin, const std::string &a_name, int port_bit_ofs):
 	BasicPort(a_Pin, a_name, 0, port_bit_ofs), S1("Scmitt1.in"), S1_en("Schmitt1.en")
@@ -537,24 +538,62 @@ Connection &SinglePortA_Analog_RA4::TMR0() {
 //  This port, and the next, RA6, just look like nothing else.  So we will model it from
 //  ground up.
 
-	void SinglePortA_MCLR_RA5::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+	void SinglePortA_MCLR_RA5::on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 		if (name=="CONFIG1") {
 			bool flag = data[Register::DVALUE::NEW] & Flags::CONFIG::MCLRE;
-			MCLRE.set_value(Vdd*flag, true);
+			MCLRE.set_value(Vdd*flag, false);
+		} else {
+			const std::set<std::string>  input_registers({"TRISA.read", "PORTA.read"});
+			if (input_registers.find(name) != input_registers.end()) {
+				bool getval = false;
+
+				if (name == "PORTA.read") {
+					Data.set_value(Vss, true);  // data is an input
+					rdPort.set_value(Vdd, true);    // set the value of tristate 2 high.
+					getval = true;
+				} else if (name == "TRISA.read") {
+					Data.set_value(Vss, true);  // data is an input
+					rdTris.set_value(Vdd, true);   // set the value of tristate 3 high.
+					getval = true;
+				}
+				if (getval) {
+					eq.queue_event(new DeviceEvent<SinglePortA_MCLR_RA5>(*this, "Port Changed"));
+					eq.process_events();
+					bool signal = Data.signal();
+					BYTE d = r->get_value();
+					if (signal)
+						d = d | 0b00100000;
+					else
+						d = d & 0b11011111;
+					r->set_value(d, d);
+					if (rdPort.signal()) rdPort.set_value(Vss, true);
+					if (rdTris.signal()) rdTris.set_value(Vss, true);
+				}
+			}
 		}
 	}
 
+	void SinglePortA_MCLR_RA5::HV_Detect(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
+		if (c == &Pin) {
+			if (Pin.rd() > Pin.Vdd * 1.2)
+				PGM.set_value(PGM.Vdd, true);
+			else
+				PGM.set_value(PGM.Vss, true);
+		}
+	}
 
 	SinglePortA_MCLR_RA5::SinglePortA_MCLR_RA5(Terminal &a_Pin, const std::string &a_name) :
-		Pin(a_Pin), MCLRE((float)0.0, false, "MCLRE")
+		Device(), Pin(a_Pin), MCLRE((float)0.0, false, "MCLRE")
 	{
 		Wire *DataBus = new Wire(a_name+"::data");
 		Wire *PinWire = new Wire(a_name+"::pin");
 		Wire *MCLREWire = new Wire(a_name+"::mclre");
 
+		DataBus->connect(Data);
+
 		Pin.set_value(Vdd, false);
 
-		Schmitt *St1 = new Schmitt(S1);
+		Schmitt *St1 = new Schmitt(S1, false, true);
 		Schmitt *St2 = new Schmitt(S2, S2_en, true, true);
 
 		AndGate *g1 = new AndGate({&MCLRE, &St1->rd()}, true, "And1");
@@ -585,23 +624,21 @@ Connection &SinglePortA_Analog_RA4::TMR0() {
 		m_components["Tristate2"] = Tristate2;
 		m_components["Tristate3"] = Tristate3;
 
+		DeviceEvent<Register>::subscribe<SinglePortA_MCLR_RA5>(this, &SinglePortA_MCLR_RA5::on_register_change);
+		DeviceEvent<Connection>::subscribe<SinglePortA_MCLR_RA5>(this, &SinglePortA_MCLR_RA5::HV_Detect, &Pin);
+	}
+	SinglePortA_MCLR_RA5::~SinglePortA_MCLR_RA5(){
+		DeviceEvent<Register>::unsubscribe<SinglePortA_MCLR_RA5>(this, &SinglePortA_MCLR_RA5::on_register_change);
 	}
 	Wire &SinglePortA_MCLR_RA5::bus_line() { return dynamic_cast<Wire &>(*m_components["Data Bus"]); }
 	Connection &SinglePortA_MCLR_RA5::data() { return Data; }
-	Connection &SinglePortA_MCLR_RA5::pin() { return Pin; }
+	Terminal &SinglePortA_MCLR_RA5::pin() { return Pin; }
+	Connection &SinglePortA_MCLR_RA5::mclr() {
+		AndGate &nand1 = dynamic_cast<AndGate &>(*m_components["And1"]);
+		return nand1.rd();
+	}
+	Connection &SinglePortA_MCLR_RA5::pgm() { return PGM; }
 	std::map<std::string, SmartPtr<Device> > &SinglePortA_MCLR_RA5::components() { return m_components; }
-	Connection &SinglePortA_MCLR_RA5::read_port() {           // read the port
-		rdPort.set_value(Vdd, true);    // raise a read signal on the port read control line
-		eq.process_events();            // basically propagate all events, and their events etc.
-		rdPort.set_value(Vss, true);    // lower the read singal.  The result is on the bus.
-		return Data;  // FixMe: this mechanism may be broken.  Test it.
-	}
-	Connection &SinglePortA_MCLR_RA5::read_tris() {           // Always returns a 1.
-		rdTris.set_value(Vdd, true);    // raise a read signal on the port read control line
-		eq.process_events();            // basically propagate all events, and their events etc.
-		rdTris.set_value(Vss, true);    // lower the read singal.  The result is on the bus.
-		return Data;
-	}
 
 //___________________________________________________________________________________
 //  A model for the pin RA6/OSC2/CLKOUT
@@ -616,29 +653,31 @@ void SinglePortA_RA6_CLKOUT::process_register_change(Register *r, const std::str
 	if (name == "CONFIG1") {
 		m_fosc = (data[Register::DVALUE::NEW] & 0b11) | ((data[Register::DVALUE::NEW] >> 2) & 0b100);
 		m_OSC.set_value(Vss, true);
-		m_Fosc1.set_value(Vss, true);     // If High, select CLKOUT signal else port latch
-		m_Fosc2.set_value(Vss, true);     // If High, use pin for I/O
-		if (m_fosc == 0b111) {        // RC osc + CLKOUT
-			m_Fosc1.set_value(Vdd, false);
-		} else if (m_fosc == 0b110) { // RC, RA6 is I/O
-			m_Fosc2.set_value(Vdd, false);
-		} else if (m_fosc == 0b101) { // INTOSC + CLKOUT
-			m_Fosc1.set_value(Vdd, false);
-		} else if (m_fosc == 0b100) { // INTOSC, RA6 is I/O
-			m_Fosc2.set_value(Vdd, false);
-		} else if (m_fosc == 0b011) { // EC, RA6 is I/O
-			m_Fosc2.set_value(Vdd, false);
-		} else if (m_fosc == 0b010) { // HS xtal/resonator on RA6 & RA7
-		} else if (m_fosc == 0b001) { // XT osc on RA6 & RA7
-		} else if (m_fosc == 0b000) { // LP osc on RA6 & RA7
+		bool clkout = false;
+		bool ra6_is_io = false;
+		switch (m_fosc) {
+		case 0b111:         // RC osc + CLKOUT
+		case 0b101:         // INTOSC + CLKOUT
+			clkout = true;
+			break;
+		case 0b110:         // RC, RA6 is I/O
+		case 0b100:         // INTOSC, RA6 is I/O
+		case 0b011:         // EC, RA6 is I/O
+			ra6_is_io = true;
+			break;
+		case 0b010:         // HS xtal/resonator on RA6 & RA7
+		case 0b001:         // XT osc on RA6 & RA7
+		case 0b000:         // LP osc on RA6 & RA7
+			break;
 		}
+		m_Fosc1.set_value(Vdd*clkout, false);       // If High, select CLKOUT signal else port latch
+		m_Fosc2.set_value(Vdd*ra6_is_io, false);    // If High, use pin for I/O
 	}
 }
 
 void SinglePortA_RA6_CLKOUT::process_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data) {
 	if (name == "oscillator") {
 		if (m_fosc==0b010 || m_fosc==0b001 || m_fosc==0b000) {
-			m_OSC.set_value(((bool)data[1]) * Vdd, false);
 		}
 	} else if (name == "CLKOUT") {
 		m_CLKOUT.set_value(((bool)data[0]) * Vdd, false);
@@ -658,7 +697,7 @@ SinglePortA_RA6_CLKOUT::SinglePortA_RA6_CLKOUT(Terminal &a_Pin, const std::strin
 	Clamp * PinClamp = new Clamp(Pin);
 //	PinWire.debug(true);
 
-	auto And1 = new AndGate({&TrisLatch.Q(), &m_Fosc2}, false, "And1");
+	auto And1 = new AndGate({&TrisLatch.Qc(), &m_Fosc2}, false, "And1");
 	auto Nor1 = new OrGate({&And1->rd(), &m_Fosc1}, true, "Nor1");
 	Tristate *Tristate1 = new Tristate(mux->rd(), Nor1->rd(), true);
 	PinWire.connect(Tristate1->rd());

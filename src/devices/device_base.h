@@ -1281,8 +1281,8 @@ class Schmitt: public Device {
 		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, &m_enable);
 		recalc();
 	}
-	Schmitt(Connection &in, bool impeded=false, bool gate_invert=true, bool out_invert=false):
-		m_in(in), m_enable(m_enabled), m_out(Vss, impeded), m_gate_invert(gate_invert), m_out_invert(out_invert) {
+	Schmitt(Connection &in, bool impeded=false, bool out_invert=false):
+		m_in(in), m_enable(m_enabled), m_out(Vss, impeded), m_gate_invert(false), m_out_invert(out_invert) {
 		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, &m_in);
 		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, &m_enable);
 		m_enable.set_value(Vdd, true);     // No enable signal, so always true

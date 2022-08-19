@@ -51,8 +51,6 @@ public:
 	Wire &bus_line();
 	Connection &data();
 	Connection &pin();
-	Connection &read_port();
-	Connection &read_tris();
 };
 
 
@@ -179,7 +177,7 @@ class SinglePortA_Analog_RA4: public BasicPortA {
 class SinglePortA_MCLR_RA5: public Device {
 	std::map<std::string, SmartPtr<Device> > m_components;
 protected:
-	Connection &Pin;
+	Terminal  &Pin;     // The pin terminal
 	Connection Data;    // This is the data bus value
 
 	Connection rdPort;  // read port
@@ -187,21 +185,24 @@ protected:
 	Connection S1;      // Schmitt trigger 1 input
 	Connection S2;      // Schmitt trigger 2 input
 	Connection S2_en;   // Schmitt trigger 2 enable (active low)
-	Connection cVss;    // We need a signal ground here
 	Connection MCLRE;   // MCLR enable
+	Connection PGM;     // Program Mode Vdd if enabled
+	Connection cVss;    // A connection at Vss
 
 	DeviceEventQueue eq;
 
-	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
+	void HV_Detect(Connection *c, const std::string &name, const std::vector<BYTE> &data);
+	void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
   public:
 	SinglePortA_MCLR_RA5(Terminal &a_Pin, const std::string &a_name);
+	~SinglePortA_MCLR_RA5();
 	Wire &bus_line();
-	Connection &data();
-	Connection &pin();
+	Connection &data();  // port data
+	Connection &mclr();  // MCLR output
+	Terminal   &pin();   // the pin terminal
+	Connection &pgm();   // program mode
 	std::map<std::string, SmartPtr<Device> > &components();
-	Connection &read_port();
-	Connection &read_tris();
 };
 
 //___________________________________________________________________________________
