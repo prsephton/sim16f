@@ -672,6 +672,7 @@ void SinglePortA_RA6_CLKOUT::process_register_change(Register *r, const std::str
 		}
 		m_Fosc1.set_value(Vdd*clkout, false);       // If High, select CLKOUT signal else port latch
 		m_Fosc2.set_value(Vdd*ra6_is_io, false);    // If High, use pin for I/O
+		S1_en.set_value(Vdd*(ra6_is_io), false);
 	}
 }
 
@@ -690,12 +691,14 @@ SinglePortA_RA6_CLKOUT::SinglePortA_RA6_CLKOUT(Terminal &a_Pin, const std::strin
 	auto &c = components();
 	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
 	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
-
-	Mux *mux = new Mux({&DataLatch.Q(), &m_CLKOUT}, {&m_Fosc1});
-
+	Schmitt &trigger = dynamic_cast<Schmitt &>(*c["Schmitt Trigger"]);
 	Wire &PinWire = dynamic_cast<Wire &>(*c["Pin Wire"]);
+
+	trigger.gate_invert(false);
 	Clamp * PinClamp = new Clamp(Pin);
 //	PinWire.debug(true);
+
+	Mux *mux = new Mux({&DataLatch.Q(), &m_CLKOUT}, {&m_Fosc1});
 
 	auto And1 = new AndGate({&TrisLatch.Qc(), &m_Fosc2}, false, "And1");
 	auto Nor1 = new OrGate({&And1->rd(), &m_Fosc1}, true, "Nor1");
@@ -724,8 +727,9 @@ Connection &SinglePortA_RA6_CLKOUT::osc()   { return m_OSC; }
 void PortA_RA7::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 	if (name == "CONFIG1") {
 		BYTE fosc = (data[Register::DVALUE::NEW] & 0b11) | ((data[Register::DVALUE::NEW] >> 2) & 0b100);
-		m_Fosc.set_value(Vdd * (fosc==0b100 || fosc==0b101), false);
-		S1_en.set_value(Vdd * (fosc==0b100 || fosc==0b101), true);
+		bool pin_is_io = (fosc==0b100 || fosc==0b101);
+		m_Fosc.set_value(Vdd * pin_is_io, false);
+		S1_en.set_value(Vdd * pin_is_io, true);
 	}
 }
 
@@ -735,7 +739,8 @@ PortA_RA7::PortA_RA7(Terminal &a_Pin, const std::string &a_name):
 	auto &c = components();
 	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
 	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
-
+	Schmitt &trigger = dynamic_cast<Schmitt &>(*c["Schmitt Trigger"]);
+	trigger.gate_invert(false);
 	AndGate *nand1 = new AndGate({&m_Fosc, &TrisLatch.Qc()}, true, "NAND1");
 	c["NAND1"] = nand1;
 
