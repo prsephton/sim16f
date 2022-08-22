@@ -265,7 +265,9 @@ protected:
 
   public:
 	BasicPortB(Terminal &a_Pin, const std::string &a_name, int port_bit_ofs);
+	virtual ~BasicPortB();
 	Connection &RBPU() { return m_RBPU; }
+	Connection &iRBPU() { return m_iRBPU; }
 	Connection &PinOut() { return m_PinOut; }
 };
 
@@ -286,7 +288,6 @@ class PortB_RB1: public BasicPortB {
 	Connection m_USART_Data_Out;
 	Connection m_Peripheral_OE;
 	Connection m_USART_Receive;
-	Inverse m_iRBPU;
 	Inverse m_iSPEN;
 
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
@@ -306,7 +307,6 @@ class PortB_RB2: public BasicPortB {
 	Connection m_USART_TX_CK_Out;
 	Connection m_Peripheral_OE;
 	Connection m_USART_Slave_Clock_in;
-	Inverse m_iRBPU;
 	Inverse m_iSPEN;
 
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
@@ -325,7 +325,6 @@ class PortB_RB3: public BasicPortB {
 	Connection m_CCP_Out;
 	Connection m_Peripheral_OE;
 	Connection m_CCP_in;
-	Inverse m_iRBPU;
 
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
   public:
@@ -343,7 +342,6 @@ class PortB_RB4: public BasicPortB {
 	Connection m_RBIF;
 	Connection m_LVP;
 	Connection m_PGM;
-	Inverse m_iRBPU;
 	Inverse m_iLVP;
 	Connection m_Q1;
 	Connection m_Q3;
@@ -354,6 +352,7 @@ class PortB_RB4: public BasicPortB {
 
   public:
 	PortB_RB4(Terminal &a_Pin, const std::string &a_name);
+	virtual ~PortB_RB4();
 	Connection &RBIF() { return m_RBIF; };
 	Connection &LVP()  { return m_LVP; };
 	Connection &PGM()  { return m_PGM; };
@@ -365,7 +364,6 @@ class PortB_RB4: public BasicPortB {
 // RB5
 class PortB_RB5: public BasicPortB {
 	Connection m_RBIF;
-	Inverse m_iRBPU;
 	Connection m_Q1;
 	Connection m_Q3;
 
@@ -374,6 +372,7 @@ class PortB_RB5: public BasicPortB {
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
   public:
 	PortB_RB5(Terminal &a_Pin, const std::string &a_name);
+	virtual ~PortB_RB5();
 	Connection &RBIF() { return m_RBIF; };
 	Connection &Q1()   { return m_Q1; };
 	Connection &Q3()   { return m_Q3; };
@@ -386,7 +385,6 @@ class PortB_RB6: public BasicPortB {
 	Connection m_T1OSCEN;
 	Connection m_T1OSC;      // from RB7
 	Connection m_TMR1_Clock;
-	Inverse m_iRBPU;
 	Inverse m_iT1OSCEN;
 	Connection m_Q1;
 	Connection m_Q3;
@@ -397,6 +395,8 @@ class PortB_RB6: public BasicPortB {
 
   public:
 	PortB_RB6(Terminal &a_Pin, const std::string &a_name);
+	virtual ~PortB_RB6();
+
 	Connection &RBIF()        { return m_RBIF; };
 	Connection &T1OSC()       { return m_T1OSC; };
 	Connection &T1OSCEN()     { return m_T1OSCEN; };
@@ -415,7 +415,6 @@ class PortB_RB7: public BasicPortB {
 	Connection m_T1OSCEN;
 	Connection m_T1OSC;      // to RB6
 	Connection m_SPROG;      // Serial programming input
-	Inverse m_iRBPU;
 	Inverse m_iT1OSCEN;
 	Connection m_Q1;
 	Connection m_Q3;
@@ -426,6 +425,8 @@ class PortB_RB7: public BasicPortB {
 
   public:
 	PortB_RB7(Terminal &a_Pin, const std::string &a_name);
+	virtual ~PortB_RB7();
+
 	Connection &RBIF()        { return m_RBIF; };
 	Connection &T1OSC()       { return m_T1OSC; };
 	Connection &T1OSCEN()     { return m_T1OSCEN; };

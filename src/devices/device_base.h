@@ -261,107 +261,31 @@ class Connection: public Device {
 	const float max_R = 1.0e+9;
 
   protected:
-	void queue_change(){  // Add a voltage change event to the queue
-		eq.queue_event(new DeviceEvent<Connection>(*this, "Voltage Change"));
-		if (debug())
-			std::cout << name() << ": processing events" << std::endl;
-		eq.process_events();
-		if (debug())
-			std::cout << name() << ": done processing events" << std::endl;
-	}
-
-	virtual float calc_voltage_drop(float out_voltage) {
-		float V = rd(false);
-		if (debug()) {
-			std::cout << name() << ": Calculating vDrop = out_voltage["<<out_voltage << "] - V[" ;
-			std::cout << V << "] = " << out_voltage - V << std::endl;
-		}
-		return out_voltage - V;
-	}
-
-	bool impeded_suppress_change(bool a_impeded) {
-		if (m_impeded != a_impeded) {
-			if (debug())
-				std::cout << "Connection " << name() << ": impeded " << m_impeded << " -> " << a_impeded << std::endl;
-			m_impeded = a_impeded;
-			if (m_impeded) m_vDrop = 0;
-			return true;
-		}
-		return false;
-	}
-
+	void queue_change();
+	virtual float calc_voltage_drop(float out_voltage);
+	bool impeded_suppress_change(bool a_impeded);
 
   public:
-	Connection(const std::string &a_name=""):
-		Device(a_name), m_V(Vss), m_conductance(1.0e+4), m_impeded(true), m_determinate(false), m_vDrop(0) {};
-	Connection(float V, bool impeded=true, const std::string &a_name=""):
-		Device(a_name), m_V(V), m_conductance(1.0e+4), m_impeded(impeded), m_determinate(true), m_vDrop(0) {
-	};
+	Connection(const std::string &a_name="");
+	Connection(float V, bool impeded=true, const std::string &a_name="");
+	virtual	~Connection();
 
-	virtual	~Connection() { eq.remove_events_for(this); }
+	virtual float rd(bool include_vdrop=false) const;
 
-	virtual float rd(bool include_vdrop=false) const {
-		float val = m_V + include_vdrop * vDrop();
-		if (debug()) {
-			if (include_vdrop)
-				std::cout << "Connection " << name() << ": read value ["<< m_V << " + " << vDrop() << "] = " << val << std::endl;
-			else
-				std::cout << "Connection " << name() << ": read value = " << val << std::endl;
-		}
-		return val;
-	}
+	float vDrop() const;
+	virtual bool signal() const;
+	virtual bool impeded() const;
+	virtual bool determinate() const;
+	virtual float set_vdrop(float out_voltage);
+	void impeded(bool a_impeded);
 
-	float vDrop() const { return m_vDrop; }
-
-	virtual bool signal() const { return rd(true) > Vdd/2.0; }
-	virtual bool impeded() const { return m_impeded; }
-	virtual bool determinate() const { return m_determinate || !impeded(); }
-	virtual float set_vdrop(float out_voltage) {
-		m_vDrop = calc_voltage_drop(out_voltage);
-		if (debug()) std::cout << "vDrop: " << name() << "= " << m_vDrop << std::endl;
-		return m_vDrop;
-	}
-//	virtual bool determinate() const { return m_determinate; }
-
-	void impeded(bool a_impeded) {
-		if (impeded_suppress_change(a_impeded)) queue_change();
-	}
-	void determinate(bool on) {
-		if (debug())
-			std::cout << name() << ": determinate " << m_determinate << " -> " << on << std::endl;
-		m_determinate = on;
-	}
-	void conductance(float iR) {  // set internal resistanve
-		if (iR >= min_R and iR <= max_R) {
-			m_conductance = iR;
-		} else if (iR < min_R) {
-			impeded(true);
-		}
-	}
-	virtual void R(float a_R) {  // set internal resistanve
-		conductance(1/a_R);
-	}
-
-	virtual float conductance() const {  // internal resistanve
-		return m_conductance;
-	}
-	virtual float R() const {  // internal resistanve
-		return 1/m_conductance;
-	}
-	virtual float I() const {  // maximum current given V & R
-		return m_vDrop * m_conductance;
-	}
-	virtual void set_value(float V, bool a_impeded) {
-		if (m_V != V || impeded() != a_impeded || !determinate()) {
-			determinate(true);     // the moment we change the value of a connection the value is determined
-			impeded_suppress_change(a_impeded);
-			m_V = V;
-			m_vDrop = 0;
-			if (debug())
-				std::cout << "Connection " << name() << ": set value V = " << V << std::endl;
-			queue_change();
-		}
-	}
+	void determinate(bool on);
+	void conductance(float iR);
+	virtual void R(float a_R);
+	virtual float conductance() const;
+	virtual float R() const;
+	virtual float I() const;
+	virtual void set_value(float V, bool a_impeded);
 };
 
 
@@ -378,93 +302,20 @@ class Terminal: public Connection {
 
   protected:
 
-	void recalc() {
-		if (m_connects.size()) {   // don't change value unless at least one connection
-			m_terminal_impeded = true;
-			float sum_conductance = 0;
-			float sum_v_over_R = 0;
-			for (auto &c : m_connects ) {
-				if (c->impeded()) {
-				} else {
-					m_terminal_impeded = false;
-					float iR = c->conductance();
-					float Vc = c->rd(false);
-					sum_conductance += iR;
-					sum_v_over_R += Vc * iR;
-				}
-			}
-			if (not m_terminal_impeded) {
-				conductance(sum_conductance);  // treat that external R as an internal R
-				float V = sum_v_over_R/sum_conductance;
-				Connection::set_value(V, Connection::impeded());       // the calculated voltage becomes our voltage
-			}
-		}
-	}
-
-	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		recalc();
-		for (auto &c : m_connects ) {
-			if (c->impeded()) {           // set voltage on outputs
-				c->set_value(rd(false), true);
-			}
-		}
-	}
-
-	virtual float calc_voltage_drop(float out_voltage) {
-		float total_vDrop = Connection::calc_voltage_drop(out_voltage); // vDrop = out_voltage - V
-		if ( not impeded() and m_connects.size()) {    // if we have inputs, update them
-			for (auto &c : m_connects ) {
-				if (not c->impeded()) {
-					c->set_vdrop(out_voltage);
-				}
-			}
-		}
-		return total_vDrop;
-	}
+	void recalc();
+	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
+	virtual float calc_voltage_drop(float out_voltage);
 
   public:
-	Terminal(const std::string name="Pin"): Connection(name), m_connects(), m_terminal_impeded(true) {}
-	Terminal(float V, const std::string name="Pin"): Connection(V, true, name), m_connects(), m_terminal_impeded(true) {}
-	virtual ~Terminal() {
-		for (auto &c : m_connects ) {
-			DeviceEvent<Connection>::unsubscribe<Terminal>(this, &Terminal::on_change, c);
-		}
-	}
-	void connect(Connection &c) {
-		if (m_connects.find(&c) == m_connects.end()) {
-			m_connects.insert(&c);
-			recalc();
-			DeviceEvent<Connection>::subscribe<Terminal>(this, &Terminal::on_change, &c);
-		}
-	}
-	void disconnect(Connection &c) {
-		if (m_connects.find(&c) != m_connects.end()) {
-			DeviceEvent<Connection>::unsubscribe<Terminal>(this, &Terminal::on_change, &c);
-			m_connects.erase(&c);
-			recalc();
-		}
-	}
-
-	virtual void set_value(float V, bool a_impeded) {
-		// NOTE: When our actual internal voltage is being determined by a pool of connections with at
-		//       least one input, we cannot (should not) override the internal voltage by using
-		//       set_value().   We can achieve the same effect as set_value() by setting default
-		//       direction, and calling set_vdrop() instead.
-		if (m_connects.size() and not m_terminal_impeded) {
-			Connection::impeded_suppress_change(a_impeded);
-			float drop = vDrop();
-			set_vdrop(V);
-			if (drop != vDrop()) queue_change();
-		} else {
-			Connection::set_value(V, a_impeded);
-		}
-	}
-
-	void impeded(bool a_impeded) { Connection::impeded(a_impeded); }
-	virtual bool impeded() const { if (m_connects.size()) return m_terminal_impeded; return Connection::impeded(); }
-	virtual float rd(bool include_vdrop=true) const {
-		return Connection::rd(include_vdrop);
-	}
+	Terminal(const std::string name="Pin");
+	Terminal(float V, const std::string name="Pin");
+	virtual ~Terminal();
+	void connect(Connection &c);
+	void disconnect(Connection &c);
+	virtual void set_value(float V, bool a_impeded);
+	void impeded(bool a_impeded);
+	virtual bool impeded() const;
+	virtual float rd(bool include_vdrop=true) const;
 };
 
 
@@ -473,10 +324,10 @@ class Terminal: public Connection {
 class Voltage: public Terminal {
 	float m_voltage;
 public:
-	Voltage(float V, const std::string name="Vin"): Terminal(V, name), m_voltage(V) {}
+	Voltage(float V, const std::string name="Vin");
 
-	virtual bool impeded() const { return false; }
-	virtual float rd(bool include_vdrop=true) const { return m_voltage; }
+	virtual bool impeded() const;
+	virtual float rd(bool include_vdrop=true) const;
 };
 
 //___________________________________________________________________________________
@@ -484,21 +335,17 @@ public:
 // lowest unimpeded, otherwise the highest impeded connection as the voltage
 class PullUp: public Connection {
 public:
-	PullUp(float V, const std::string name="Vin"): Connection(V, false, name) {
-		R(1.0e+6);
-	}
-
-	virtual bool impeded() const { return false; }
+	PullUp(float V, const std::string name="Vin");
+	virtual bool impeded() const;
 };
 
 //___________________________________________________________________________________
 // Ground.  Always zero.
 class Ground: public Voltage {
 public:
-	Ground(): Voltage(0, "GND") {}
-
-	virtual bool impeded() const { return false; }
-	virtual float rd(bool include_vdrop=true) const { return Vss; }
+	Ground();
+	virtual bool impeded() const;
+	virtual float rd(bool include_vdrop=true) const;
 };
 
 
@@ -507,27 +354,16 @@ public:
 class Inverse: public Connection {
 	Connection &c;
 
-	virtual void on_connection_change(Connection *c, const std::string &name, const std::vector<BYTE> &data)  {
-		queue_change();
-	}
+	virtual void on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data);
 
   public:
 
-	Inverse(Connection &a_c): Connection(), c(a_c) {
-		DeviceEvent<Connection>::subscribe<Inverse>(this, &Inverse::on_connection_change, &c);
-	}
-	virtual  ~Inverse() {
-		DeviceEvent<Connection>::unsubscribe<Inverse>(this, &Inverse::on_connection_change, &c);
-	}
+	Inverse(Connection &a_c);
+	virtual  ~Inverse();
 
-	virtual bool signal() const { return !c.signal(); }
-	virtual float rd(bool include_vdrop=true) const { return signal()?Vdd:Vss; }
-	virtual bool impeded() const { return c.impeded(); }
-	virtual bool determinate() const { return c.determinate() || !impeded(); }
-
-	virtual void set_value(float V, bool a_impeded) { c.set_value(V, a_impeded); }
-	void impeded(bool a_impeded) { c.impeded(a_impeded); }
-	void determinate(bool on) { c.determinate(on); }
+	virtual void set_value(float V, bool a_impeded);
+	void impeded(bool a_impeded);
+	void determinate(bool on);
 };
 
 //___________________________________________________________________________________
@@ -541,29 +377,21 @@ class Output: public Connection {
 	Connection &c;
 	bool wrapper;
 
-	virtual void on_connection_change(Connection *c, const std::string &name, const std::vector<BYTE> &data)  {
-		queue_change();
-	}
+	virtual void on_connection_change(Connection *c, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	Output(): Connection(), c(*this), wrapper(false) {}
-	Output(Connection &a_c): Connection(), c(a_c), wrapper(true) {
-		DeviceEvent<Connection>::subscribe<Output>(this, &Output::on_connection_change, &c);
-	}
-	Output(float V, const std::string &a_name=""): Connection(V, false, a_name), c(*this), wrapper(false) {};
-	virtual ~Output() {
-		if (wrapper)
-			DeviceEvent<Connection>::unsubscribe<Output>(this, &Output::on_connection_change, &c);
-	}
+	Output();
+	Output(Connection &a_c);
+	Output(float V, const std::string &a_name="");
+	virtual ~Output();
+	virtual bool signal() const;
+	virtual float rd(bool include_vdrop=true) const;
+	virtual bool impeded() const;
+	virtual bool determinate() const;
 
-	virtual bool signal() const { if (wrapper) return c.signal(); return Connection::signal(); }
-	virtual float rd(bool include_vdrop=true) const { if (wrapper) return c.rd(); return Connection::rd(); }
-	virtual bool impeded() const { return false; }
-	virtual bool determinate() const { return true; }
-
-	virtual void set_value(float V, bool a_impeded=true) { if (wrapper) c.set_value(V, false); else Connection::set_value(V, false); }
-	void impeded(bool a_impeded) { if (wrapper) c.impeded(false); else Connection::impeded(false); }
-	void determinate(bool on) { if (wrapper) c.determinate(true); else Connection::determinate(true); }
+	virtual void set_value(float V, bool a_impeded=true);
+	void impeded(bool a_impeded);
+	void determinate(bool on);
 };
 
 
@@ -577,29 +405,22 @@ class Input: public Connection {
 	Connection &c;
 	bool wrapper;
 
-	virtual void on_connection_change(Connection *c, const std::string &name, const std::vector<BYTE> &data)  {
-		queue_change();
-	}
+	virtual void on_connection_change(Connection *c, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	Input(): Connection(), c(*this), wrapper(false) {}
-	Input(Connection &a_c): Connection(), c(a_c), wrapper(true) {
-		DeviceEvent<Connection>::subscribe<Input>(this, &Input::on_connection_change, &c);
-	}
-	Input(float V, const std::string &a_name=""): Connection(V, false, a_name), c(*this), wrapper(false) {};
-	virtual ~Input() {
-		if (wrapper)
-			DeviceEvent<Connection>::unsubscribe<Input>(this, &Input::on_connection_change, &c);
-	}
+	Input();
+	Input(Connection &a_c);
+	Input(float V, const std::string &a_name="");
+	virtual ~Input();
 
-	virtual bool signal() const { if (wrapper) return c.signal(); return Connection::signal(); }
-	virtual float rd(bool include_vdrop=true) const { if (wrapper) return c.rd(); return Connection::rd(); }
-	virtual bool impeded() const { return true; }
-	virtual bool determinate() const { if (wrapper) return c.determinate(); return Connection::determinate(); }
+	virtual bool signal() const;
+	virtual float rd(bool include_vdrop=true) const;
+	virtual bool impeded() const;
+	virtual bool determinate() const;
 
-	virtual void set_value(float V, bool a_impeded=true) { if (wrapper) c.set_value(V, true); else Connection::set_value(V, true); }
-	void impeded(bool a_impeded) { if (wrapper) c.impeded(true); else Connection::impeded(true); }
-	void determinate(bool on) { if (wrapper) c.determinate(on); else Connection::determinate(on); }
+	virtual void set_value(float V, bool a_impeded=true);
+	void impeded(bool a_impeded);
+	void determinate(bool on);
 };
 
 //___________________________________________________________________________________
@@ -610,35 +431,22 @@ class ABuffer: public Device {
 	Output m_out;
 
   public:
-	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		if (debug()) {
-			std::cout << "Buffer " << this->name() << " received event " << name << std::endl;
-		}
-		m_out.set_value(D->rd());
-	}
+	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
-	ABuffer(Connection &in, const std::string &a_name=""): Device(a_name), m_in(in), m_out(Vss) {
-		DeviceEvent<Connection>::subscribe<ABuffer>(this, &ABuffer::on_change, &m_in);
-	}
-	virtual ~ABuffer() {
-		DeviceEvent<Connection>::unsubscribe<ABuffer>(this, &ABuffer::on_change, &m_in);
-	}
-	void wr(float in) { m_in.set_value(in, true); }
-	Connection &rd() { return m_out; }
+	ABuffer(Connection &in, const std::string &a_name="");
+	virtual ~ABuffer();
+	void wr(float in);
+	Connection &rd();
 };
 
 //___________________________________________________________________________________
 // Inverts a high impedence input and outputs a signal
 class Inverter: public ABuffer {
 
-	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		m_out.set_value(!(D->signal()) * Vdd);
-	}
+	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	Inverter(Connection &in, const std::string &a_name=""): ABuffer(in, a_name) {
-		m_out.set_value(!(in.signal()) * Vdd);
-	}
+	Inverter(Connection &in, const std::string &a_name="");
 };
 
 //___________________________________________________________________________________
@@ -648,34 +456,14 @@ class AndGate: public Device {
 	Output m_out;
 	bool m_inverted;
 
-	void recalc() {
-		if (!m_in.size()) return;
-		bool sig = m_in[0]->signal();
-		for (size_t n = 1; n < m_in.size(); ++n) {
-			sig = sig & m_in[n]->signal();
-		}
-		m_out.set_value((m_inverted ^ sig) * Vdd);
-	}
-	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		if (debug()) {
-			std::cout << "AndGate " << this->name() << " received event " << name << std::endl;
-		}
-		recalc();
-	}
+	void recalc();
+	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	AndGate(const std::vector<Connection *> &in, bool inverted=false, const std::string &a_name=""):
-		Device(a_name), m_in(in), m_out(Vdd), m_inverted(inverted) {
-		for (size_t n = 0; n < m_in.size(); ++n)
-			DeviceEvent<Connection>::subscribe<AndGate>(this, &AndGate::on_change, m_in[n]);
-		recalc();
-	}
-	virtual ~AndGate() {
-		for (size_t n = 0; n < m_in.size(); ++n)
-			DeviceEvent<Connection>::unsubscribe<AndGate>(this, &AndGate::on_change, m_in[n]);
-	}
-	void inputs(const std::vector<Connection *> &in) { m_in = in; }
-	Connection &rd() { return m_out; }
+	AndGate(const std::vector<Connection *> &in, bool inverted=false, const std::string &a_name="");
+	virtual ~AndGate();
+	void inputs(const std::vector<Connection *> &in);
+	Connection &rd();
 };
 
 //___________________________________________________________________________________
@@ -685,36 +473,15 @@ class OrGate: public Device {
 	Output m_out;
 	bool m_inverted;
 
-	void recalc() {
-		if (!m_in.size()) return;
-		if (debug()) std::cout << (m_inverted?"N":"") << "OR." << name() << "(";
-		bool sig = m_in[0]->signal();
-		if (debug()) std::cout << m_in[0]->name() << "[" << sig << "]";
-		for (size_t n = 1; n < m_in.size(); ++n) {
-			sig = sig | m_in[n]->signal();
-			if (debug()) std::cout << ", " << m_in[n]->name()  << "[" << m_in[n]->signal() << "]";
-		}
-		if (debug()) std::cout << ") = " << (m_inverted ^ sig) << std::endl;
-		m_out.set_value((m_inverted ^ sig) * Vdd);
-	}
+	void recalc();
 
-	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		recalc();
-	}
+	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	OrGate(const std::vector<Connection *> &in, bool inverted=false, const std::string &a_name=""):
-		Device(a_name), m_in(in), m_out(Vdd), m_inverted(inverted) {
-		for (size_t n = 0; n < m_in.size(); ++n)
-			DeviceEvent<Connection>::subscribe<OrGate>(this, &OrGate::on_change, m_in[n]);
-		recalc();
-	}
-	virtual ~OrGate() {
-		for (size_t n = 0; n < m_in.size(); ++n)
-			DeviceEvent<Connection>::unsubscribe<OrGate>(this, &OrGate::on_change, m_in[n]);
-	}
-	bool inverted() { return m_inverted; }
-	Connection &rd() { return m_out; }
+	OrGate(const std::vector<Connection *> &in, bool inverted=false, const std::string &a_name="");
+	virtual ~OrGate();
+	bool inverted();
+	Connection &rd();
 };
 
 //___________________________________________________________________________________
@@ -724,37 +491,14 @@ class XOrGate: public Device {
 	Output m_out;
 	bool m_inverted;
 
-	void recalc() {
-		if (!m_in.size()) return;
-
-		bool sig = m_in[0]->signal();
-		if (debug()) std::cout << sig;
-		for (size_t n = 1; n < m_in.size(); ++n) {
-			if (debug()) std::cout << "^" << m_in[n]->signal();
-			sig = sig ^ m_in[n]->signal();
-		}
-		if (debug()) std::cout << " = " << sig << std::endl;
-		m_out.set_value((m_inverted ^ sig) * Vdd);
-	}
-
-	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		recalc();
-	}
+	void recalc();
+	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	XOrGate(const std::vector<Connection *> &in, bool inverted=false, const std::string &a_name=""):
-		Device(a_name), m_in(in), m_out(Vdd), m_inverted(inverted) {
-
-		for (size_t n = 0; n < m_in.size(); ++n)
-			DeviceEvent<Connection>::subscribe<XOrGate>(this, &XOrGate::on_change, m_in[n]);
-		recalc();
-	}
-	virtual ~XOrGate() {
-		for (size_t n = 0; n < m_in.size(); ++n)
-			DeviceEvent<Connection>::unsubscribe<XOrGate>(this, &XOrGate::on_change, m_in[n]);
-	}
-	bool inverted() { return m_inverted; }
-	Connection &rd() { return m_out; }
+	XOrGate(const std::vector<Connection *> &in, bool inverted=false, const std::string &a_name="");
+	virtual ~XOrGate();
+	bool inverted();
+	Connection &rd();
 };
 
 //___________________________________________________________________________________
@@ -783,140 +527,29 @@ class Wire: public Device {
 	float m_sum_v_over_R;
 
 
-	float recalc() {
-		indeterminate = true;
-		if (debug()) std::cout << "read wire " << name() << ": [";
-		float sum_conductance = 0;
-		float sum_v_over_R = 0;
-		for (auto conn = connections.begin(); conn != connections.end(); ++conn) {
-			if (debug()) {
-				std::cout << (conn == connections.begin()?"":", ");
-				std::cout << (*conn)->name();
-			}
-			float v = (*conn)->rd(false);
-			if ((*conn)->impeded())  {
-				if (debug()) std::cout << "[o]: ";
-			} else {
-				indeterminate = false;
-				float iR = (*conn)->conductance();
-				if (debug()) std::cout << "[i]: ";
-				sum_conductance += iR;
-				sum_v_over_R += v * iR;
-			}
-		}
-		float V = Vss;
-		if (not indeterminate) {
-			m_sum_conductance = sum_conductance;
-			m_sum_v_over_R = sum_v_over_R;
-			V = sum_v_over_R/sum_conductance;
-		}
-		if (debug()) {
-			if (indeterminate) {
-				std::cout << "] is indeterminate" << std::endl;
-			} else {
-				std::cout << "] = " << V << "v" << std::endl;
-			}
-		}
-		return V;
-	}
-
-	bool assert_voltage() {  // fires signals to any impeded connections
-		float V = recalc();
-		bool changed = Voltage != V;
-		if (debug()) {
-			if (!indeterminate) {
-				std::cout << "Wire: " << name() << " is at " << (indeterminate?"unknown":"");
-				std::cout << V << "v";
-				std::cout << std::endl;
-			}
-			std::cout << name() << ": changing Voltage from " << Voltage << " to " << V << std::endl;
-		}
-		Voltage = V;
-		for (auto conn = connections.begin(); conn != connections.end(); ++conn) {
-			if ((*conn)->impeded()) {
-				if (indeterminate)
-					(*conn)->determinate(false);
-				else {
-					(*conn)->set_value(V, true);
-				}
-			} else if (not indeterminate) {
-				(*conn)->set_vdrop(V);
-			}
-		}
-		return changed;
-	}
-
-	void queue_change(){  // Add a voltage change event to the queue
-		if (assert_voltage()) {        // determine wire voltage and update impeded connections
-			eq.queue_event(new DeviceEvent<Wire>(*this, "Wire Voltage Change"));
-			eq.process_events();
-		}
-	}
-
-	void on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data) {
-		if (debug()) {
-			const char *direction = " <-- ";
-			if (conn->impeded()) direction = " ->| ";
-			std::cout << "Wire " << this->name() << direction << "Event " << conn->name() << " changed to " << conn->rd() << "V [";
-			std::cout << (conn->impeded()?"o":"i") << "]" << std::endl;
-		}
-		queue_change();
-	}
+	float recalc();
+	bool assert_voltage();
+	void queue_change();
+	void on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	Wire(const std::string &a_name=""): Device(a_name), indeterminate(true), Voltage(0), m_sum_conductance(0), m_sum_v_over_R(0) {}
+	Wire(const std::string &a_name="");
+	Wire(Connection &from, Connection &to, const std::string &a_name="");
+	virtual	~Wire();
 
-	Wire(Connection &from, Connection &to, const std::string &a_name=""): Device(a_name), indeterminate(true), Voltage(0) {
-		connect(from); connect(to);
-	}
+	void connect(Connection &connection, const std::string &a_name="");
+	void disconnect(const Connection &connection);
 
-	virtual	~Wire() {
-		eq.remove_events_for(this);
-		for (auto conn=connections.begin(); conn != connections.end(); ++conn) {
-			DeviceEvent<Connection>::unsubscribe<Wire>(this, &Wire::on_connection_change, *conn);
-		}
-	}
-
-	void connect(Connection &connection, const std::string &a_name="") {
-		connections.push_back(&connection);
-		if (a_name.length()) connection.name(a_name);
-		DeviceEvent<Connection>::subscribe<Wire>(this, &Wire::on_connection_change, &connection);
-		queue_change();
-	}
-	void disconnect(const Connection &connection) {
-		for (auto conn=connections.begin(); conn != connections.end(); ++conn) {
-			if (&(**conn) == &connection) {
-				DeviceEvent<Connection>::unsubscribe<Wire>(this, &Wire::on_connection_change,
-						const_cast<Connection *>(&connection));
-				connections.erase(conn);
-				break;
-			}
-		}
-		queue_change();
-	}
-
-	float rd(bool include_vdrop=false) {
-		if (debug()) std::cout << name() << ": rd() = " << Voltage << std::endl;
-		return Voltage;
-	}
-
-	bool determinate() { return !indeterminate; }
-	bool signal() {
-		float V = rd();
-		return V > Vdd/2.0;
-	}
+	float rd(bool include_vdrop=false);
+	bool determinate();
+	bool signal();
 };
 
 //___________________________________________________________________________________
 // A buffer whos output impedence depends on a third state signal
 class Tristate: public Device {
 
-	void pr_debug_info(const std::string &what) {
-		std::cout << "  *** on " << what << ":" << this->name();
-		std::cout << " gate=" << ((m_gate->signal()^m_invert_gate)?"high":"low") << ": output set to " << (m_out.impeded()?"high impedence":"");
-		if (!m_out.impeded()) std::cout << m_out.rd();
-		std::cout << std::endl;
-	}
+	void pr_debug_info(const std::string &what);
 
   protected:
 	Connection *m_in;
@@ -926,68 +559,29 @@ class Tristate: public Device {
 	bool m_invert_output;
 
 
-	void recalc_output() {
-		bool impeded = !m_gate->signal();
-		bool out = m_in->signal();
-		if (m_invert_output) out = !out;
-		if (m_invert_gate) impeded = !impeded;
-		if (impeded) out = false;
-		m_out.set_value(out * Vdd, impeded);
-	}
-
-	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		recalc_output();
-		if (debug()) pr_debug_info("input change");
-	}
-
-	virtual void on_gate_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		recalc_output();
-		if (debug()) pr_debug_info("gate change");
-	}
+	void recalc_output();
+	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
+	virtual void on_gate_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	Tristate(Connection &in, Connection &gate, bool invert_gate=false, bool invert_output=false, const std::string &a_name="ts"):
-		Device(a_name), m_in(&in), m_gate(&gate), m_out(name()+"::out"), m_invert_gate(invert_gate), m_invert_output(invert_output) {
-		DeviceEvent<Connection>::subscribe<Tristate>(this, &Tristate::on_change, m_in);
-		DeviceEvent<Connection>::subscribe<Tristate>(this, &Tristate::on_gate_change, m_gate);
+	Tristate(Connection &in, Connection &gate, bool invert_gate=false, bool invert_output=false, const std::string &a_name="ts");
+	virtual ~Tristate();
+	void set_name(const std::string &a_name);
+	bool signal() const;
+	bool impeded() const;
+	bool inverted() const;
+	bool gate_invert() const;
 
-		m_out.name(name()+".out");
-		recalc_output();
-	}
-	virtual ~Tristate() {
-		DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_change, m_in);
-		DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_gate_change, m_gate);
-	}
-	void set_name(const std::string &a_name) {
-		name(a_name);
-		m_out.name(name()+".output");
-	};
-	bool signal() const { return m_out.signal(); }
-	bool impeded() const { return m_out.impeded(); }
-	bool inverted() const { return m_invert_output; }
-	bool gate_invert() const { return m_invert_gate; }
+	Tristate &inverted(bool v);
+	Tristate &gate_invert(bool v);
 
-	Tristate &inverted(bool v) { m_invert_output = v; recalc_output(); return *this; }
-	Tristate &gate_invert(bool v) { m_invert_gate = v; recalc_output(); return *this; }
+	void wr(float in);
+	void input(Connection &in);
+	void gate(Connection &gate);
 
-	void wr(float in) { m_in->set_value(in, true); }
-	void input(Connection &in) {
-		DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_change, m_in);
-		m_in = &in; recalc_output();
-		DeviceEvent<Connection>::subscribe<Tristate>(this, &Tristate::on_change, m_in);
-		if (debug()) pr_debug_info("input replaced");
-	}
-	void gate(Connection &gate) {
-		DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_gate_change, m_gate);
-		m_gate = &gate;
-		DeviceEvent<Connection>::subscribe<Tristate>(this, &Tristate::on_gate_change, m_gate);
-		recalc_output();
-		if (debug()) pr_debug_info("gate replaced");
-	}
-
-	Connection &input() { return *m_in; }
-	Connection &gate() { return *m_gate; }
-	Connection &rd() { return m_out; }
+	Connection &input();
+	Connection &gate();
+	Connection &rd();
 };
 
 //___________________________________________________________________________________
@@ -997,27 +591,11 @@ class Clamp: public Device {
 	float m_lo;
 	float m_hi;
 
-	void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		float in = m_in.rd();
-		bool changed = false;
-		if (in < m_lo) {
-			in = m_lo; changed = true;
-		}
-		if (in > m_hi) {
-			in = m_hi; changed = true;
-		}
-		if (changed)
-			m_in.set_value(in, m_in.impeded());
-	}
+	void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	Clamp(Connection &in, float vLow=0.0, float vHigh=5.0):
-		m_in(in), m_lo(vLow), m_hi(vHigh) {
-		DeviceEvent<Connection>::subscribe<Clamp>(this, &Clamp::on_change, &m_in);
-	};
-	~Clamp() {
-		DeviceEvent<Connection>::unsubscribe<Clamp>(this, &Clamp::on_change, &m_in);
-	}
+	Clamp(Connection &in, float vLow=0.0, float vHigh=5.0);
+	~Clamp();
 };
 
 
@@ -1030,36 +608,18 @@ class Relay: public Device {
 	Connection &m_sw;
 	Connection m_out;
 
-	void recalc_output() {
-		bool impeded = !m_sw.signal(); // open circuit if not signal
-		float out = m_in.rd();
-		m_out.set_value(out, impeded);
-	}
-
-	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		recalc_output();
-	}
-
-	virtual void on_sw_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		recalc_output();
-	}
+	void recalc_output();
+	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
+	virtual void on_sw_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	Relay(Connection &in, Connection &sw, const std::string &a_name="sw"):
-		Device(a_name), m_in(in), m_sw(sw), m_out(name()+"::out") {
-		recalc_output();
-		DeviceEvent<Connection>::subscribe<Relay>(this, &Relay::on_change, &m_in);
-		DeviceEvent<Connection>::subscribe<Relay>(this, &Relay::on_sw_change, &m_sw);
-	}
-	virtual ~Relay() {
-		DeviceEvent<Connection>::unsubscribe<Relay>(this, &Relay::on_change, &m_in);
-		DeviceEvent<Connection>::unsubscribe<Relay>(this, &Relay::on_sw_change, &m_sw);
-	}
-	bool signal() { return m_out.signal(); }
+	Relay(Connection &in, Connection &sw, const std::string &a_name="sw");
+	virtual ~Relay();
+	bool signal();
 
-	Connection &in() { return m_in; }
-	Connection &sw() { return m_sw; }
-	Connection &rd() { return m_out; }
+	Connection &in();
+	Connection &sw();
+	Connection &rd();
 };
 
 
@@ -1073,45 +633,20 @@ class Latch: public Device {
 	bool m_positive;
 	bool m_clocked;
 
-	void on_clock_change(Connection *Ck, const std::string &name, const std::vector<BYTE> &data) {
-		if (debug()) std::cout << this->name() << ": Ck is " << Ck->signal() << std::endl;
-		if ((m_positive ^ (!Ck->signal()))) {
-			m_Q.set_value(m_D.rd());
-			if (debug()) std::cout << this->name() << ": Q was set to " << m_Q.rd() << std::endl;
-		}
-	}
-
-	void on_data_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		if (m_positive ^ (!m_Ck.signal())) {
-			if (debug()) std::cout << this->name() << ": D is " << D->signal() << std::endl;
-			m_Q.set_value(D->rd());
-		}
-	}
+	void on_clock_change(Connection *Ck, const std::string &name, const std::vector<BYTE> &data);
+	void on_data_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:   // pulsed==true simulates a D flip flop, otherwise its a transparent latch
-	Latch(Connection &D, Connection &Ck, bool positive=false, bool clocked=true):
-		m_D(D), m_Ck(Ck), m_Q(Vss), m_Qc(m_Q), m_positive(positive), m_clocked(clocked) {
-		DeviceEvent<Connection>::subscribe<Latch>(this, &Latch::on_clock_change, &m_Ck);
-		if (!m_clocked)
-			DeviceEvent<Connection>::subscribe<Latch>(this, &Latch::on_data_change, &m_D);
-	}
-	virtual ~Latch() {
-		DeviceEvent<Connection>::unsubscribe<Latch>(this, &Latch::on_clock_change, &m_Ck);
-		if (!m_clocked)
-			DeviceEvent<Connection>::unsubscribe<Latch>(this, &Latch::on_data_change, &m_D);
-	}
+	Latch(Connection &D, Connection &Ck, bool positive=false, bool clocked=true);
+	virtual ~Latch();
 
-	bool clocked() { return m_clocked; }
-	void set_name(const std::string &a_name) {
-		name(a_name);
-		m_Q.name(a_name+"::Q");
-		m_Qc.name(a_name+"::Qc");
-	}
+	bool clocked();
+	void set_name(const std::string &a_name);
 
-	Connection &D() {return m_D; }
-	Connection &Ck() {return m_Ck; }
-	Connection &Q() {return m_Q; }
-	Connection &Qc() {return m_Qc; }
+	Connection &D();
+	Connection &Ck();
+	Connection &Q();
+	Connection &Qc();
 };
 
 //___________________________________________________________________________________
@@ -1123,115 +658,40 @@ class Mux: public Device {
 	Output m_out;
 	BYTE m_idx;
 
-	void calculate_select() {
-		m_idx = 0;
-		for (int n = m_select.size()-1; n >= 0; --n) {
-			m_idx = m_idx << 1;
-			m_idx |= m_select[n]->signal();
-		}
-		if (m_idx >= m_in.size()) throw(name() + std::string(": Multiplexer index beyond input bounds"));
-	}
-
-	void set_output() {
-		float value = m_in[m_idx]->rd();
-		if (debug()) std::cout << "MUX." << name() << " sel(" << (int)m_idx << ") = " << value << std::endl;
-		m_out.set_value(value);
-	}
-
-	virtual void on_change(Connection *D, const std::string &name) {
-		if (D == m_in[m_idx])     // only pays attention to the selected input
-			set_output();
-	}
-
-	virtual void on_select(Connection *D, const std::string &name) {
-		calculate_select();
-		set_output();
-	}
+	void calculate_select();
+	void set_output();
+	virtual void on_change(Connection *D, const std::string &name);
+	virtual void on_select(Connection *D, const std::string &name);
 
   public:
-	Mux(const std::vector<Connection *> &in, const std::vector<Connection *> &select, const std::string &a_name="mux"):
-		Device(a_name), m_in(in), m_select(select), m_out(Vdd),  m_idx(0) {
-		if (m_select.size() > 8) throw(name() + ": Mux supports a maximum of 8 bits, or 256 inputs");
-		for (size_t n = 0; n < m_in.size(); ++n) {
-			DeviceEvent<Connection>::subscribe<Mux>(this, &Mux::on_change, m_in[n]);
-		}
-		for (size_t n = 0; n < m_select.size(); ++n) {
-			DeviceEvent<Connection>::subscribe<Mux>(this, &Mux::on_select, m_select[n]);
-		}
-		calculate_select();
-		set_output();
-	}
-	virtual ~Mux() {
-		for (size_t n = 0; n < m_in.size(); ++n) {
-			DeviceEvent<Connection>::unsubscribe<Mux>(this, &Mux::on_change, m_in[n]);
-		}
-		for (size_t n = 0; n < m_select.size(); ++n) {
-			DeviceEvent<Connection>::unsubscribe<Mux>(this, &Mux::on_select, m_select[n]);
-		}
-	}
-	Connection &in(int n) { return *m_in[n]; }
-	Connection &select(int n) { return *m_select[n]; }
-	Connection &rd() { return m_out; }
-	size_t no_inputs() { return m_in.size(); }
-	size_t no_selects() { return m_select.size(); }
+	Mux(const std::vector<Connection *> &in, const std::vector<Connection *> &select, const std::string &a_name="mux");
+	virtual ~Mux();
+	Connection &in(int n);
+	Connection &select(int n);
+	Connection &rd();
+	size_t no_inputs();
+	size_t no_selects();
 };
 
+
+//______________________________________________________________
+// A FET approximation (voltage controlled switch).
 class FET: public Device {
 	Connection &m_in;
 	Connection &m_gate;
 	Connection m_out;
 	bool       m_is_nType;
 
-	void recalc() {
-		float in = m_in.rd(), out = m_out.rd();
-		if (!m_in.determinate()) in = out;
-		if (!m_out.determinate()) out = in;
-
-		if (debug()) {
-			std::cout << (m_is_nType?"n":"p");
-			std::cout << "FET: " << name() << "; in=" << in << "; out=" << out << " gate signal=" << m_gate.signal();
-			std::cout << std::endl;
-		}
-
-		if (m_is_nType) {
-			if (m_gate.signal()) {
-				if (m_in.rd() != out) m_in.set_value(out, false);
-				if (m_out.rd() != in) m_out.set_value(in, false);
-			} else {
-				m_in.set_value(in, true);
-				m_out.set_value(in, true);
-			}
-		} else {
-			if (m_gate.signal()) {
-				m_in.set_value(in, true);
-				m_out.set_value(in, true);
-			} else {
-				if (m_in.rd() != out) m_in.set_value(out, false);
-				if (m_out.rd() != in) m_out.set_value(in, false);
-			}
-		}
-	}
-	virtual void on_change(Connection *D, const std::string &name) {
-		recalc();
-	}
+	void recalc();
+	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
+	virtual void on_output_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
 public:
-	FET(Connection &in, Connection &gate, bool is_nType = true, bool dbg=false):
-	m_in(in), m_gate(gate), m_is_nType(is_nType) {
-		debug(dbg);
-		DeviceEvent<Connection>::subscribe<FET>(this, &FET::on_change, &m_in);
-		DeviceEvent<Connection>::subscribe<FET>(this, &FET::on_change, &m_gate);
-//		DeviceEvent<Connection>::subscribe<FET>(this, &FET::on_change, &m_out);
-		recalc();
-	}
-	virtual ~FET() {
-		DeviceEvent<Connection>::unsubscribe<FET>(this, &FET::on_change, &m_in);
-		DeviceEvent<Connection>::unsubscribe<FET>(this, &FET::on_change, &m_gate);
-//		DeviceEvent<Connection>::unsubscribe<FET>(this, &FET::on_change, &m_out);
-	}
-	const Connection &in() const { return m_in; }
-	const Connection &gate() const { return m_gate; }
-	Connection &rd() { return m_out; }
+	FET(Connection &in, Connection &gate, bool is_nType = true, bool dbg=false);
+	virtual ~FET();
+	const Connection& in() const;
+	const Connection& gate() const;
+	Connection &rd();
 };
 
 //___________________________________________________________________________________
@@ -1247,58 +707,19 @@ class Schmitt: public Device {
 	const float m_lo = Vdd / 10.0 * 4;
 	const float m_hi = Vdd / 10.0 * 6;
 
-	void recalc() {
-		//  inv   sig   en    ( xor function )
-		//  0     0     0
-		//  0     1     1
-		//  1     0     1
-		//  1     1     0
-		bool enabled = m_gate_invert ^ m_enable.signal();
-
-		float Vout = m_out.rd();
-		if (!enabled)     // high impedence
-			m_out.set_value(Vss, true);
-		else {
-			double Vin = m_in.rd();
-			if ((Vin > m_hi && Vout < m_hi) || (Vin < m_lo && Vout > m_lo)) {
-				Vout = m_out_invert?(!m_in.signal())*Vdd:m_in.signal()*Vdd;
-				m_out.set_value(Vout, false);
-			} else if ((Vin > m_hi && Vout > m_hi) || (Vin < m_lo && Vout < m_lo)) {
-				Vout = m_out_invert?(!m_in.signal())*Vdd:m_in.signal()*Vdd;
-				m_out.set_value(Vout, false);
-			}
-		}
-	}
-
-	void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		recalc();
-	}
+	void recalc();
+	void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	Schmitt(Connection &in, Connection &en, bool impeded=false, bool gate_invert=true, bool out_invert=false):
-		m_in(in), m_enable(en), m_out(Vss, impeded), m_gate_invert(gate_invert), m_out_invert(out_invert) {
-		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, &m_in);
-		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, &m_enable);
-		recalc();
-	}
-	Schmitt(Connection &in, bool impeded=false, bool out_invert=false):
-		m_in(in), m_enable(m_enabled), m_out(Vss, impeded), m_gate_invert(false), m_out_invert(out_invert) {
-		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, &m_in);
-		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, &m_enable);
-		m_enable.set_value(Vdd, true);     // No enable signal, so always true
-		recalc();
-	}
-	virtual ~Schmitt() {
-		DeviceEvent<Connection>::unsubscribe<Schmitt>(this, &Schmitt::on_change, &m_in);
-		DeviceEvent<Connection>::unsubscribe<Schmitt>(this, &Schmitt::on_change, &m_enable);
-	}
+	Schmitt(Connection &in, Connection &en, bool impeded=false, bool gate_invert=true, bool out_invert=false);
+	Schmitt(Connection &in, bool impeded=false, bool out_invert=false);
+	virtual ~Schmitt();
 
-	void gate_invert(bool invert) { m_gate_invert = invert; recalc(); }
-	void out_invert(bool invert) { m_out_invert = invert; recalc(); }
+	void gate_invert(bool invert);
+	void out_invert(bool invert);
 
-	Connection &in() { return m_in; }
-	Connection &en() { return m_enable; }
-	Connection &rd() { return m_out; }
+	Connection &in();
+	Connection &en();
+	Connection &rd();
 };
-
 

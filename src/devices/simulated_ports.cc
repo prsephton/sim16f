@@ -629,6 +629,7 @@ Connection &SinglePortA_Analog_RA4::TMR0() {
 	}
 	SinglePortA_MCLR_RA5::~SinglePortA_MCLR_RA5(){
 		DeviceEvent<Register>::unsubscribe<SinglePortA_MCLR_RA5>(this, &SinglePortA_MCLR_RA5::on_register_change);
+		DeviceEvent<Connection>::unsubscribe<SinglePortA_MCLR_RA5>(this, &SinglePortA_MCLR_RA5::HV_Detect, &Pin);
 	}
 	Wire &SinglePortA_MCLR_RA5::bus_line() { return dynamic_cast<Wire &>(*m_components["Data Bus"]); }
 	Connection &SinglePortA_MCLR_RA5::data() { return Data; }
@@ -821,7 +822,7 @@ BasicPortB::BasicPortB(Terminal &a_Pin, const std::string &a_name, int port_bit_
 
 	AndGate *RBPU_GATE = new AndGate({&m_iRBPU, &TrisLatch.Q()}, true, "RBPU NAND");
 
-	Voltage *VDD = new Voltage(Vdd, "Vdd");
+	PullUp *VDD = new PullUp(Vdd, "Vdd");
 	c["VDD"] = VDD;
 
 	Inverse *iFETGate = new Inverse(RBPU_GATE->rd());
@@ -840,6 +841,11 @@ BasicPortB::BasicPortB(Terminal &a_Pin, const std::string &a_name, int port_bit_
 	PinWire.connect(Tristate1->rd());
 }
 
+BasicPortB::~BasicPortB() {
+
+}
+
+
 //___________________________________________________________________________
 //  RB0 adds a schmitt trigger connected to an external interrupt signal
 PortB_RB0::PortB_RB0(Terminal &a_Pin, const std::string &a_name):
@@ -849,7 +855,6 @@ PortB_RB0::PortB_RB0(Terminal &a_Pin, const std::string &a_name):
 
 	Schmitt *trigger = new Schmitt(PinOut(), true, false);
 	Wire *IntWire = new Wire(trigger->rd(), m_INT, "INT");
-
 
 	c["INT_TRIGGER"] = trigger;
 	c["INT_WIRE"] = IntWire;
@@ -867,14 +872,14 @@ void PortB_RB1::process_register_change(Register *r, const std::string &name, co
 }
 
 PortB_RB1::PortB_RB1(Terminal &a_Pin, const std::string &a_name):
-	BasicPortB(a_Pin, a_name, 1), m_Peripheral_OE(Vdd), m_iRBPU(RBPU()), m_iSPEN(m_SPEN)
+	BasicPortB(a_Pin, a_name, 1), m_Peripheral_OE(Vdd), m_iSPEN(m_SPEN)
 {
 	auto &c = components();
 	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
 	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
 	Tristate &TS1 = dynamic_cast<Tristate &>(*c["Tristate1"]);
 	AndGate &PU_en = dynamic_cast<AndGate &>(*c["RBPU_NAND"]);
-	PU_en.inputs({&m_iRBPU, &TrisLatch.Q(), &m_iSPEN});
+	PU_en.inputs({&iRBPU(), &TrisLatch.Q(), &m_iSPEN});
 
 	Schmitt *trigger = new Schmitt(PinOut(), true, false);
 	Wire *USART_RECWire = new Wire(trigger->rd(), m_USART_Receive, "USART receive input");
@@ -905,14 +910,14 @@ void PortB_RB2::process_register_change(Register *r, const std::string &name, co
 }
 
 PortB_RB2::PortB_RB2(Terminal &a_Pin, const std::string &a_name):
-	BasicPortB(a_Pin, a_name, 2), m_iRBPU(RBPU()), m_iSPEN(m_SPEN)
+	BasicPortB(a_Pin, a_name, 2), m_iSPEN(m_SPEN)
 {
 	auto &c = components();
 	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
 	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
 	Tristate &TS1 = dynamic_cast<Tristate &>(*c["Tristate1"]);
 	AndGate &PU_en = dynamic_cast<AndGate &>(*c["RBPU_NAND"]);
-	PU_en.inputs({&m_iRBPU, &TrisLatch.Q(), &m_iSPEN});
+	PU_en.inputs({&iRBPU(), &TrisLatch.Q(), &m_iSPEN});
 
 	Schmitt *trigger = new Schmitt(PinOut(), true, false);
 	Wire *USART_RECWire = new Wire(trigger->rd(), m_USART_TX_CK_Out, "USART_Slave_Clock_in");
@@ -948,16 +953,16 @@ void PortB_RB3::process_register_change(Register *r, const std::string &name, co
 }
 
 PortB_RB3::PortB_RB3(Terminal &a_Pin, const std::string &a_name):
-	BasicPortB(a_Pin, a_name, 3), m_Peripheral_OE(Vdd), m_iRBPU(RBPU())
+	BasicPortB(a_Pin, a_name, 3), m_Peripheral_OE(Vdd)
 {
 	auto &c = components();
 	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
 	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
 	Tristate &TS1 = dynamic_cast<Tristate &>(*c["Tristate1"]);
 	AndGate &PU_en = dynamic_cast<AndGate &>(*c["RBPU_NAND"]);
-	PU_en.inputs({&m_iRBPU, &TrisLatch.Q(), &m_CCP1CON});
+	PU_en.inputs({&iRBPU(), &TrisLatch.Q(), &m_CCP1CON});
 
-	Schmitt *trigger = new Schmitt(PinOut(), true, false);
+	Schmitt *trigger = new Schmitt(PinOut(), false, false);
 	Wire *CCP_RECWire = new Wire(trigger->rd(), m_CCP_Out, "CCP_in");
 	Mux *dmux = new Mux({&DataLatch.Q(), &m_CCP_Out}, {&m_CCP1CON}, "Data Mux");
 	TS1.input(dmux->rd());
@@ -1016,7 +1021,7 @@ void PortB_RB4::process_clock_change(Clock *D, const std::string &name, const st
 }
 
 PortB_RB4::PortB_RB4(Terminal &a_Pin, const std::string &a_name):
-	BasicPortB(a_Pin, a_name, 4), m_iRBPU(RBPU()), m_iLVP(LVP())
+	BasicPortB(a_Pin, a_name, 4), m_iLVP(LVP())
 {
 	auto &c = components();
 	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
@@ -1026,7 +1031,7 @@ PortB_RB4::PortB_RB4(Terminal &a_Pin, const std::string &a_name):
 	Tristate &TS1 = dynamic_cast<Tristate &>(*c["Tristate1"]);
 	Tristate &TS2 = dynamic_cast<Tristate &>(*c["Tristate2"]);
 	AndGate &PU_en = dynamic_cast<AndGate &>(*c["RBPU_NAND"]);
-	PU_en.inputs({&m_iRBPU, &TrisLatch.Q(), &m_iLVP});
+	PU_en.inputs({&iRBPU(), &TrisLatch.Q(), &m_iLVP});
 
 	Schmitt *trigger = new Schmitt(PinOut(), true, false);
 	c["TRIGGER"] = trigger;
@@ -1065,6 +1070,14 @@ PortB_RB4::PortB_RB4(Terminal &a_Pin, const std::string &a_name):
 	LVP().set_value(Vss, false);
 }
 
+PortB_RB4::~PortB_RB4() {
+	auto &c = components();
+	AndGate &IFlag = dynamic_cast<AndGate &>(*c["AND(iLVP, TrisLatch.Q, XOr1)"]);
+	DeviceEvent<Connection>::unsubscribe<PortB_RB4>(this, &PortB_RB4::on_iflag, &IFlag.rd());
+}
+
+
+
 //___________________________________________________________________________
 //  RB5 is a stripped down version of RB4  The RBIF logic is the same.
 void PortB_RB5::process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
@@ -1089,7 +1102,7 @@ void PortB_RB5::process_clock_change(Clock *D, const std::string &name, const st
 }
 
 PortB_RB5::PortB_RB5(Terminal &a_Pin, const std::string &a_name):
-	BasicPortB(a_Pin, a_name, 5), m_iRBPU(RBPU())
+	BasicPortB(a_Pin, a_name, 5)
 {
 	auto &c = components();
 	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
@@ -1099,7 +1112,7 @@ PortB_RB5::PortB_RB5(Terminal &a_Pin, const std::string &a_name):
 	Tristate &TS1 = dynamic_cast<Tristate &>(*c["Tristate1"]);
 	Tristate &TS2 = dynamic_cast<Tristate &>(*c["Tristate2"]);
 	AndGate &PU_en = dynamic_cast<AndGate &>(*c["RBPU_NAND"]);
-	PU_en.inputs({&m_iRBPU, &TrisLatch.Q()});
+	PU_en.inputs({&iRBPU(), &TrisLatch.Q()});
 
 	TS1.input(DataLatch.Q());
 	TS1.gate(TrisLatch.Q());
@@ -1128,6 +1141,13 @@ PortB_RB5::PortB_RB5(Terminal &a_Pin, const std::string &a_name):
 	DeviceEvent<Connection>::subscribe<PortB_RB5>(this, &PortB_RB5::on_iflag, &IFlag.rd());
 
 }
+
+PortB_RB5::~PortB_RB5() {
+	auto &c = components();
+	AndGate &IFlag = dynamic_cast<AndGate &>(*c["AND(TrisLatch.Q, XOr1)"]);
+	DeviceEvent<Connection>::unsubscribe<PortB_RB5>(this, &PortB_RB5::on_iflag, &IFlag.rd());
+}
+
 
 
 //___________________________________________________________________________
@@ -1162,7 +1182,7 @@ void PortB_RB6::process_clock_change(Clock *D, const std::string &name, const st
 }
 
 PortB_RB6::PortB_RB6(Terminal &a_Pin, const std::string &a_name):
-	BasicPortB(a_Pin, a_name, 6), m_iRBPU(RBPU()), m_iT1OSCEN(T1OSCEN())
+	BasicPortB(a_Pin, a_name, 6), m_iT1OSCEN(T1OSCEN())
 {
 	auto &c = components();
 	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
@@ -1182,7 +1202,7 @@ PortB_RB6::PortB_RB6(Terminal &a_Pin, const std::string &a_name):
 	Tristate &TS1 = dynamic_cast<Tristate &>(*c["Tristate1"]);
 	Tristate &TS2 = dynamic_cast<Tristate &>(*c["Tristate2"]);
 	AndGate &PU_en = dynamic_cast<AndGate &>(*c["RBPU_NAND"]);
-	PU_en.inputs({&m_iRBPU, &TrisLatch.Q(), &m_iT1OSCEN});
+	PU_en.inputs({&iRBPU(), &TrisLatch.Q(), &m_iT1OSCEN});
 
 	Schmitt *trigger = new Schmitt(PinOut(), true, false);
 	c["TRIGGER"] = trigger;
@@ -1222,6 +1242,12 @@ PortB_RB6::PortB_RB6(Terminal &a_Pin, const std::string &a_name):
 	T1OSC().set_value(Vss, false);
 }
 
+PortB_RB6::~PortB_RB6() {
+	auto &c = components();
+	AndGate &IFlag = dynamic_cast<AndGate &>(*c["AND(iT1OSCEN, TrisLatch.Q, XOr1)"]);
+	DeviceEvent<Connection>::unsubscribe<PortB_RB6>(this, &PortB_RB6::on_iflag, &IFlag.rd());
+}
+
 
 //___________________________________________________________________________
 //  RB7 is again similar in many respects to RB6.  The two block diagrams in
@@ -1255,7 +1281,7 @@ void PortB_RB7::process_clock_change(Clock *D, const std::string &name, const st
 }
 
 PortB_RB7::PortB_RB7(Terminal &a_Pin, const std::string &a_name):
-	BasicPortB(a_Pin, a_name, 7), m_iRBPU(RBPU()), m_iT1OSCEN(T1OSCEN())
+	BasicPortB(a_Pin, a_name, 7), m_iT1OSCEN(T1OSCEN())
 {
 	auto &c = components();
 	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
@@ -1273,7 +1299,7 @@ PortB_RB7::PortB_RB7(Terminal &a_Pin, const std::string &a_name):
 	Tristate &TS1 = dynamic_cast<Tristate &>(*c["Tristate1"]);
 	Tristate &TS2 = dynamic_cast<Tristate &>(*c["Tristate2"]);
 	AndGate &PU_en = dynamic_cast<AndGate &>(*c["RBPU_NAND"]);
-	PU_en.inputs({&m_iRBPU, &TrisLatch.Q(), &m_iT1OSCEN});
+	PU_en.inputs({&iRBPU(), &TrisLatch.Q(), &m_iT1OSCEN});
 
 	TS1.input(DataLatch.Q());
 
@@ -1317,5 +1343,11 @@ PortB_RB7::PortB_RB7(Terminal &a_Pin, const std::string &a_name):
 	SPROG().set_value(Vss, false);
 	T1OSCEN().set_value(Vss, false);
 	T1OSC().set_value(Vss, false);
+}
+
+PortB_RB7::~PortB_RB7() {
+	auto &c = components();
+	AndGate &IFlag = dynamic_cast<AndGate &>(*c["AND(iT1OSCEN, TrisLatch.Q, XOr1)"]);
+	DeviceEvent<Connection>::unsubscribe<PortB_RB7>(this, &PortB_RB7::on_iflag, &IFlag.rd());
 }
 
