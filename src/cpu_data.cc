@@ -145,12 +145,14 @@ CPU_DATA::~CPU_DATA() {
 }
 
 void CPU_DATA::register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+	r->write(sram, r->get_value());
 //	std::cout << name << " = " << std::hex <<  (int)data[1] << std::endl;
 }
 
 void CPU_DATA::comparator_changed(Comparator *c, const std::string &name, const std::vector<BYTE> &data) {
-	if (Registers.find("CMCON") != Registers.end())
-		Registers["CMCON"]->write(sram, data[Register::DVALUE::NEW]);   // this signal event from comparator module
+	auto r = Registers.find("CMCON");
+	if (r != Registers.end())
+		r->second->write(sram, data[Register::DVALUE::NEW]);   // this signal event from comparator module
 }
 
 

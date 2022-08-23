@@ -1,3 +1,4 @@
+#include <queue>
 #include "device_base.h"
 #include "register.h"
 #include "sram.h"
@@ -29,6 +30,7 @@ class BasicPort: public Device {
 	void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);
 
 protected:
+	std::queue<Register *> pending;
 	DeviceEventQueue eq;
 	Terminal   &Pin;          // A terminal for external connections
 	Connection Data;          // This is the data bus value
@@ -39,6 +41,7 @@ protected:
 	bool       porta_select;  // false is portb
 	BYTE 	   port_mask;
 
+	void complete_read();
 	void queue_change();     // indicate that something about the current port has changed
 	virtual void process_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data);
 	virtual void process_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data);

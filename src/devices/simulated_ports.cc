@@ -25,18 +25,50 @@ void BasicPort::queue_change(){  // Add a voltage change event to the queue
 	eq.process_events();
 }
 
+void BasicPort::complete_read() {
+	if (pending.size()) {
+		bool getval = false;
+		Register *r =  pending.front(); pending.pop();
+		bool signal = Data.signal();
+		if ((r->name() == "PORTA" || r->name() == "PORTB") and rdPort.signal()) {
+			rdPort.set_value(Vss, true);   // Tristate 2 low
+			getval = true;
+		} else if ((r->name() == "TRISA" || r->name() == "TRISB") and rdTris.signal()) {
+			rdTris.set_value(Vss, true);   //  Tristate 3 low
+			getval = true;
+		} else {
+			std::cout << "Unexpected state [" << r->name() << "] whilst completing port read operation" << std::endl;
+		}
+		if (getval) {
+			BYTE d = r->get_value();
+			BYTE o = d;
+			if (signal)
+				d = d | port_mask;
+			else
+				d = d & (~port_mask);
+
+			r->debug(debug());
+			r->set_value(d, o);
+			if (debug()) std::cout << "<------ " << Pin.name() << ": " << r->name() << " complete: signal = " << (signal?"high":"low") << " [" << std::bitset<8>( (int)d) << "]" << std::endl;
+			if (rdPort.signal()) rdPort.set_value(Vss, true);
+			if (rdTris.signal()) rdTris.set_value(Vss, true);
+			if (debug()) {
+				std::cout << "======================================================";
+				std::cout << "  Read End " << this->name()<< ":" << r->name() << " ";
+				std::cout << "======================================================";
+				std::cout << std::endl;
+			}
+			queue_change();
+		}
+	}
+}
+
 void BasicPort::process_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data)  {}
 void BasicPort::on_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data) {
 	if (debug() && name[0]=='Q') std::cout << this->name() << ": Clock signal: [" << name << "]" << std::endl;
-	if      (name == "Q4") {     // read happens at the start of an instruction cycle
-		if (rdPort.signal()) {
-			rdPort.set_value(Vss, true);   // Tristate 2 low
-			queue_change();
-		}
-		if (rdTris.signal()) {
-			rdTris.set_value(Vss, true);   //  Tristate 3 low
-			queue_change();
-		}
+	if      (name == "Q2") {     // read happens at the start of an instruction cycle
+		complete_read();
+	} else if      (name == "Q4") {         // read happens at the start of an instruction cycle
 		if (Port.signal()) {               // write only happens at the end of the clock cycle
 			Port.set_value(Vss, true);     // The value on PortA/B changes to what is on the bus as clock goes low
 			queue_change();
@@ -104,8 +136,6 @@ void BasicPort::on_register_change(Register *r, const std::string &name, const s
 //				std::cout << this->name() << ":" << Pin.name() << " is " << (Pin.impeded()?"":" not ") << "impeded" << std::endl;
 		}
 	} else if (input_registers.find(name) != input_registers.end()) {
-		bool getval = false;
-
 		if ((porta_select && name == "PORTA.read") || (!porta_select && name == "PORTB.read")) {
 			if (debug()) {
 				std::cout << "======================================================";
@@ -113,9 +143,9 @@ void BasicPort::on_register_change(Register *r, const std::string &name, const s
 				std::cout << "======================================================";
 				std::cout << std::endl;
 			}
-			Data.set_value(Vss, true);  // data is an input
+			Data.set_value(Vss, true);      // data is an input
 			rdPort.set_value(Vdd, true);    // set the value of tristate 2 high.
-			getval = true;
+			pending.push(r);
 		} else if ((porta_select && name == "TRISA.read") || (!porta_select && name == "TRISB.read")) {
 			if (debug()) {
 				std::cout << "======================================================";
@@ -125,27 +155,7 @@ void BasicPort::on_register_change(Register *r, const std::string &name, const s
 			}
 			Data.set_value(Vss, true);  // data is an input
 			rdTris.set_value(Vdd, true);   // set the value of tristate 3 high.
-			getval = true;
-		}
-		if (getval) {
-			queue_change();                // A real chip would be waiting for Q3 here
-			bool signal = Data.signal();
-			BYTE d = r->get_value();
-			if (signal)
-				d = d | port_mask;
-			else
-				d = d & (~port_mask);
-			r->set_value(d, d);
-			if (debug()) std::cout << "<------ " << Pin.name() << ": " << name << " complete: signal = " << (signal?"high":"low") << " [" << std::hex << (int)d << "]" << std::endl;
-			if (rdPort.signal()) rdPort.set_value(Vss, true);
-			if (rdTris.signal()) rdTris.set_value(Vss, true);
-			if (debug()) {
-				std::cout << "======================================================";
-				std::cout << "  Read End " << this->name()<< ":" << name << " ";
-				std::cout << "======================================================";
-				std::cout << std::endl;
-				r->debug(true);
-			}
+			pending.push(r);
 		}
 	}
 	process_register_change(r, name, data);   // call the port/pin-specific virtual override if defined
@@ -1055,8 +1065,8 @@ PortB_RB4::PortB_RB4(Terminal &a_Pin, const std::string &a_name):
 
 	TS2.input(SR1.Q());
 
-	SR1.set_name(a_name+"::Q1");;
-	SR2.set_name(a_name+"::Q3");;
+	SR1.set_name(a_name+"::Q1");
+	SR2.set_name(a_name+"::Q3");
 
 	c["XOR(SR1.Q, SR2.Q)"] = new XOrGate({&SR1.Q(), &SR2.Q()});
 	XOrGate &XOr1 = dynamic_cast<XOrGate &>(*c["XOR(SR1.Q, SR2.Q)"]);
@@ -1066,7 +1076,7 @@ PortB_RB4::PortB_RB4(Terminal &a_Pin, const std::string &a_name):
 
 	DeviceEvent<Connection>::subscribe<PortB_RB4>(this, &PortB_RB4::on_iflag, &IFlag.rd());
 
-	PGM().set_value(Vss, false);
+	PGM().set_value(Vss, true);
 	LVP().set_value(Vss, false);
 }
 
@@ -1212,7 +1222,7 @@ PortB_RB6::PortB_RB6(Terminal &a_Pin, const std::string &a_name):
 	OrGate *Out_en = new OrGate({&TrisLatch.Q(), &m_T1OSCEN});
 	TS1.gate(Out_en->rd());
 
-	c["OR(TrisLatch.Q, LVP)"] = Out_en;
+	c["OR(TrisLatch.Q, T1OSCEN)"] = Out_en;
 
 	c.erase("Inverter1");  // smart pointer will clean up
 	c["AND(Q3,rdPort)"] = new AndGate({&rdPort, &Q3()});
@@ -1237,9 +1247,9 @@ PortB_RB6::PortB_RB6(Terminal &a_Pin, const std::string &a_name):
 
 	DeviceEvent<Connection>::subscribe<PortB_RB6>(this, &PortB_RB6::on_iflag, &IFlag.rd());
 
-	TMR1_Clock().set_value(Vss, false);
+	TMR1_Clock().set_value(Vss, true);
 	T1OSCEN().set_value(Vss, false);
-	T1OSC().set_value(Vss, false);
+	T1OSC().set_value(Vss, true);
 }
 
 PortB_RB6::~PortB_RB6() {
@@ -1284,26 +1294,23 @@ PortB_RB7::PortB_RB7(Terminal &a_Pin, const std::string &a_name):
 	BasicPortB(a_Pin, a_name, 7), m_iT1OSCEN(T1OSCEN())
 {
 	auto &c = components();
-	Latch &DataLatch = dynamic_cast<Latch &>(*c["Data Latch"]);
 	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
 
-	Wire &PinWire = dynamic_cast<Wire &>(*c["Pin Wire"]);
-
 	c.erase("Out Buffer");
-
 	c["Out Buffer"] = new AndGate({&m_iT1OSCEN, &PinOut()});
 	AndGate &Out_Buffer = dynamic_cast<AndGate &>(*c["Out Buffer"]);
-
-	PinWire.connect(T1OSC());
+	ABuffer *osc_buffer = new ABuffer(Pin, "T1 Oscillator");
+	c["T1 Oscillator"] = osc_buffer;
+	Wire *rb6_out = new Wire(osc_buffer->rd(), T1OSC(), "RB6 Out");
+	c["RB6 Out"] = rb6_out;
 
 	Tristate &TS1 = dynamic_cast<Tristate &>(*c["Tristate1"]);
 	Tristate &TS2 = dynamic_cast<Tristate &>(*c["Tristate2"]);
 	AndGate &PU_en = dynamic_cast<AndGate &>(*c["RBPU_NAND"]);
 	PU_en.inputs({&iRBPU(), &TrisLatch.Q(), &m_iT1OSCEN});
 
-	TS1.input(DataLatch.Q());
-
 	Schmitt *trigger = new Schmitt(PinOut(), true, false);
+	trigger->name("PGM trigger");
 	c["TRIGGER"] = trigger;
 
 
@@ -1314,7 +1321,7 @@ PortB_RB7::PortB_RB7(Terminal &a_Pin, const std::string &a_name):
 	c["SPROG"] = new Wire(SPROG_en.rd(), m_SPROG, "Serial Programming input");
 
 	OrGate *Out_en = new OrGate({&TrisLatch.Q(), &m_T1OSCEN});
-	c["OR(TrisLatch.Q, LVP)"] = Out_en;
+	c["OR(TrisLatch.Q, T1OSCEN)"] = Out_en;
 	TS1.gate(Out_en->rd());
 
 	c.erase("Inverter1");  // smart pointer will clean up
@@ -1342,7 +1349,7 @@ PortB_RB7::PortB_RB7(Terminal &a_Pin, const std::string &a_name):
 
 	SPROG().set_value(Vss, false);
 	T1OSCEN().set_value(Vss, false);
-	T1OSC().set_value(Vss, false);
+	T1OSC().set_value(Vss, true);
 }
 
 PortB_RB7::~PortB_RB7() {
