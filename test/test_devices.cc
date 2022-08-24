@@ -5,7 +5,6 @@
 #include "../src/devices/device_base.h"
 
 
-// TODO: Add a test for Terminal devices
 void test_connection() {
 	std::cout << "Testing Connections" << std::endl;
 	std::cout << "===================" << std::endl;
