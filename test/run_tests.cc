@@ -8,22 +8,22 @@ int main(int a_argc, char *a_argv[]) {
 	std::cout << "============================================================================" << std::endl;
 	std::cout << "Testing basic devices" << std::endl;
 	std::cout << "============================================================================" << std::endl;
-	test_devices();
+	Tests::test_devices();
 	std::cout << std::endl << std::endl;
 	std::cout << "============================================================================" << std::endl;
 	std::cout << "Testing Assembler Implementation" << std::endl;
 	std::cout << "============================================================================" << std::endl;
-	test_assembler();
+	Tests::test_assembler();
 	std::cout << std::endl << std::endl;
 	std::cout << "============================================================================" << std::endl;
 	std::cout << "Testing the comparator module" << std::endl;
 	std::cout << "============================================================================" << std::endl;
-	test_comparator_module();
+	Tests::test_comparator_module();
 	std::cout << std::endl << std::endl;
 	std::cout << "============================================================================" << std::endl;
 	std::cout << "Testing PORTA & PORTB devices" << std::endl;
 	std::cout << "============================================================================" << std::endl;
-	test_ports();
+	Tests::test_ports();
 }
 
 #endif
