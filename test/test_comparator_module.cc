@@ -4,7 +4,7 @@
 #include "../src/devices/clock.h"
 #include "../src/devices/simulated_ports.h"
 
-
+#ifdef TESTING
 namespace Tests {
 
 	// Defines the devices we will need to test the comparator
@@ -230,5 +230,6 @@ namespace Tests {
 	void test_comparator_module() {
 		test_comparator();
 	}
-
 }
+
+#endif

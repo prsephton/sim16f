@@ -4,6 +4,7 @@
 #include "test_clockcycler.h"
 #include "../src/devices/simulated_ports.h"
 
+#ifdef TESTING
 namespace Tests {
 
 	class Machine : public Device {
@@ -1397,7 +1398,6 @@ namespace Tests {
 
 	}
 
-#ifdef TESTING
 	void test_ports() {
 
 		std::cout << "Testing PORT A pins" << std::endl;
@@ -1423,6 +1423,6 @@ namespace Tests {
 		test_port_pin_rb6();
 		test_port_pin_rb7();
 	}
-#endif
 
 }
+#endif

@@ -2,6 +2,7 @@
 #include "../src/devices/clock.h"
 #include "../src/devices/register.h"
 
+#ifdef TESTING
 namespace Tests {
 	class ClockCycler {
 		Clock clock;  // we will need one of these to fire clock events for our ports
@@ -59,3 +60,4 @@ namespace Tests {
 		}
 	};
 }
+#endif

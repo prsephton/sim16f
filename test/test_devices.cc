@@ -4,6 +4,7 @@
 #include "run_tests.h"
 #include "../src/devices/device_base.h"
 
+#ifdef TESTING
 namespace Tests {
 
 	void test_connection() {
@@ -732,7 +733,6 @@ namespace Tests {
 		std::cout << "______________________________________________________________________________" << std::endl;
 	}
 
-#ifdef TESTING
 	void test_devices() {
 		prsep(); test_connection();
 		prsep(); test_terminals();
@@ -755,5 +755,5 @@ namespace Tests {
 		prsep(); test_schmitt();
 		prsep();
 	};
-#endif
 }
+#endif
