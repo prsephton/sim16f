@@ -1,7 +1,9 @@
 /Debug/
+/*settings/
 /Release/
 *.o
 *.d
+*.prefs
 sim16f
 assembler_test.a
 run_tests
@@ -9,4 +11,5 @@ run_tests
 *.out
 *.profile
 *.data
-.cproject
+*.exp
+*.cproject
