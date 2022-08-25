@@ -28,7 +28,7 @@ void BasicPort::queue_change(){  // Add a voltage change event to the queue
 void BasicPort::complete_read() {
 	if (pending.size()) {
 		bool getval = false;
-		Register *r =  pending.front(); pending.pop();
+		Register *r =  pending.front();
 		bool signal = Data.signal();
 		if ((r->name() == "PORTA" || r->name() == "PORTB") and rdPort.signal()) {
 			rdPort.set_value(Vss, true);   // Tristate 2 low
@@ -68,7 +68,12 @@ void BasicPort::on_clock_change(Clock *c, const std::string &name, const std::ve
 	if (debug() && name[0]=='Q') std::cout << this->name() << ": Clock signal: [" << name << "]" << std::endl;
 	if      (name == "Q2") {     // read happens at the start of an instruction cycle
 		complete_read();
-	} else if      (name == "Q4") {         // read happens at the start of an instruction cycle
+	} else if (name == "Q3") {         // read happens at the start of an instruction cycle
+		if (pending.size()) {
+			Register *r =  pending.front(); pending.pop();
+			r->busy(false);
+		}
+	} else if (name == "Q4") {
 		if (Port.signal()) {               // write only happens at the end of the clock cycle
 			Port.set_value(Vss, true);     // The value on PortA/B changes to what is on the bus as clock goes low
 			queue_change();

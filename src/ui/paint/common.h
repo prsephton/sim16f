@@ -772,6 +772,7 @@ namespace app {
 	  public:
 		ConnectionDiagram(Connection &a_conn, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			GenericDiagram(x, y, a_area), m_connection(a_conn) {}
+		Connection &connection() { return m_connection; }
 	};
 
 

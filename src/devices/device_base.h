@@ -23,8 +23,20 @@
 #include <cstring>
 #include <functional>
 #include <mutex>
+#include <chrono>
+#include <thread>
 #include "../utils/smart_ptr.h"
 #include "constants.h"
+
+//__________________________________________________________________________________________________
+// A small function to return a current time stamp in microseconds.
+using time_stamp = std::chrono::time_point<std::chrono::system_clock, std::chrono::microseconds>;
+inline time_stamp current_time_us() {
+	return std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::system_clock::now());
+}
+inline void sleep_for_us(unsigned long us) {
+	std::this_thread::sleep_for(std::chrono::duration<unsigned long, std::micro>(us));
+}
 
 //__________________________________________________________________________________________________
 // Device definitions.  A basic device may be named and have a debug flag.
@@ -61,6 +73,8 @@ class QueueableEvent {
 	virtual ~QueueableEvent() {}
 	virtual void fire_event(bool debug=false) = 0;
 	virtual bool compare(Device *d) = 0;
+	virtual Device *device() = 0;
+	virtual const std::string &name() = 0;
 };
 
 //___________________________________________________________________________________
@@ -103,24 +117,49 @@ class DeviceEventQueue {
 		mtx.unlock();
 	}
 
+	inline SmartPtr<QueueableEvent> process_single() {
+		if (events.empty())
+			return NULL;
+		else {
+			mtx.lock();
+			auto event = events.front(); events.pop();
+			mtx.unlock();
+			event->fire_event(debug);
+			return event;
+		}
+	}
+
+	template<typename DeviceClass> SmartPtr<QueueableEvent> wait(const std::string &name, unsigned long timeout_us=100000) {
+		time_stamp expire = current_time_us() + std::chrono::duration<unsigned long, std::micro>(timeout_us);
+		while (current_time_us() < expire) {
+			auto event = process_single();
+			if (event.operator->())
+				std::cout << event->name() << std::endl;
+			if (event.operator->()== NULL)
+				sleep_for_us(10);
+			else if (event->name() == name) {
+				std::cout << name << ": Try dynamic cast" << std::endl;
+				DeviceClass *w = dynamic_cast<DeviceClass *>(event->device());
+				if (w) return event;
+			}
+		}
+		return NULL;
+	}
+
+
 	void process_events() {
 		int n;
 		try {
 			for (n=0; n<100; ++n)
-				if (events.empty())
-					break;
-				else {
-					mtx.lock();
-					auto event = events.front(); events.pop();
-					mtx.unlock();
-					event->fire_event(debug);
-				}
+				if (not process_single().operator->()) break;
 		} catch (std::exception &e) {
 			std::cout << e.what() << std::endl;
 		} catch (...) {}
 
-		if (n == 100)
+		if (n == 100) {
 			std::cout << "Possible event loop detected" << std::endl;
+			debug = true;
+		}
 	}
 };
 
@@ -177,6 +216,8 @@ template <class T> class DeviceEvent: public QueueableEvent {
 	DeviceEvent(T &device, const std::string &eventname, const std::vector<BYTE> &data):
 		m_device(&device), m_eventname(eventname), m_data(data) {}
 
+	virtual Device *device() { return m_device; }
+	virtual const std::string &name() { return m_eventname; }
 
 	virtual void fire_event(bool debug=false) {
 		for(each_subscriber s = subscribers.begin(); s!= subscribers.end(); ++s) {
@@ -204,7 +245,6 @@ template <class T> class DeviceEvent: public QueueableEvent {
 		subscribers[KeyType{ob, instance, *(void **)&callback}] = std::bind(callback, ob, _1, _2);
 	}
 
-
 	template<class Q> static void subscribe (Q *ob,  void (Q::*callback)(T *device, const std::string &event, const std::vector<BYTE> &data), const T *instance = NULL) {
 		using namespace std::placeholders;
 		subscribers[KeyType{ob, instance, *(void **)&callback}] = std::bind(callback, ob, _1, _2, _3);
@@ -217,23 +257,10 @@ template <class T> class DeviceEvent: public QueueableEvent {
 		}
 	}
 
-
 	template<class Q> static void unsubscribe(void *ob, void (Q::*callback)(T *device, const std::string &event, const std::vector<BYTE> &data), const T *instance = NULL) {
 		auto key = KeyType{ob, instance, *(void **)&callback};
 		if (subscribers.find(key) != subscribers.end()) {
 			subscribers.erase(key);
-//		} else {
-//			std::cout << "unsubscribe " << instance->name() << " Key not found!" << std::endl;
-//			std::cout << "Subscriber registry size=" << subscribers.size() << std::endl;
-//			std::cout << "Provided key=";
-//			std::cout << "(" << ob << " : " << instance << " : " << &callback << ")" << std::endl;
-//			std::cout << "registry keys:" << std::endl;
-//			for(each_subscriber s = subscribers.begin(); s!= subscribers.end(); ++s) {
-//				const void *l_ob = std::get<0>(s->first);
-//				const T    *l_inst = std::get<1>(s->first);
-//				const void *l_ref = std::get<2>(s->first);
-//				std::cout << "(" << l_ob << " : " << l_inst << " : " << l_ref << ")" << std::endl;
-//			}
 		}
 	}
 };

@@ -20,8 +20,10 @@
 #include <iostream>
 #include <iomanip>
 #include <exception>
-#include <unistd.h>
+#include <chrono>
+#include <thread>
 #include <pthread.h>
+#include <queue>
 
 #include "devices/constants.h"
 #include "devices/devices.h"
@@ -45,6 +47,8 @@ class CPU {
 	int  cycles;
 	int  nsteps;
 
+	std::queue<std::string> instruction_cycles;
+	unsigned long clock_delay_us;
 	std::string disassembled;
 
 	void fetch() {
@@ -148,38 +152,56 @@ class CPU {
 
 	CPU_DATA &cpu_data() { return data; }
 
-	void process_queue() {
+	bool process_queue() {
 		try {
-			data.device_events.process_events();
-			while (!data.control.empty()) {
-				ControlEvent e = data.control.front(); data.control.pop();
-				if (e.name == "pause") paused = true;
-				if (e.name == "play") paused = false;
-				if (e.name == "next" and paused) nsteps += 1;
-				if (e.name == "back") reset();
-				if (e.name == "reset") {
-
-					reset();
+			if (not instruction_cycles.empty()) {
+				instruction_cycles.pop();
+				if (not instruction_cycles.empty()) {  // cycling too fast- we will need to slow the clock speed down
+					clock_delay_us += instruction_cycles.size() * 10;   // just add a small delay per cycle
 				}
+				cycle();
+				return true;
+			} else if (data.device_events.size()) {
+				data.device_events.process_events();
+				return true;
+			} else if (!data.control.empty()) {
+				while (!data.control.empty()) {
+					ControlEvent e = data.control.front(); data.control.pop();
+					if (e.name == "pause") paused = true;
+					if (e.name == "play") paused = false;
+					if (e.name == "next" and paused) nsteps += 1;
+					if (e.name == "back") reset();
+					if (e.name == "reset") {
+						reset();
+					}
+				}
+				return true;
 			}
 		} catch (std::exception &e) {
 			std::cout << e.what() << std::endl;
 		} catch (...) {
 		}
+		return false;
 	}
 
 	void clock_event(Clock *device, const std::string &name, const std::vector<BYTE> &data){
+		//   This is called from within the clock thread.  If we process instructions directly
+		// from this thread, then there will be a conflict between instruction processing
+		// and device events.  So here we need to place the clock event on a queue and
+		// cycle instructions as clock events appear.
 		if (name == "oscillator") {     // positive edge.  4 of these per cycle.
-
 		} else if (name == "cycle") {   // an instruction cycle.
-			cycle();
+			instruction_cycles.push(name);
+//		} else {
+//			std::cout << name << ":" << std::endl;
 		}
 	}
 
-	void run(unsigned long delay_us, bool a_debug=false) {  // run the clock
+	void run_clock(unsigned long delay_us, bool a_debug=false) {  // run the clock
+		clock_delay_us = delay_us;
 		debug = a_debug;
 		while (running()) {
-			usleep(delay_us);
+			sleep_for_us(clock_delay_us);
 			toggle_clock();
 		}
 	}

@@ -19,9 +19,9 @@ void *run_machine(void *a_params) {
 	CPU &cpu = params.cpu;
 	try {
 		while (cpu.running()) {
-			usleep(500);    // 500 microsecond
 			try {
-				cpu.process_queue();
+				if (not cpu.process_queue())
+					sleep_for_us(100);
 			} catch (std::string &error) {
 				std::cerr << error << "\n";
 			}
@@ -44,7 +44,7 @@ void *run_clock(void *a_params) {
 	CPU &cpu = params.cpu;
 	std::cout << "Running CPU clock: delay is: " << params.delay_us << "\n";
 	try {
-		cpu.run(params.delay_us, params.debug);
+		cpu.run_clock(params.delay_us, params.debug);
 	} catch(const std::string &message) {
 		std::cerr << "CPU Abnormal Exit: " << message << "\n";
 	}

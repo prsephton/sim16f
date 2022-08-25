@@ -44,6 +44,7 @@ namespace Tests {
 	  public:
 		void do_cycle() { clock.cycle(); }
 
+		virtual bool busy() const { return false; }
 		virtual const BYTE read(SRAM &a_sram) {
 			Register::read(a_sram);
 			clock.cycle();

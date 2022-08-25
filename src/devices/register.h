@@ -2,6 +2,7 @@
 
 #include "device_base.h"
 #include "sram.h"
+#include "clock.h"
 #include "flags.h"
 #include "../utils/utility.h"
 
@@ -14,7 +15,7 @@ class Register : public Device {
 	WORD m_idx;
 	std::string m_doc;
 	BYTE m_value;
-
+	volatile bool m_busy;
   public:
 
 	struct DVALUE {
@@ -25,9 +26,11 @@ class Register : public Device {
 	DeviceEventQueue eq;
 
 	Register(const WORD a_idx, const std::string &a_name, const std::string &a_doc = "")
-  	  : Device(a_name), m_idx(a_idx), m_doc(a_doc), m_value(0) {
+  	  : Device(a_name), m_idx(a_idx), m_doc(a_doc), m_value(0), m_busy(false) {
 	}
 	WORD index() { return m_idx; }
+	void busy(bool flag) { m_busy = flag; }
+	virtual bool busy() const { return m_busy; }
 	virtual ~Register() {}
 
 	void trigger_change(BYTE a_new, BYTE a_old, BYTE a_changed) {
@@ -38,6 +41,7 @@ class Register : public Device {
 	BYTE get_value() {
 		return m_value;
 	}
+
 	bool set_value(BYTE a_value, BYTE a_old=0) {
 		BYTE changed = a_old ^ a_value; // all changing bits.
 		m_value = a_value;
@@ -55,8 +59,14 @@ class Register : public Device {
 	virtual const BYTE read(SRAM &a_sram) {         // default read for registers
 		BYTE old_value = a_sram.read(m_idx);
 		m_value = old_value;
+
+		busy(true);
 		eq.queue_event(new DeviceEvent<Register>(*this, name()+".read", {old_value, 0, 0}));
-		eq.process_events();         // perform the device read, update m_value
+		eq.process_events();             // perform the device read, update m_value
+		while (busy()) {
+			sleep_for_us(50);
+			eq.process_events();         // perform the device read, update m_value
+		}
 		if (old_value != m_value) {
 			if (debug())
 				std::cout << "Register " << name() << " updating SRAM with " << std::hex << (int)m_value << std::endl;

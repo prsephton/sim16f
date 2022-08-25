@@ -145,7 +145,14 @@ CPU_DATA::~CPU_DATA() {
 }
 
 void CPU_DATA::register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
-	r->write(sram, r->get_value());
+	static const std::set<std::string> ignore({"CONFIG1", "CONFIG2", "PORTA", "PORTB", "TRISA", "TRISB"});
+	if (ignore.find(r->name()) == ignore.end()) {
+		if (name.find(".read") != name.npos) {
+			BYTE sdata = sram.read(r->index(), false);
+			r->set_value(sdata, data[Register::DVALUE::OLD]);
+			r->busy(false);
+		}
+	}
 //	std::cout << name << " = " << std::hex <<  (int)data[1] << std::endl;
 }
 

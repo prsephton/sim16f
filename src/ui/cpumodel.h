@@ -137,6 +137,10 @@ namespace app {
 			if (name == "PORTA") port(data[Register::DVALUE::NEW]);
 		}
 
+		void on_pin_change(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
+			redraw();
+		}
+
 	  public:
 
 		virtual void draw_extra(const Cairo::RefPtr<Cairo::Context>& cr) {
@@ -176,9 +180,17 @@ namespace app {
 				Connection &conn = a_cpu.pins[a_cpu.porta.pin_numbers[n]];
 				pd.push(new PinDiagram(conn, x + width + 15, y + margin - 10 + (n+1) * dh, 0, 0.5, a_area));
 				add(BlockDiagram::text(width+35, margin - 5 + (n+1) * dh, conn.name()));
+				DeviceEvent<Connection>::subscribe<PortADiagram>(this, &PortADiagram::on_pin_change, &conn);
 				pins.push_back(new ConnectionDiagram(conn, x+width, y + margin - 10 + (n+1) * dh, m_area));
 				pins[n]->add(ConnectionDiagram::pt( 0,  0, true));
 				pins[n]->add(ConnectionDiagram::pt(20,  0, false));
+			}
+		}
+
+		virtual ~PortADiagram(){
+			for (int n=0; n < 8; ++n) {
+				Connection &conn = pins[n]->connection();
+				DeviceEvent<Connection>::unsubscribe<PortADiagram>(this, &PortADiagram::on_pin_change, &conn);
 			}
 		}
 
@@ -195,6 +207,10 @@ namespace app {
 		virtual void on_register_change(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 			if (name == "TRISB") tris(data[Register::DVALUE::NEW]);
 			if (name == "PORTB") port(data[Register::DVALUE::NEW]);
+		}
+
+		void on_pin_change(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
+			redraw();
 		}
 
 	  public:
@@ -235,10 +251,17 @@ namespace app {
 			for (int n=0; n < 8; ++n) {
 				Connection &conn = a_cpu.pins[a_cpu.portb.pin_numbers[n]];
 				pd.push(new PinDiagram(conn, x + width + 15, y + margin - 10 + (n+1) * dh, 0, 0.5, a_area));
+				DeviceEvent<Connection>::subscribe<PortBDiagram>(this, &PortBDiagram::on_pin_change, &conn);
 				add(BlockDiagram::text(width+35, margin - 5 + (n+1) * dh, conn.name()));
 				pins.push_back(new ConnectionDiagram(conn, x+width, y + margin - 10 + (n+1) * dh, m_area));
 				pins[n]->add(ConnectionDiagram::pt( 0,  0).first());
 				pins[n]->add(ConnectionDiagram::pt(20,  0));
+			}
+		}
+		virtual ~PortBDiagram(){
+			for (int n=0; n < 8; ++n) {
+				Connection &conn = pins[n]->connection();
+				DeviceEvent<Connection>::unsubscribe<PortBDiagram>(this, &PortBDiagram::on_pin_change, &conn);
 			}
 		}
 
