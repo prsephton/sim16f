@@ -7,63 +7,8 @@
 #include "register.h"
 #include "clock.h"
 #include "comparator.h"
+#include "timers.h"
 #include "simulated_ports.h"
-
-//___________________________________________________________________________________
-class Timer0: public Device {
-	bool assigned_to_wdt;
-	bool falling_edge;
-	bool use_RA4;
-	BYTE prescale_rate;
-
-	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
-		if (name=="OPTION"){
-			BYTE changed = data[Register::DVALUE::CHANGED];
-			BYTE new_value = data[Register::DVALUE::NEW];
-
-			if (changed & Flags::OPTION::T0CS) {
-				clock_source_select(new_value & Flags::OPTION::T0CS);
-			}
-			if (changed & Flags::OPTION::T0SE) {
-				clock_transition(new_value & Flags::OPTION::T0SE);
-			}
-			if (changed & Flags::OPTION::PSA) {
-				prescaler(new_value & Flags::OPTION::PSA);
-			}
-			if (changed & (Flags::OPTION::PS0 | Flags::OPTION::PS1 | Flags::OPTION::PS2)) {
-				prescaler_rate_select(new_value & 0x7);
-			}
-		}
-	}
-
-  public:
-	Timer0(): Device("TMR0"), assigned_to_wdt(false), falling_edge(false), use_RA4(false), prescale_rate(0) {
-		DeviceEvent<Register>::subscribe<Timer0>(this, &Timer0::register_changed);
-	}
-	void clock_source_select(bool a_use_RA4){
-		use_RA4 = a_use_RA4;
-	};
-	void clock_transition(bool a_falling_edge){
-		falling_edge = a_falling_edge;
-	};
-	void prescaler(bool a_assigned_to_wdt){
-		assigned_to_wdt = a_assigned_to_wdt;
-	};
-	void prescaler_rate_select(BYTE a_prescale_rate){
-		// bits   000   001   010   011   100    101    110     111
-		// TMR0   1:2   1:4   1:8   1:16  1:32   1:64   1:128   1:256
-		// WDT    1:1   1:2   1:4	1:8   1:16   1:32   1:64    1:128
-		prescale_rate = a_prescale_rate;
-	};
-};
-
-class Timer1: public Device {
-
-};
-
-class Timer2: public Device {
-
-};
 
 class VREF: public Device {
 
@@ -259,17 +204,25 @@ class PORTA: public Device {
 class PORTB: public Device {
 	PINS &pins;
 	DeviceEventQueue eq;
+	bool rising_rb0_interrupt;
+
+	void INT_changed(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
+		if (c->signal() ^ not rising_rb0_interrupt){
+			eq.queue_event(new DeviceEvent<PORTB>(*this, "PORTB::INTF", {}));
+		}
+	}
 
 	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 		if (name=="OPTION"){
-			BYTE changed = data[0];
-			BYTE new_value = data[2];
+			BYTE changed = data[Register::DVALUE::CHANGED];
+			BYTE new_value = data[Register::DVALUE::NEW];
 
 			if (changed & Flags::OPTION::RBPU) {
 				recalc_pullups(pins, new_value & Flags::OPTION::RBPU);
 			}
+
 			if (changed & Flags::OPTION::INTEDG) {
-				rising_rb0_interrupt(pins, new_value & Flags::OPTION::INTEDG);
+				rising_rb0_interrupt = (new_value & Flags::OPTION::INTEDG) != 0;
 			}
 		}
 	}
@@ -278,6 +231,7 @@ class PORTB: public Device {
 	std::vector< SmartPtr<Device> > RB;
 
 	PORTB(PINS &a_pins): pins(a_pins) {
+		rising_rb0_interrupt = false;
 		RB.resize(8);
 		DeviceEvent<Register>::subscribe<PORTB>(this, &PORTB::register_changed);
 		RB[0] = new PortB_RB0(pins[PINS::pin_RB0], "RB0");
@@ -288,6 +242,11 @@ class PORTB: public Device {
 		RB[5] = new PortB_RB5(pins[PINS::pin_RB5], "RB5");
 		RB[6] = new PortB_RB6(pins[PINS::pin_RB6], "RB6");
 		RB[7] = new PortB_RB7(pins[PINS::pin_RB7], "RB7");
+
+		Connection &INT =  dynamic_cast< PortB_RB0 *>(RB[0].operator ->()) -> INT();
+		DeviceEvent<Connection>::subscribe<PORTB>(this, &PORTB::INT_changed, &INT);
+	}
+	~PORTB() {
 
 	}
 
@@ -304,17 +263,14 @@ class PORTB: public Device {
 
 
 	void recalc_pullups(PINS &pins, bool RBPU) {}
-	void rising_rb0_interrupt(PINS &pins, bool rising) {}
 };
 
 
 class Flash: public Device {
 //	std::vector<WORD>data;
-
+	DeviceEventQueue eq;
   public:
-	Flash() : Device("FLASH") {
-
-	}
+	Flash() : Device("FLASH") {}
 	WORD data[FLASH_SIZE];
 
 	void load(const std::string &a_file);
@@ -325,6 +281,8 @@ class Flash: public Device {
 
 	void clear() {
 		memset(data, 0, sizeof(data));
+		eq.queue_event(new DeviceEvent<Flash>(*this, "clear", {}));
+		eq.process_events();
 	}
 
 	WORD size() {
@@ -334,6 +292,8 @@ class Flash: public Device {
 	void set_data(WORD address, const std::string &ds) {
 		for(WORD n=0; n<ds.length() && n+address<size(); n += 2)
 			data[(n+address)/2] = (((WORD)ds[n+1]) << 8) | (BYTE)ds[n];
+		eq.queue_event(new DeviceEvent<Flash>(*this, "init", {}));
+		eq.process_events();
 	}
 
 };

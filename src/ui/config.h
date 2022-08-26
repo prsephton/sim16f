@@ -82,8 +82,10 @@ namespace app {
 		void on_load_hex_clicked() {
 			std::string l_filename = m_file_chooser->load_hex_file();
 			try {
-				if (l_filename.length() and load_hex(l_filename, m_cpu))
+				if (l_filename.length() and load_hex(l_filename, m_cpu)) {
 					std::cout << "Hex file " << l_filename << " successfully laoded" << std::endl;
+					m_cpu.control.push(ControlEvent("reset"));
+				}
 			} catch(const std::string &err) {
 				std::cout << "An error occurred while loading " << l_filename << ": " << err << std::endl;
 			}
@@ -93,8 +95,10 @@ namespace app {
 			std::string l_filename = m_file_chooser->load_asm_file();
 			InstructionSet instructions;
 			try {
-				if (l_filename.length() and assemble(l_filename, m_cpu, instructions))
+				if (l_filename.length() and assemble(l_filename, m_cpu, instructions)) {
 					std::cout << "Assembler file " << l_filename << " successfully laoded" << std::endl;
+					m_cpu.control.push(ControlEvent("reset"));
+				}
 			} catch(const std::string &err) {
 				std::cout << "An error occurred while assembling " << l_filename << ": " << err << std::endl;
 			}

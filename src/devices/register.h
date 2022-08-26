@@ -56,29 +56,19 @@ class Register : public Device {
 		return false;
 	}
 
-	virtual const BYTE read(SRAM &a_sram) {         // default read for registers
-		BYTE old_value = a_sram.read(m_idx);
-		m_value = old_value;
-
+	virtual const BYTE read() {         // default read for registers
 		busy(true);
-		eq.queue_event(new DeviceEvent<Register>(*this, name()+".read", {old_value, 0, 0}));
+		eq.queue_event(new DeviceEvent<Register>(*this, name()+".read", {m_value, 0, 0}));
 		eq.process_events();             // perform the device read, update m_value
 		while (busy()) {
-			sleep_for_us(50);
+			sleep_for_us(100);
 			eq.process_events();         // perform the device read, update m_value
-		}
-		if (old_value != m_value) {
-			if (debug())
-				std::cout << "Register " << name() << " updating SRAM with " << std::hex << (int)m_value << std::endl;
-			a_sram.write(m_idx, m_value);
 		}
 		return m_value;
 	}
 
-	virtual void write(SRAM &a_sram, const unsigned char value) {  // default write
-		BYTE old = a_sram.read(index());
-		if (set_value(value, old))
-			a_sram.write(m_idx, value);
+	virtual void write(const unsigned char value) {  // default write
+		set_value(value, m_value);
 	}
 };
 

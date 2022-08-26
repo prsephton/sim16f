@@ -57,6 +57,7 @@ class CpuEvent {
 	BYTE SP;                  // stack pointer
 	BYTE W;                   // contents of W register
 	std::string disassembly;  // disassembled statement
+	std::string etype;        // event type
 
   private:
 	typedef void (*CpuStatus)(void *ob, const CpuEvent &event);
@@ -65,9 +66,9 @@ class CpuEvent {
 	static registry subscribers;
 
   public:
-	CpuEvent(): OPCODE(0), PC(0), SP(0), W(0), disassembly("") {}
-	CpuEvent(WORD a_opcode, WORD a_pc, BYTE a_sp, BYTE a_w, const std::string &a_disasm):
-		OPCODE(a_opcode), PC(a_pc), SP(a_sp), W(a_w), disassembly(a_disasm) {
+	CpuEvent(): OPCODE(0), PC(0), SP(0), W(0), disassembly(""), etype("auto") {}
+	CpuEvent(WORD a_opcode, WORD a_pc, BYTE a_sp, BYTE a_w, const std::string &a_disasm, const std::string &a_type):
+		OPCODE(a_opcode), PC(a_pc), SP(a_sp), W(a_w), disassembly(a_disasm), etype(a_type) {
 		for(each_subscriber s = subscribers.begin(); s!= subscribers.end(); ++s) {
 			void *ob = s->first;
 			const CpuStatus &cb = s->second;
@@ -160,6 +161,8 @@ class CPU_DATA {
 
 	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data);
 	void comparator_changed(Comparator *c, const std::string &name, const std::vector<BYTE> &data);
+	void timer0_changed(Timer0 *t, const std::string &name, const std::vector<BYTE> &data);
+	void portB_changed(PORTB *p, const std::string &name, const std::vector<BYTE> &data);
 
 	WORD pop() {
 		WORD value = stack[SP];
@@ -183,7 +186,7 @@ class CPU_DATA {
 		if (reg == Registers.end()) {
 			sram.write(idx, v, false);
 		} else {
-			reg->second->write(sram, v);
+			reg->second->write(v);
 		}
 	}
 
@@ -193,7 +196,7 @@ class CPU_DATA {
 		if (reg == Registers.end()) {
 			return sram.read(idx);
 		} else {
-			return reg->second->read(sram);
+			return reg->second->read();
 		}
 	}
 

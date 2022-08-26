@@ -88,7 +88,7 @@ namespace app {
 			offset = (offset/16)*16;
 			m_adjustment->set_value(offset);
 
-			std::cout << "scroll value: " << offset << "\n";
+//			std::cout << "scroll value: " << offset << "\n";
 			show_grid_data(offset);
 			return;
 		}

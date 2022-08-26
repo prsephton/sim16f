@@ -60,11 +60,12 @@ namespace app {
 			m_hex_filter = Glib::RefPtr<Gtk::FileFilter>::cast_dynamic(m_builder->get_object("hex_chooser"));
 			m_asm_filter = Glib::RefPtr<Gtk::FileFilter>::cast_dynamic(m_builder->get_object("asm_chooser"));
 
+			m_filename->set_text("");
+
 			m_ok_button->signal_clicked().connect(sigc::mem_fun(*this, &FileSelection::on_ok_clicked));
 			m_cancel_button->signal_clicked().connect(sigc::mem_fun(*this, &FileSelection::on_cancel_clicked));
 			signal_selection_changed().connect(sigc::mem_fun(*this, &FileSelection::on_selection_changed));
 			this->signal_response().connect(sigc::mem_fun(*this, &FileSelection::on_response));
-
 			m_window = Glib::RefPtr<Gtk::Window>::cast_dynamic(m_builder->get_object("sim16f_main"));
 			Window *w = m_window.operator->();
 			this->set_transient_for(*w);

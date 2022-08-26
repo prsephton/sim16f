@@ -137,29 +137,65 @@ CPU_DATA::CPU_DATA():
 
 	DeviceEvent<Register>::subscribe<CPU_DATA>(this, &CPU_DATA::register_changed);
 	DeviceEvent<Comparator>::subscribe<CPU_DATA>(this, &CPU_DATA::comparator_changed);
+	DeviceEvent<Timer0>::subscribe<CPU_DATA>(this, &CPU_DATA::timer0_changed);
+	DeviceEvent<PORTB>::subscribe<CPU_DATA>(this, &CPU_DATA::portB_changed);
 }
 
 CPU_DATA::~CPU_DATA() {
 	DeviceEvent<Register>::unsubscribe<CPU_DATA>(this, &CPU_DATA::register_changed);
 	DeviceEvent<Comparator>::unsubscribe<CPU_DATA>(this, &CPU_DATA::comparator_changed);
+	DeviceEvent<Timer0>::unsubscribe<CPU_DATA>(this, &CPU_DATA::timer0_changed);
+	DeviceEvent<PORTB>::unsubscribe<CPU_DATA>(this, &CPU_DATA::portB_changed);
 }
 
 void CPU_DATA::register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
-	static const std::set<std::string> ignore({"CONFIG1", "CONFIG2", "PORTA", "PORTB", "TRISA", "TRISB"});
-	if (ignore.find(r->name()) == ignore.end()) {
-		if (name.find(".read") != name.npos) {
-			BYTE sdata = sram.read(r->index(), false);
-			r->set_value(sdata, data[Register::DVALUE::OLD]);
-			r->busy(false);
+	static const std::set<std::string> ignore({"CONFIG1", "CONFIG2", "CONFIG1.read", "CONFIG2.read", "PORTA.read", "PORTB.read", "TRISA.read", "TRISB.read"});
+
+	if (ignore.find(name) == ignore.end()) {
+		if (name.find(".read") == name.npos) {      // a write operation
+			if (r->index())
+				sram.write(r->index(), data[Register::DVALUE::NEW], false);
+			else {
+				BYTE address = sram.read(0, false);    // indirect
+				sram.write(address, data[Register::DVALUE::NEW], true);
+			}
+		} else {         // a read operation
+			BYTE sdata;
+			if (r->index()) {
+				sdata = sram.read(r->index(), false);
+			} else {
+				BYTE address = sram.read(0, false);    // indirect
+				sdata = sram.read(address, true);
+			}
+			r->set_value(sdata, r->get_value());
+			r->busy(false);  // indicate data is ready in the register
 		}
 	}
 //	std::cout << name << " = " << std::hex <<  (int)data[1] << std::endl;
 }
 
+void CPU_DATA::portB_changed(PORTB *p, const std::string &name, const std::vector<BYTE> &data) {
+	if (name == "PORTB::INTF") {
+		std::cout << "INTCON::INTF" << std::endl;
+		auto INTCON = Registers["INTCON"];
+		BYTE idata = INTCON->get_value();
+		INTCON->write(idata | Flags::INTCON::INTF);
+	}
+}
+
+
+void CPU_DATA::timer0_changed(Timer0 *t, const std::string &name, const std::vector<BYTE> &data) {
+	if (name == "Overflow") {
+		auto INTCON = Registers["INTCON"];
+		BYTE idata = INTCON->get_value();
+		INTCON->write(idata | Flags::INTCON::T0IF);
+	}
+}
+
 void CPU_DATA::comparator_changed(Comparator *c, const std::string &name, const std::vector<BYTE> &data) {
 	auto r = Registers.find("CMCON");
-	if (r != Registers.end())
-		r->second->write(sram, data[Register::DVALUE::NEW]);   // this signal event from comparator module
+	if (r != Registers.end())    // update CMCON register from comparator
+		r->second->write(data[Comparator::DVALUE::NEW]);   // this signal event from comparator module
 }
 
 

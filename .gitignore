@@ -1,6 +1,7 @@
 /Debug/
 /*settings/
 /Release/
+/forth/
 *.o
 *.d
 *.prefs

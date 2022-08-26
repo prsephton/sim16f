@@ -10,11 +10,13 @@
 namespace app {
 
 
-	class Flash: public Component  {
+	class FlashMemory: public Component  {
 		CPU_DATA &m_cpu;
 		Glib::RefPtr<Gtk::Builder> m_refGlade;
 		Glib::RefPtr<Gtk::TextView> m_assembly;
 		bool m_exiting;
+		Pango::AttrList m_normal;     //("<span font_weight='normal', background='none' />");
+		Pango::AttrList m_selected;   //("<span font_weight='bold', background='#fce94f' />");
 
 		virtual void exiting(){
 			m_exiting = true;
@@ -74,10 +76,10 @@ namespace app {
 			m_next = Glib::RefPtr<Gtk::Button>::cast_dynamic(m_refGlade->get_object("flash_next"));
 			m_back = Glib::RefPtr<Gtk::Button>::cast_dynamic(m_refGlade->get_object("flash_back"));
 
-			m_play->signal_clicked().connect(sigc::mem_fun(*this, &Flash::on_flash_play));
-			m_pause->signal_clicked().connect(sigc::mem_fun(*this, &Flash::on_flash_pause));
-			m_next->signal_clicked().connect(sigc::mem_fun(*this, &Flash::on_flash_next));
-			m_back->signal_clicked().connect(sigc::mem_fun(*this, &Flash::on_flash_back));
+			m_play->signal_clicked().connect(sigc::mem_fun(*this, &FlashMemory::on_flash_play));
+			m_pause->signal_clicked().connect(sigc::mem_fun(*this, &FlashMemory::on_flash_pause));
+			m_next->signal_clicked().connect(sigc::mem_fun(*this, &FlashMemory::on_flash_next));
+			m_back->signal_clicked().connect(sigc::mem_fun(*this, &FlashMemory::on_flash_back));
 
 			m_carry = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_refGlade->get_object("flash_status_carry"));
 			m_digit_carry = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_refGlade->get_object("flash_status_digit_carry"));
@@ -123,8 +125,14 @@ namespace app {
 			m_assembly->set_buffer(m_listing);
 		}
 
+		void flash_changed(Flash *f, const std::string &name) {
+			if (name == "init" || name == "clear") {
+				reset();
+			}
+		}
+
 	  public:
-		Flash(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
+		FlashMemory(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
 			m_cpu(a_cpu), m_refGlade(a_refGlade), m_exiting(false) {
 
 			auto flash_ra = new DeviceRandomAccessAdapter(a_cpu.flash);
@@ -133,12 +141,18 @@ namespace app {
 			set_up_assembly();
 			set_up_toolbar();
 
-			Glib::signal_idle().connect( sigc::mem_fun(*this, &Flash::process_queue) );
-			CpuEvent::subscribe((void *)this, &Flash::pc_monitor);
+			Glib::signal_idle().connect( sigc::mem_fun(*this, &FlashMemory::process_queue) );
+			CpuEvent::subscribe((void *)this, &FlashMemory::pc_monitor);
+			DeviceEvent<Flash>::subscribe<FlashMemory>(this, &FlashMemory::flash_changed);
+
+			Pango::Attribute background = Pango::Attribute::create_attr_background(0xfcfc, 0xe9e9, 0x4f4f);
+			Pango::Attribute weight = Pango::Attribute::create_attr_weight(Pango::WEIGHT_BOLD);
+			m_selected.insert(background);
+			m_selected.insert(weight);
 
 			reset();
 		}
-		~Flash() {
+		~FlashMemory() {
 			delete grid;
 		}
 
@@ -225,18 +239,18 @@ namespace app {
 
 				BYTE status = m_cpu.sram.status();
 
-				m_carry->set_state((status & 1)?Gtk::STATE_SELECTED:Gtk::STATE_NORMAL);
-				m_digit_carry->set_state((status & 2)?Gtk::STATE_SELECTED:Gtk::STATE_NORMAL);
-				m_zero->set_state((status & 4)?Gtk::STATE_SELECTED:Gtk::STATE_NORMAL);
+				m_carry->set_attributes((status & 1)?m_selected:m_normal);
+				m_digit_carry->set_attributes((status & 2)?m_selected:m_normal);
+				m_zero->set_attributes((status & 4)?m_selected:m_normal);
 
 				BYTE bank = m_cpu.sram.bank();
-				m_bank_1->set_state((bank==0)?Gtk::STATE_SELECTED:Gtk::STATE_NORMAL);
-				m_bank_2->set_state((bank==1)?Gtk::STATE_SELECTED:Gtk::STATE_NORMAL);
-				m_bank_3->set_state((bank==2)?Gtk::STATE_SELECTED:Gtk::STATE_NORMAL);
-				m_bank_4->set_state((bank==3)?Gtk::STATE_SELECTED:Gtk::STATE_NORMAL);
+				m_bank_1->set_attributes((bank==0)?m_selected:m_normal);
+				m_bank_2->set_attributes((bank==1)?m_selected:m_normal);
+				m_bank_3->set_attributes((bank==2)?m_selected:m_normal);
+				m_bank_4->set_attributes((bank==3)?m_selected:m_normal);
 
 			} else {
-				usleep(500);  // idle, nothing to do
+				sleep_for_us(1000);  // idle, nothing to do
 			}
 			return !m_exiting;
 		}
@@ -246,7 +260,7 @@ namespace app {
 		}
 
 		static void pc_monitor(void *ob, const CpuEvent &e) {
-			Flash *flash = (Flash *)(ob);
+			FlashMemory *flash = (FlashMemory *)(ob);
 			flash->cpu_event(e);
 		}
 	};

@@ -46,6 +46,7 @@ class CPU {
 	bool skip;
 	int  cycles;
 	int  nsteps;
+	bool interrupt_pending;
 
 	std::queue<std::string> instruction_cycles;
 	unsigned long clock_delay_us;
@@ -53,7 +54,7 @@ class CPU {
 
 	void fetch() {
 		if (cycles > 0) {
-			current = NULL;
+			current = NULL;  // flush
 		} else {
 			WORD PC = data.sram.get_PC();
 			if (skip)
@@ -74,19 +75,38 @@ class CPU {
 		if (cycles) --cycles;
 		if (current) {
 //			if (debug) std::cout << "Execute instruction " << current->mnemonic << std::endl;
-			skip = current->execute(opcode, data);
 			disassembled = current->disasm(opcode, data);
-			CpuEvent(opcode, data.execPC, data.SP, data.W, disassembled);
+			CpuEvent(opcode, data.execPC, data.SP, data.W, disassembled, "start");
+			skip = current->execute(opcode, data);
+			CpuEvent(opcode, data.execPC, data.SP, data.W, disassembled, "after");
 		} else if (disassembled.length()) {   // fetch/flush cycle
 //			if (debug) std::cout << "Cycle" << std::endl;
 			auto st = disassembled.substr(0, 10) + "*" + disassembled.substr(11);
-			CpuEvent(opcode, data.execPC, data.SP, data.W, st);
+			CpuEvent(opcode, data.execPC, data.SP, data.W, st, "flush");
 		}
 	}
 
+	void interrupt() {
+		// clear GIE, push PC, set PC = 0x4;
+		SmartPtr<Register>INTCON = data.Registers["INTCON"];
+		INTCON->write(INTCON->get_value() & ~Flags::INTCON::GIE);
+		WORD PC = data.sram.get_PC() - 1;
+		cycles = 0;
+		current = NULL;
+		disassembled = "";
+		data.push(PC);
+		data.execPC = PC;
+		PC = 0x4;   // Interrupt vector
+		data.sram.set_PC(PC);
+		fetch();
+		cycle();
+	}
+
 	static void show_status(void *ob, const CpuEvent &e) {
-		std::cout << std::setfill('0') << std::hex << std::setw(4) <<  (int)e.PC << ":\t";
-		std::cout << e.disassembly << "\t W:" << std::setw(2) << (int)e.W << "\tSP:" << (int)e.SP << "\n";
+		if (e.etype == "start") {
+			std::cout << std::setfill('0') << std::hex << std::setw(4) <<  (int)e.PC << ":\t";
+			std::cout << e.disassembly << "\t W:" << std::setw(2) << (int)e.W << "\tSP:" << (int)e.SP << "\n";
+		}
 	}
 
   public:
@@ -103,16 +123,17 @@ class CPU {
 		data.W = 0;
 		cycles = 0;
 		skip = 0;
-
+		disassembled = "";
 		data.sram.reset();
+		interrupt_pending = false;
 
-		data.Registers["STATUS"]-> write(data.sram, 0b00011000);
-		data.Registers["OPTION"]-> write(data.sram, 0b11111111);
-		data.Registers["TRISA"] -> write(data.sram, 0b11111111);
-		data.Registers["TRISB"] -> write(data.sram, 0b11111111);
-		data.Registers["PCON"]  -> write(data.sram, 0b00001000);
-		data.Registers["PR2"]   -> write(data.sram, 0b11111111);
-		data.Registers["TXSTA"] -> write(data.sram, 0b00000010);
+		data.Registers["STATUS"]-> write(0b00011000);
+		data.Registers["OPTION"]-> write(0b11111111);
+		data.Registers["TRISA"] -> write(0b11111111);
+		data.Registers["TRISB"] -> write(0b11111111);
+		data.Registers["PCON"]  -> write(0b00001000);
+		data.Registers["PR2"]   -> write(0b11111111);
+		data.Registers["TXSTA"] -> write(0b00000010);
 
 		nsteps = 2;        // fetch & execute the first instruction
 		data.clock.start();
@@ -155,11 +176,18 @@ class CPU {
 	bool process_queue() {
 		try {
 			if (not instruction_cycles.empty()) {
+				const std::string &name = instruction_cycles.front();
+				if (name == "INTERRUPT") {
+					interrupt();
+				} else {
+					cycle();
+				}
 				instruction_cycles.pop();
 				if (not instruction_cycles.empty()) {  // cycling too fast- we will need to slow the clock speed down
+					std::cout << "Cannot process instructions fast enough: Slowing down clock" << std::endl;
 					clock_delay_us += instruction_cycles.size() * 10;   // just add a small delay per cycle
+					std::cout << "Clock frequency is now: " << 1/clock_delay_us << " MHz" << std::endl;
 				}
-				cycle();
 				return true;
 			} else if (data.device_events.size()) {
 				data.device_events.process_events();
@@ -171,9 +199,7 @@ class CPU {
 					if (e.name == "play") paused = false;
 					if (e.name == "next" and paused) nsteps += 1;
 					if (e.name == "back") reset();
-					if (e.name == "reset") {
-						reset();
-					}
+					if (e.name == "reset") reset();
 				}
 				return true;
 			}
@@ -184,6 +210,47 @@ class CPU {
 		return false;
 	}
 
+	// We monitor certain registers to perform interrupts
+	void register_event(Register *r, const std::string &name, const std::vector<BYTE> &rdata){
+		bool generate_interrupt = false;
+		if (name == "INTCON") {
+			BYTE t0_mask  = (Flags::INTCON::T0IE | Flags::INTCON::T0IF | Flags::INTCON::GIE);
+			BYTE rb_mask  = (Flags::INTCON::RBIE | Flags::INTCON::RBIF | Flags::INTCON::GIE);
+			BYTE int_mask = (Flags::INTCON::INTE | Flags::INTCON::INTF | Flags::INTCON::GIE);
+			if        ((r->get_value() & t0_mask) == t0_mask)   {   // Timer0 interrupt triggered
+				generate_interrupt = true;
+			} else if ((r->get_value() & rb_mask) == rb_mask)   {   // Port_B[4..7] interrupt triggered
+				generate_interrupt = true;
+			} else if ((r->get_value() & int_mask) == int_mask) {   // External interrupt [RB0] triggered
+				generate_interrupt = true;
+			}
+		} else if (name == "PIR1") {
+			SmartPtr<Register>INTCON = data.Registers["INTCON"];
+			BYTE enabled = Flags::INTCON::GIE | Flags::INTCON::PEIE;
+			if ((INTCON->get_value() & enabled) == enabled) {
+				SmartPtr<Register>PIE1 = data.Registers["PIE1"];
+				BYTE mask = r->get_value() & PIE1->get_value(); // PIR1 & PIE1 map bit for bit over each other
+				if        (mask & Flags::PIR1::EEIF) {          // EEProm write complete interrupt triggered
+					generate_interrupt = true;
+				} else if (mask & Flags::PIR1::CMIF) {          // Comparator interrupt triggered
+					generate_interrupt = true;
+				} else if (mask & Flags::PIR1::RCIF) {          // USART Received interrupt triggered
+					generate_interrupt = true;
+				} else if (mask & Flags::PIR1::TXIF) {          // USART Transmit interrupt triggered
+					generate_interrupt = true;
+				} else if (mask & Flags::PIR1::CCP1IF) {        // CCP1 interrupt triggered
+					generate_interrupt = true;
+				} else if (mask & Flags::PIR1::TMR2IF) {        // Timer2 PR2 Match interrupt triggered
+					generate_interrupt = true;
+				} else if (mask & Flags::PIR1::TMR1IF) {        // Timer1 Overflow interrupt triggered
+					generate_interrupt = true;
+				}
+			}
+		}
+		if (generate_interrupt)
+			interrupt_pending = true;
+	}
+
 	void clock_event(Clock *device, const std::string &name, const std::vector<BYTE> &data){
 		//   This is called from within the clock thread.  If we process instructions directly
 		// from this thread, then there will be a conflict between instruction processing
@@ -191,7 +258,16 @@ class CPU {
 		// cycle instructions as clock events appear.
 		if (name == "oscillator") {     // positive edge.  4 of these per cycle.
 		} else if (name == "cycle") {   // an instruction cycle.
-			instruction_cycles.push(name);
+			if (!paused or nsteps) {
+//				if (cycles > 1)
+//					instruction_cycles.push(name);
+				if (interrupt_pending) {
+					instruction_cycles.push("INTERRUPT");
+					interrupt_pending = false;
+				} else {
+					instruction_cycles.push(name);
+				}
+			}
 //		} else {
 //			std::cout << name << ":" << std::endl;
 		}
@@ -208,6 +284,7 @@ class CPU {
 
 	virtual ~CPU() {
 		DeviceEvent<Clock>::unsubscribe<CPU>(this, &CPU::clock_event);
+		DeviceEvent<Register>::unsubscribe<CPU>(this, &CPU::register_event);
 	}
 
 	CPU(): active(true), debug(true), paused(true), skip(false), cycles(0), nsteps(0) {
@@ -215,6 +292,7 @@ class CPU {
 		memset(data.eeprom.data, 0, sizeof(data.eeprom.data));
 
 		DeviceEvent<Clock>::subscribe<CPU>(this, &CPU::clock_event);
+		DeviceEvent<Register>::subscribe<CPU>(this, &CPU::register_event);
 
 		if (debug) {
 			CpuEvent::subscribe((void *)this, &CPU::show_status);

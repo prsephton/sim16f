@@ -91,6 +91,17 @@ class Flags {
 		static const BYTE TMR1IE = 0b00000001;
 		static const std::vector<std::string> bits;
 	};
+	struct PIR1 {
+		static const BYTE EEIF   = 0b10000000;
+		static const BYTE CMIF   = 0b01000000;
+		static const BYTE RCIF   = 0b00100000;
+		static const BYTE TXIF   = 0b00010000;
+		static const BYTE na0    = 0b00001000;
+		static const BYTE CCP1IF = 0b00000100;
+		static const BYTE TMR2IF = 0b00000010;
+		static const BYTE TMR1IF = 0b00000001;
+		static const std::vector<std::string> bits;
+	};
 	struct PCON {
 		static const BYTE na0  = 0b10000000;
 		static const BYTE na1  = 0b01000000;
