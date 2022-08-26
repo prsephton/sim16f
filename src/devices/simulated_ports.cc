@@ -1241,8 +1241,8 @@ PortB_RB6::PortB_RB6(Terminal &a_Pin, const std::string &a_name):
 
 	TS2.input(SR1.Q());
 
-	SR1.set_name(a_name+"::Q1");;
-	SR2.set_name(a_name+"::Q3");;
+	SR1.set_name(a_name+"::Q1");
+	SR2.set_name(a_name+"::Q3");
 
 	c["XOR(SR1.Q, SR2.Q)"] = new XOrGate({&SR1.Q(), &SR2.Q()});
 	XOrGate &XOr1 = dynamic_cast<XOrGate &>(*c["XOR(SR1.Q, SR2.Q)"]);
