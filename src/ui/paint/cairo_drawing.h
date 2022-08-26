@@ -14,6 +14,7 @@ namespace app {
 	  protected:
 		Glib::RefPtr<Gtk::DrawingArea> m_area;
 		double m_xpos, m_ypos, m_xofs, m_yofs;
+		double m_scale;
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) = 0;
 		virtual bool on_motion(double x, double y) {
@@ -23,8 +24,12 @@ namespace app {
 		}
 		bool draw_content(const Cairo::RefPtr<Cairo::Context>& cr) {
 			m_xofs=0; m_yofs=0;
+			cr->save();
 			cr->user_to_device(m_xofs, m_yofs);
-			return on_draw(cr);
+			cr->scale(m_scale, m_scale);
+			bool ok = on_draw(cr);
+			cr->restore();
+			return ok;
 		}
 
 		void show_coords(const Cairo::RefPtr<Cairo::Context>& cr) {
@@ -115,7 +120,15 @@ namespace app {
 			cr->restore();
 		}
 
+		void size_changed(Gtk::Allocation& allocation) {
+			double swidth = allocation.get_width() / 860.0;
+			double sheight = allocation.get_height() / 620.0;
+//			std::cout << "w: " << std::dec << (int)(allocation.get_width()) << "; h: " << std::dec << (int)(allocation.get_height()) << std::endl;
+			m_scale = swidth < sheight?swidth:sheight;  // maintain aspect ratio
+		}
+
 		CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>area): m_area(area), m_xpos(0), m_ypos(0), m_xofs(0), m_yofs(0) {
+			m_area->signal_size_allocate().connect(sigc::mem_fun(*this, &CairoDrawing::size_changed));
 			m_area->signal_draw().connect(sigc::mem_fun(*this, &CairoDrawing::draw_content));
 			m_area->signal_motion_notify_event().connect(sigc::mem_fun(*this, &CairoDrawing::motion_event));
 			m_area->add_events(Gdk::POINTER_MOTION_MASK);
