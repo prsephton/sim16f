@@ -176,7 +176,7 @@ void CPU_DATA::register_changed(Register *r, const std::string &name, const std:
 
 void CPU_DATA::portB_changed(PORTB *p, const std::string &name, const std::vector<BYTE> &data) {
 	if (name == "PORTB::INTF") {
-		std::cout << "INTCON::INTF" << std::endl;
+//		std::cout << "INTCON::INTF" << std::endl;
 		auto INTCON = Registers["INTCON"];
 		BYTE idata = INTCON->get_value();
 		INTCON->write(idata | Flags::INTCON::INTF);
