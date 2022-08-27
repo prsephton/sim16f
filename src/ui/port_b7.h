@@ -27,7 +27,7 @@ namespace app {
 			cr->move_to(400, 20);
 			cr->scale(2.0, 2.0);
 			cr->set_line_width(0.1);
-			cr->text_path("Device RB7/T1OSO/T1CKI/PGC");
+			cr->text_path("Device RB7/T1OSI/PGD");
 			cr->fill_preserve(); cr->stroke();
 			cr->restore();
 			return false;
