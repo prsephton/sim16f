@@ -3,11 +3,21 @@ A PIC16f628 simulator
 
 # Why another PIC simulator?
 
-If you are looking for a complete and fully functional PIC simulator, which fully implements a variety of PIC chip models, look no further than [PICSim and PicSimLab](https://sourceforge.net/projects/picsim/#:~:text=PICSimLab%20is%20a%20realtime%20emulator%20of%20development%20boards,MPLABX%2Favr%2Dgdb%20debugger.&text=PICSimLab%20have%20integration%20with%20MPLABX,to%20the%20boards%20for%20simulation).
+If you are looking for a complete and fully functional PIC simulator, which fully implements a variety of PIC chip models, and even the Ardiuno, look no further than [PICSim and PicSimLab](https://sourceforge.net/projects/picsim/#:~:text=PICSimLab%20is%20a%20realtime%20emulator%20of%20development%20boards,MPLABX%2Favr%2Dgdb%20debugger.&text=PICSimLab%20have%20integration%20with%20MPLABX,to%20the%20boards%20for%20simulation).
 
-The goals of this project are quite different.  The intention is to build a tool that very specifically simulates the PIC16f6xx chips, provides an assembler and disassembler, allows single step execution through code, direct editing of RAM, Flash or EEPROM and lets one explore fully how the PIC16f6xx chips interact with on-chip devices.  Part of this is reading or writing files in the INTEL Hex format, which is generally used to program these chips.
+The goals of this project are quite different.  The intention is to build a tool that very specifically simulates the PIC16f6xx chips, notably the PIC16F627 and PIC16F628, provides an assembler and disassembler, allows single step execution through code, direct editing of RAM, Flash or EEPROM and lets one explore fully how the PIC16f6xx chips interact with on-chip devices.  Part of this is reading or writing files in the INTEL Hex format, which is generally used to program these chips.
 
 While this is admittedly an ambitious project, the reward is personal.  It has been over a decade since I have had an opportunity to play with C++ again, and this allows me to explore the numerous changes to the C++ specification.   My tinkering with microcontrollers in circuit design will also directly benefit from this project.
+
+# How does this project add to what PicSim already provides?
+
+Where PicSim is a real time simulator, sim16f makes no pretense of being that.  In fact, "real time" is way to fast for what sim16f aims to accomplish.
+
+When reading a data sheet, the PIC16f document shows a variety of block diagrams describing the design of various components in the chip.  One day, while I was re-reading one of those block diagrams, I though to myself: "I wonder what it would be like if those diagrams were live?", and that was the start of sim16f.
+
+Sim16f animates several of the block digrams found in the PIC16f data sheet, and can show how signals between the components of the chip are affected by a running program.  I find that this helps to trace behaviour rather closely.
+
+Not all sim16f tools are animated graphical block diagrams;  sim16f also provides editors for eeprom & flash, and pages for exploring register values as they change during program execution.
 
 # Why the PIC16f6xx series?
 
