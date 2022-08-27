@@ -11,6 +11,7 @@
 #include "eeprom.h"
 #include "config.h"
 #include "machine.h"
+#include "display_registers.h"
 
 
 Sim16F::Sim16F(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>& refGlade)
@@ -24,6 +25,8 @@ void Sim16F::init_cpu(CPU_DATA &cpu) {
 	m_parts["Flash"] = new app::FlashMemory(cpu, m_refGlade);
 	m_parts["Config"] = new app::Config(cpu, m_refGlade);
 	m_parts["Machine"] = new app::Machine(cpu, m_refGlade);
+	m_parts["Registers"] = new app::DisplayRegisters(cpu, m_refGlade);
+
 	this->signal_delete_event().connect(sigc::mem_fun(*this, &Sim16F::delete_event));
 }
 

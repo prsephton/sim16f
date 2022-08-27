@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Generated with glade 3.22.1 -->
 <interface>
-  <requires lib="gtk+" version="3.12"/>
+  <requires lib="gtk+" version="3.18"/>
   <object class="GtkFileFilter" id="asm_chooser">
     <patterns>
       <pattern>*.asm</pattern>
@@ -9594,7 +9594,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label146">
+                              <object class="GtkLabel" id="label1">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">CCP1CON</property>
@@ -9796,7 +9796,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label162">
+                              <object class="GtkLabel" id="lb_indf_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -9809,7 +9809,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label163">
+                              <object class="GtkLabel" id="lb_tmr0_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -9822,7 +9822,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label164">
+                              <object class="GtkLabel" id="lb_pcl_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -9835,7 +9835,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label165">
+                              <object class="GtkLabel" id="lb_status_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -9848,7 +9848,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label166">
+                              <object class="GtkLabel" id="lb_fsr_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -9861,7 +9861,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label167">
+                              <object class="GtkLabel" id="lb_porta_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -9874,7 +9874,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label168">
+                              <object class="GtkLabel" id="lb_portb_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -9887,7 +9887,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label169">
+                              <object class="GtkLabel" id="lb_pclath_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -9900,7 +9900,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label170">
+                              <object class="GtkLabel" id="lb_intcon_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -9913,7 +9913,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label171">
+                              <object class="GtkLabel" id="lb_pir1_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -9926,7 +9926,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label172">
+                              <object class="GtkLabel" id="lb_tmr1l_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -9939,7 +9939,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label173">
+                              <object class="GtkLabel" id="lb_tmr1h_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -9952,7 +9952,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label174">
+                              <object class="GtkLabel" id="lb_t1con_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -9965,7 +9965,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label175">
+                              <object class="GtkLabel" id="lb_tmr2_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -9978,7 +9978,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label176">
+                              <object class="GtkLabel" id="lb_t2con_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -9991,7 +9991,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label177">
+                              <object class="GtkLabel" id="lb_ccpr1l_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -10004,7 +10004,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label178">
+                              <object class="GtkLabel" id="lb_ccpr1h_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -10017,7 +10017,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label179">
+                              <object class="GtkLabel" id="lb_ccp1con_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -10030,7 +10030,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label180">
+                              <object class="GtkLabel" id="lb_rcsta_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -10043,7 +10043,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label181">
+                              <object class="GtkLabel" id="lb_txreg_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -10056,7 +10056,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label182">
+                              <object class="GtkLabel" id="lb_rcreg_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -10069,7 +10069,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label183">
+                              <object class="GtkLabel" id="lb_cmcon_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -10082,7 +10082,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box16">
+                              <object class="GtkBox" id="box_status_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -10188,7 +10188,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box17">
+                              <object class="GtkBox" id="box_porta_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -10294,7 +10294,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box18">
+                              <object class="GtkBox" id="box_portb_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -10458,7 +10458,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box20">
+                              <object class="GtkBox" id="box_intcon_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -10564,7 +10564,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box21">
+                              <object class="GtkBox" id="box_pir1_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -10670,7 +10670,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box22">
+                              <object class="GtkBox" id="box_t1con_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -10776,7 +10776,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box23">
+                              <object class="GtkBox" id="box_t2con_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -10882,7 +10882,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box24">
+                              <object class="GtkBox" id="box_ccp1con_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -10988,7 +10988,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box25">
+                              <object class="GtkBox" id="box_rcsta_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -11094,7 +11094,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box26">
+                              <object class="GtkBox" id="box_cmcon_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -11508,7 +11508,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label323">
+                              <object class="GtkLabel" id="lb_indf_data2">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -11521,7 +11521,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label324">
+                              <object class="GtkLabel" id="lb_option_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -11534,7 +11534,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label325">
+                              <object class="GtkLabel" id="lb_pcl_data2">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -11547,7 +11547,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label326">
+                              <object class="GtkLabel" id="lb_status_data2">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -11560,7 +11560,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label327">
+                              <object class="GtkLabel" id="lb_fsr_data2">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -11573,7 +11573,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label328">
+                              <object class="GtkLabel" id="lb_trisa_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -11586,7 +11586,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label329">
+                              <object class="GtkLabel" id="lb_trisb_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -11599,7 +11599,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label330">
+                              <object class="GtkLabel" id="lb_pclath_data2">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -11612,7 +11612,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label331">
+                              <object class="GtkLabel" id="lb_intcon_data2">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -11625,7 +11625,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label332">
+                              <object class="GtkLabel" id="lb_pie1_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -11638,7 +11638,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box27">
+                              <object class="GtkBox" id="box_status_reg2">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -11744,7 +11744,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box28">
+                              <object class="GtkBox" id="box_trisa_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -11850,7 +11850,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box29">
+                              <object class="GtkBox" id="box_trisb_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -12014,7 +12014,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box31">
+                              <object class="GtkBox" id="box_intcon_reg2">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -12120,7 +12120,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box32">
+                              <object class="GtkBox" id="box_pie1_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -12226,7 +12226,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box38">
+                              <object class="GtkBox" id="box_option_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -12332,7 +12332,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label284">
+                              <object class="GtkLabel" id="lb_pcon_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -12368,7 +12368,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box33">
+                              <object class="GtkBox" id="box_pcon_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -12510,7 +12510,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label335">
+                              <object class="GtkLabel" id="lb_pr2_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -12546,7 +12546,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box34">
+                              <object class="GtkBox" id="box_txsta_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -12652,7 +12652,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label337">
+                              <object class="GtkLabel" id="lb_txsta_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -12701,7 +12701,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label338">
+                              <object class="GtkLabel" id="lb_spbrg_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -12750,7 +12750,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label339">
+                              <object class="GtkLabel" id="lb_eedata_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -12799,7 +12799,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label340">
+                              <object class="GtkLabel" id="lb_eeadr_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -12812,7 +12812,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label341">
+                              <object class="GtkLabel" id="lb_eecon1_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -12848,7 +12848,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box35">
+                              <object class="GtkBox" id="box_eecon1_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -12990,7 +12990,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label342">
+                              <object class="GtkLabel" id="lb_eecon2_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -13026,7 +13026,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkBox" id="box37">
+                              <object class="GtkBox" id="box_vrcon_reg">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
@@ -13132,7 +13132,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkLabel" id="label343">
+                              <object class="GtkLabel" id="lb_vrcon_data">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="label" translatable="yes">100</property>
@@ -13533,10 +13533,6 @@
                             <property name="can_focus">False</property>
                             <property name="label" translatable="yes"> c </property>
                             <property name="width_chars">3</property>
-                            <attributes>
-                              <attribute name="weight" value="bold"/>
-                              <attribute name="background" value="#fcfce9e94f4f"/>
-                            </attributes>
                           </object>
                           <packing>
                             <property name="expand">False</property>
