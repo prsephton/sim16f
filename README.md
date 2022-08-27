@@ -5,7 +5,7 @@ A PIC16f628 simulator
 
 If you are looking for a complete and fully functional PIC simulator, which fully implements a variety of PIC chip models, look no further than [PICSim and PicSimLab](https://sourceforge.net/projects/picsim/#:~:text=PICSimLab%20is%20a%20realtime%20emulator%20of%20development%20boards,MPLABX%2Favr%2Dgdb%20debugger.&text=PICSimLab%20have%20integration%20with%20MPLABX,to%20the%20boards%20for%20simulation).
 
-The goals of this project are quite different.  The intention is to build a tool that very specifically simulates the PIC16f6xx chips, provides an assembler and disassembler, allows execution with single stepping through code, direct editing of RAM, Flash or EEPROM and lets one explore fully how the PIC16f6xx chips interact with on-chip devices.  Part of this is reading or writing files in the INTEL Hex format, which is generally used to program these chips.
+The goals of this project are quite different.  The intention is to build a tool that very specifically simulates the PIC16f6xx chips, provides an assembler and disassembler, allows single step execution through code, direct editing of RAM, Flash or EEPROM and lets one explore fully how the PIC16f6xx chips interact with on-chip devices.  Part of this is reading or writing files in the INTEL Hex format, which is generally used to program these chips.
 
 While this is admittedly an ambitious project, the reward is personal.  It has been over a decade since I have had an opportunity to play with C++ again, and this allows me to explore the numerous changes to the C++ specification.   My tinkering with microcontrollers in circuit design will also directly benefit from this project.
 
