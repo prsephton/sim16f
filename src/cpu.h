@@ -90,7 +90,9 @@ class CPU {
 		// clear GIE, push PC, set PC = 0x4;
 		SmartPtr<Register>INTCON = data.Registers["INTCON"];
 		INTCON->write(INTCON->get_value() & ~Flags::INTCON::GIE);
-		WORD PC = data.sram.get_PC() - 1;
+
+		WORD PC = data.sram.get_PC();
+		if (current) PC -= 1;
 		cycles = 0;
 		current = NULL;
 		disassembled = "";
@@ -103,7 +105,7 @@ class CPU {
 	}
 
 	static void show_status(void *ob, const CpuEvent &e) {
-		if (e.etype == "start") {
+		if (e.etype == "after") {
 			std::cout << std::setfill('0') << std::hex << std::setw(4) <<  (int)e.PC << ":\t";
 			std::cout << e.disassembly << "\t W:" << std::setw(2) << (int)e.W << "\tSP:" << (int)e.SP << "\n";
 		}
