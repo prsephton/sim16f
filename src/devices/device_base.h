@@ -21,6 +21,7 @@
 #include <set>
 #include <string>
 #include <cstring>
+#include <cassert>
 #include <functional>
 #include <mutex>
 #include <chrono>
@@ -152,6 +153,7 @@ class DeviceEventQueue {
 		try {
 			for (n=0; n<100; ++n)
 				if (not process_single().operator->()) break;
+//			std::cout << "Event Queue Processed: " << n << " events." << std::endl;
 		} catch (std::exception &e) {
 			std::cout << e.what() << std::endl;
 		} catch (...) {}
@@ -750,3 +752,77 @@ class Schmitt: public Device {
 	Connection &rd();
 };
 
+
+//___________________________________________________________________________________
+// Trace signals.  One GUI representation will be a graphical signal tracer.
+class SignalTrace: public Device {
+
+  public:
+	struct DataPoint {
+		time_stamp ts;
+		float v;
+		DataPoint(time_stamp current_ts, float voltage) {
+			ts = current_ts;
+			v = voltage;
+		}
+		DataPoint(const DataPoint &dp): ts(dp.ts), v(dp.v) {
+//			std::cout << "Copied data point " <<  ts.time_since_epoch().count() << " [" << v << "]" << std::endl;
+		}
+	};
+
+  protected:
+	const std::vector<Connection *> m_values;
+	std::chrono::microseconds m_duration_us;
+	std::map<Connection *, std::queue<DataPoint> > m_times;
+	std::map<Connection *, float > m_initial;
+
+	void crop(time_stamp current_ts = current_time_us());
+	void on_connection_change(Connection *c, const std::string &name, const std::vector<BYTE> &data);
+
+  public:
+	SignalTrace(const std::vector<Connection *> &in, const std::string &a_name="");
+	~SignalTrace();
+
+	// returns a collated map of map<connection*, queue<datapoint> where each connection has an equal queue length.
+	// and all columns are for the same time stamp.
+	std::map<Connection *, std::queue<DataPoint> > collate();
+	time_stamp current_us() const;
+	time_stamp first_us() const;
+	void duration_us(long a_duration_us);
+	const std::vector<Connection *> & traced();
+};
+
+//___________________________________________________________________________________
+// A binary counter.  If clock is set, it is synchronous, otherwise asynch ripple.
+class Counter: public Device {
+	const Connection &m_in;
+	const Connection *m_clock;   // Synchronous counter
+	bool m_rising;
+	bool m_signal;
+	bool m_overflow;
+	std::vector<Connection> m_bits;
+	unsigned long m_value;
+	Connection m_dummy;
+	DeviceEventQueue eq;
+
+	void on_signal(Connection *c, const std::string &name, const std::vector<BYTE> &data);
+
+	// synchronous counter on clock signal
+	void on_clock(Connection *c, const std::string &name, const std::vector<BYTE> &data);
+
+  public:
+	Counter(unsigned int nbits, unsigned long a_value=0);
+	Counter(const Connection &a_in, bool rising, size_t nbits, unsigned long a_value=0, const Connection *a_clock = NULL);
+	~Counter();
+
+	Connection &bit(size_t n);
+	std::vector<Connection *> databits();
+
+	void set_name(const std::string &a_name);
+	void set_value(unsigned long a_value);
+	bool is_sync() const { return (m_clock != NULL); }
+	bool overflow() const { return m_overflow; }
+	size_t nbits() const { return m_bits.size(); }
+	unsigned long get() const { return m_value; }
+
+};
