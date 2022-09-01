@@ -189,8 +189,13 @@ void CPU_DATA::timer0_changed(Timer0 *t, const std::string &name, const std::vec
 		auto INTCON = Registers["INTCON"];
 		BYTE idata = INTCON->get_value();
 		INTCON->write(idata | Flags::INTCON::T0IF);
+	} else if (name == "Value") {
+		auto TMR0 = Registers["TMR0"];
+		TMR0->set_value(data[0], data[0]);   // update in memory, but don't trigger a change.
+		sram.write(TMR0->index(), data[0]);  // update the SRAM value separately.
 	}
 }
+
 
 void CPU_DATA::comparator_changed(Comparator *c, const std::string &name, const std::vector<BYTE> &data) {
 	auto r = Registers.find("CMCON");
