@@ -1319,7 +1319,7 @@ PortB_RB7::PortB_RB7(Terminal &a_Pin, const std::string &a_name):
 	c["TRIGGER"] = trigger;
 
 	c["TMR1 Osc"] = new Tristate(PinOut(), m_T1OSCEN, false, true);
-	Tristate &TMR1Osc = dynamic_cast<Tristate &>(*c["TMR1 Osc"]);
+//	Tristate &TMR1Osc = dynamic_cast<Tristate &>(*c["TMR1 Osc"]);
 
 	c["AND(iT1OSCEN, Trigger)"] = new AndGate({&m_iT1OSCEN, &trigger->rd()});
 	AndGate &SPROG_en = dynamic_cast<AndGate &>(*c["AND(iT1OSCEN, Trigger)"]);
