@@ -1,12 +1,106 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <iostream>
+#include <cassert>
 #include "devices.h"
 #include "../utils/smart_ptr.cc"
 
 //_______________________________________________________________________________________________
 // Timer 0
 
+	void Timer0::sync_timer() {   // timer increments with every second call
+		++m_counter;
+		if (m_assigned_to_wdt || (m_counter & (1 << m_prescale_rate))) {
+			m_sync = !m_sync;
+			if (m_sync) {
+				if (++m_timer == 0) {   // overflow from FF to 0
+					eq.queue_event(new DeviceEvent<Timer0>(*this, "Overflow", {}));
+				} else {
+					eq.queue_event(new DeviceEvent<Timer0>(*this, "Value", {m_timer})); // update sram & register
+				}
+			} else {
+				eq.queue_event(new DeviceEvent<Timer0>(*this, "Sync", {}));
+			}
+		} else {
+			eq.queue_event(new DeviceEvent<Timer0>(*this, "Sync", {}));
+		}
+	}
+
+	void Timer0::register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+		if (name=="TMR0"){    // a write to TMR0
+			m_counter = 0;
+			m_timer = data[Register::DVALUE::NEW];
+			eq.queue_event(new DeviceEvent<Timer0>(*this, "Reset", {data[Register::DVALUE::NEW]}));
+		} else if (name=="CONFIG1"){
+			m_wdt_en = data[Register::DVALUE::NEW] & Flags::CONFIG::WDTE;
+		} else if (name=="INTCON"){
+			BYTE new_value = data[Register::DVALUE::NEW];
+			eq.queue_event(new DeviceEvent<Timer0>(*this, "INTCON", {new_value}));
+		} else if (name=="OPTION"){
+			BYTE changed = data[Register::DVALUE::CHANGED];
+			BYTE new_value = data[Register::DVALUE::NEW];
+
+			if (changed & Flags::OPTION::T0CS) {
+				clock_source_select(new_value & Flags::OPTION::T0CS);
+			}
+			if (changed & Flags::OPTION::T0SE) {
+				clock_transition(new_value & Flags::OPTION::T0SE);
+			}
+			if (changed & Flags::OPTION::PSA) {
+				assign_prescaler(new_value & Flags::OPTION::PSA);
+			}
+			if (changed & (Flags::OPTION::PS0 | Flags::OPTION::PS1 | Flags::OPTION::PS2)) {
+				prescaler_rate_select(new_value & 0x7);
+			}
+		} else if (name=="PORTA"){
+			if (m_use_RA4) {
+				bool signal = (data[Register::DVALUE::NEW] & Flags::PORTA::RA4) != 0;
+				if (signal != m_ra4_signal) {
+					if ((signal ^ m_falling_edge)) {
+						sync_timer();
+					}
+					m_ra4_signal = signal;
+				}
+			}
+		}
+	}
+
+	void Timer0::on_clock(Clock *c, const std::string &name, const std::vector<BYTE> &data) {
+		if (name == "CLKOUT") {
+			if (not m_use_RA4 && data[0]) {    // rising edge of clock signal
+				sync_timer();
+			}
+		}
+	}
+
+	Timer0::Timer0(): Device("TMR0"),
+		m_assigned_to_wdt(false), m_falling_edge(false), m_use_RA4(false),
+		m_ra4_signal(false), m_wdt_en(false), m_prescale_rate(1), m_counter(0), m_timer(0), m_sync(false)
+	{
+		DeviceEvent<Register>::subscribe<Timer0>(this, &Timer0::register_changed);
+		DeviceEvent<Clock>::subscribe<Timer0>(this, &Timer0::on_clock);
+	}
+	Timer0::~Timer0() {
+		DeviceEvent<Register>::unsubscribe<Timer0>(this, &Timer0::register_changed);
+		DeviceEvent<Clock>::unsubscribe<Timer0>(this, &Timer0::on_clock);
+	}
+	void Timer0::clock_source_select(bool a_use_RA4){
+		m_use_RA4 = a_use_RA4;
+	};
+	void Timer0::clock_transition(bool a_falling_edge){
+		m_falling_edge = a_falling_edge;
+	};
+	void Timer0::assign_prescaler(bool a_assigned_to_wdt){
+		m_assigned_to_wdt = a_assigned_to_wdt;
+	};
+	void Timer0::prescaler_rate_select(BYTE a_prescale_rate){
+		// bits   000   001   010   011   100    101    110     111
+		// TMR0   1:2   1:4   1:8   1:16  1:32   1:64   1:128   1:256
+		// WDT    1:1   1:2   1:4	1:8   1:16   1:32   1:64    1:128
+		assert((a_prescale_rate >= 0) && (a_prescale_rate < 8));
+		m_prescale_rate = a_prescale_rate;
+		m_prescale_rate = 0;
+	};
 
 //_______________________________________________________________________________________________
 // Comparator
@@ -162,7 +256,7 @@ void Clock::toggle() {
 	Q4 = phase == 4; if (Q4 and high) eq.queue_event(new DeviceEvent<Clock>(*this, "Q4"));
 
 	if (phase % 2)
-		eq.queue_event(new DeviceEvent<Clock>(*this, "CLKOUT", {(BYTE)(phase/2?1:0)}));
+		eq.queue_event(new DeviceEvent<Clock>(*this, "CLKOUT", {(BYTE)(phase/2?0:1)}));
 
 	if (high and Q1) {
 		eq.queue_event(new DeviceEvent<Clock>(*this, "cycle"));
