@@ -8773,7 +8773,7 @@
               </packing>
             </child>
             <child>
-              <object class="GtkNotebook" id="notebook2">
+              <object class="GtkNotebook" id="notebook_machine">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="tab_pos">bottom</property>
@@ -13192,7 +13192,7 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkDrawingArea" id="drawingarea5">
+                  <object class="GtkDrawingArea">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                   </object>
@@ -13201,10 +13201,11 @@
                   </packing>
                 </child>
                 <child type="tab">
-                  <object class="GtkLabel" id="label45">
+                  <object class="GtkLabel" id="lb_comparators">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">WDT</property>
+                    <property name="margin_left">1</property>
+                    <property name="label" translatable="yes">Comparators</property>
                   </object>
                   <packing>
                     <property name="position">3</property>
@@ -13212,7 +13213,7 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkDrawingArea" id="drawingarea15">
+                  <object class="GtkDrawingArea" id="dwg_TMR0">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                   </object>
@@ -13224,7 +13225,7 @@
                   <object class="GtkLabel" id="label42">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">Tmr0</property>
+                    <property name="label" translatable="yes">Tmr0/WDT</property>
                   </object>
                   <packing>
                     <property name="position">4</property>
@@ -13232,7 +13233,7 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkDrawingArea" id="drawingarea16">
+                  <object class="GtkDrawingArea" id="dwg_TMR1">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                   </object>
@@ -13252,7 +13253,7 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkDrawingArea" id="drawingarea17">
+                  <object class="GtkDrawingArea" id="dwg_TMR2">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                   </object>
@@ -13272,7 +13273,7 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkDrawingArea" id="drawingarea18">
+                  <object class="GtkDrawingArea" id="dwg_CCP1">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                   </object>
