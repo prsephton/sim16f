@@ -1,4 +1,5 @@
 #include "device_base.h"
+#include "../utils/utility.h"
 
 
 template <class Wire> class
@@ -771,8 +772,10 @@ template <class Wire> class
 		m_idx = 0;
 		for (int n = m_select.size()-1; n >= 0; --n) {
 			m_idx = m_idx << 1;
-			m_idx |= m_select[n]->signal();
+			m_idx |= (m_select[n]->signal()?1:0);
 		}
+		if (m_select.size() > 1)
+			std::cout << "Select is " << (int)m_idx << "; size is " << m_select.size() << std::endl;
 		if (m_idx >= m_in.size()) throw(name() + std::string(": Multiplexer index beyond input bounds"));
 	}
 
@@ -801,6 +804,7 @@ template <class Wire> class
 		for (size_t n = 0; n < m_select.size(); ++n) {
 			DeviceEvent<Connection>::subscribe<Mux>(this, &Mux::on_select, m_select[n]);
 		}
+		m_out.name(a_name + "::out");
 		calculate_select();
 		set_output();
 	}
@@ -930,5 +934,196 @@ template <class Wire> class
 	Connection& Schmitt::in() { return m_in; }
 	Connection& Schmitt::en() { return m_enable; }
 	Connection& Schmitt::rd() { return m_out; }
+
+
+//___________________________________________________________________________________
+// Trace signals.  One GUI representation will be a graphical signal tracer.
+
+	void SignalTrace::crop(time_stamp current_ts) {
+		time_stamp start_ts = current_ts - m_duration_us;
+		for (auto &c: m_values) {
+			auto &q = m_times[c];
+			while (q.size()) {
+				auto &data = q.front();
+				if (data.ts > start_ts) {
+//					std::cout << c->name() << ": " << q.size() << " elements remain in queue" << std::endl;
+					break;
+				}
+				m_initial[c] = data.v;
+				q.pop();
+			}
+		}
+	}
+
+	void SignalTrace::on_connection_change(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
+		time_stamp current_ts = current_time_us();
+		crop(current_ts);
+		auto &q = m_times[c];
+		q.push(DataPoint(current_ts, c->rd()));
+	}
+
+	SignalTrace::SignalTrace(const std::vector<Connection *> &in, const std::string &a_name) : Device(a_name), m_values(in) {
+		duration_us(20000000);        // 20s (real time seconds)
+		for (auto v: m_values) {
+			m_initial[v] = v->rd();
+			DeviceEvent<Connection>::subscribe<SignalTrace>(this, &SignalTrace::on_connection_change, v);
+		}
+	}
+
+	SignalTrace::~SignalTrace() {
+		for (auto v: m_values) {
+			DeviceEvent<Connection>::unsubscribe<SignalTrace>(this, &SignalTrace::on_connection_change, v);
+		}
+	}
+
+	// returns a collated map of map<connection*, queue<datapoint> where each connection has an equal queue length.
+	// and all columns are for the same time stamp.
+	std::map<Connection *, std::queue<SignalTrace::DataPoint> > SignalTrace::collate() {
+		std::map<Connection *, float > l_initial = m_initial;
+		std::map<Connection *, std::queue<DataPoint> > l_times = m_times;
+		std::map<Connection *, std::queue<DataPoint> > l_collated;
+
+		while (true) {
+			bool l_found = false;
+			time_stamp lowest_ts;
+			for (auto c: m_values) {
+				if (not l_times[c].empty()) {
+					if (not l_found) {
+						l_found = true;
+						lowest_ts = l_times[c].front().ts;
+					} else if (lowest_ts > l_times[c].front().ts) {
+						lowest_ts = l_times[c].front().ts;
+					}
+				}
+			}
+
+			if (not l_found)
+				return l_collated;   // all done
+
+			for (auto c: m_values) {  // add a column
+				if (not l_times[c].empty()) {
+					auto &data = l_times[c].front();
+					if (lowest_ts == data.ts) {
+						l_initial[c] = data.v;
+						l_times[c].pop();
+					}
+				}
+				l_collated[c].push(DataPoint(lowest_ts, l_initial[c]));
+			}
+		}
+	}
+
+	time_stamp SignalTrace::current_us() const { return current_time_us(); }
+	time_stamp SignalTrace::first_us() const {
+		bool first = true;
+		time_stamp ts = current_us();
+		for (auto &row: m_times ) {
+			if (!row.second.empty()) {
+				if (first) {
+					ts = row.second.front().ts;
+					first = false;
+				} else {
+					auto &data = row.second.front();
+					ts = ts > data.ts ? data.ts : ts;
+				}
+			}
+		}
+		return ts;
+	}
+
+	void SignalTrace::duration_us(long a_duration_us) {
+		m_duration_us = std::chrono::duration<long, std::micro>(a_duration_us);
+	}
+
+	const std::vector<Connection *> & SignalTrace::traced() { return m_values; }
+
+
+//___________________________________________________________________________________
+// A binary counter.  If clock is set, it is synchronous, otherwise asynch ripple.
+	void Counter::on_signal(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
+		if (not m_clock) {            // enabled
+			m_overflow = false;
+			if (c->signal() ^ (not m_rising)) {
+				m_value = m_value + 1;     // asynchronous ripple counter
+				if (m_value & (1 << m_bits.size())) {
+					m_value = 0;
+					m_overflow = true;
+				}
+				set_value(m_value);
+			}
+		} else {
+			m_signal = c->signal();
+		}
+	}
+
+	// synchronous counter on clock signal
+	void Counter::on_clock(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
+		eq.process_events();
+		if (c->signal() ^ (not m_rising)) {   // rising clock
+			m_overflow = false;
+			m_value = m_value + (m_signal?1:0);   // clock current input signal into the bus
+			if (m_value & (1 << m_bits.size())) {
+				m_value = 0;
+				m_overflow = true;
+			}
+			m_signal = false;       // triggered
+			set_value(m_value);
+		}
+	}
+
+	Counter::Counter(unsigned int nbits, unsigned long a_value): Device(),
+			m_in(m_dummy), m_clock(NULL), m_rising(true), m_signal(true) {
+		assert(nbits < sizeof(a_value) * 8);
+		m_bits.resize(nbits);
+		set_value(a_value);
+	}
+
+	Counter::Counter(const Connection &a_in, bool rising, size_t nbits, unsigned long a_value, const Connection *a_clock):
+		Device(), m_in(a_in), m_clock(a_clock), m_rising(rising), m_signal(true) {
+		assert(nbits < sizeof(a_value) * 8);
+		m_bits.resize(nbits);
+		set_value(a_value);
+
+		DeviceEvent<Connection>::subscribe<Counter>(this, &Counter::on_signal, &m_in);
+		if (m_clock) {
+			DeviceEvent<Connection>::subscribe<Counter>(this, &Counter::on_clock, m_clock);
+		}
+	}
+
+	Counter::~Counter() {
+		if (&m_in != &m_dummy)
+			DeviceEvent<Connection>::unsubscribe<Counter>(this, &Counter::on_signal, &m_in);
+		if (m_clock) {
+			DeviceEvent<Connection>::unsubscribe<Counter>(this, &Counter::on_clock, m_clock);
+		}
+	}
+
+	void Counter::set_name(const std::string &a_name) {
+		name(a_name);
+		for (size_t n = 0; n < m_bits.size(); ++n) {
+			m_bits[n].name(a_name + int_to_hex(n, "::"));
+		}
+	}
+
+	void Counter::set_value(unsigned long a_value) {
+		m_value = a_value;
+		for (size_t n = 0; n < m_bits.size(); ++n) {
+			m_bits[n].set_value(((a_value & 1) != 0) * Vdd, true);
+			a_value >>= 1;
+		}
+	}
+
+	Connection & Counter::bit(size_t n) {
+		assert(n < m_bits.size());
+		return m_bits[n];
+	}
+
+	std::vector<Connection *> Counter::databits() {
+		std::vector<Connection *> l_bits;  // we use "pointer to connection" so we can easily plug into other components
+		for (auto &bit: m_bits) {
+			l_bits.push_back(&bit);
+		}
+		return l_bits;
+	}
 
 
