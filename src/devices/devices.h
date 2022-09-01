@@ -285,9 +285,15 @@ class Flash: public Device {
 		eq.process_events();
 	}
 
+	void reset() {  // tell everything to reread flash data
+		eq.queue_event(new DeviceEvent<Flash>(*this, "reset", {}));
+		eq.process_events();
+	}
+
 	WORD size() {
 		return FLASH_SIZE;
 	}
+
 
 	void set_data(WORD address, const std::string &ds) {
 		for(WORD n=0; n<ds.length() && n+address<size(); n += 2)
