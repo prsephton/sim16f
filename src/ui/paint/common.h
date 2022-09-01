@@ -10,40 +10,6 @@
 
 namespace app {
 
-	struct Point {
-		double x;
-		double y;
-		bool arrow;
-		bool term;
-
-		Point(double a_x, double a_y, bool a_arrow=false, bool a_term=false):
-			x(a_x), y(a_y), arrow(a_arrow), term(a_term) {}
-	};
-
-	struct Rect {
-		double x;
-		double y;
-		double w;
-		double h;
-
-		bool inside(Point p) {
-			// is px,py inside rect(x,y,w,h) ?
-			double lx=x, ly=y, lw = w, lh = h;
-			if (lw < 0) { lx += lw; w = abs(lw); }
-			if (lh < 0) { ly += lh; h = abs(lh); }
-			p.x -= lx; p.y -= ly;
-			if (p.x >= 0 && p.x <= lw && p.y >= 0 && p.y < lh) {
-//				std::cout << "Test ("<< px <<", " << py << ") inside rect(" << x << ", " << y << ", " << w << ", " << h << ")" << std::endl;
-				return true;
-			}
-			return false;
-		}
-
-
-		Rect(double a_x, double a_y, double a_w, double a_h):
-			x(a_x), y(a_y), w(a_w), h(a_h) {}
-	};
-
 	class Symbol {
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) = 0;
 
@@ -55,7 +21,6 @@ namespace app {
 		bool   m_selected;
 		Rect   m_rect;
 		Point  m_ofs;
-
 
 	  public:
 		virtual void outline(const Cairo::RefPtr<Cairo::Context>& cr) {
@@ -101,6 +66,20 @@ namespace app {
 			m_rect = Rect(r.x - m_ofs.x, r.y-m_ofs.y, r.w, r.h);
 		}
 
+		bool inside(const Rect r, Point p) {
+			return r.inside(p);
+		}
+
+		bool inside(Point p) {
+			return m_rect.inside(p);
+		}
+
+		virtual WHATS_AT location(Point p) {
+			if (inside(p))
+				return WHATS_AT(this, WHATS_AT::SYMBOL, 0);
+			return WHATS_AT(this, WHATS_AT::NOTHING, 0);
+		}
+
 		const bool selected() const { return m_selected; }
 		bool &selected() { return m_selected; }
 
@@ -119,9 +98,13 @@ namespace app {
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			double lw = width / 6.0;
+
 			cr->save();
 			cr->translate(p1.x, p1.y);
 			cr->rotate(rotation);
+
+//			bounding_rect(cr, Rect(0, 0, length, width));
+
 			cr->move_to(lw, lw);
 			cr->line_to(length-lw, lw);
 
@@ -203,6 +186,7 @@ namespace app {
 			cr->stroke();
 			cr->restore();
 		}
+
 		PinSymbol(double x=0, double y=0, double rotation=0, double scale=1.0): Symbol(x, y, rotation, scale) {}
 	};
 
@@ -405,6 +389,7 @@ namespace app {
 
 	class MuxSymbol: public Symbol  {
 		int m_gates, m_inputs;
+		bool m_forward;
 	  public:
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
@@ -430,14 +415,16 @@ namespace app {
 				cr->move_to((width-cw)/2, ofs + height/2.0 + width - (r+1) * h);
 				cr->save();
 				cr->scale(0.8, 0.8);
-				cr->text_path(int_to_hex(r, "", ""));
+				cr->text_path(int_to_hex(m_forward?r:(m_inputs-r-1), "", ""));
 				cr->fill_preserve(); cr->stroke();
 				cr->restore();
 			}
 			cr->restore();
 		}
+
+		void draw_forward(bool a_forward){ m_forward = a_forward; }
 		MuxSymbol(double x=0, double y=0, double rotation=0, int gates=1, int inputs=2):
-			Symbol(x, y, rotation), m_gates(gates), m_inputs(inputs) {}
+			Symbol(x, y, rotation), m_gates(gates), m_inputs(inputs), m_forward(true) {}
 	};
 
 	class ALUSymbol: public Symbol  {
@@ -628,20 +615,70 @@ namespace app {
 
 			text(double a_x, double a_y, const std::string &a_text):
 					x(a_x), y(a_y), t(a_text), m_line_width(0.8), m_underscore(false), m_overscore(false), m_bold(false) {}
+			virtual ~text() {};
 
 			text &line_width(double w=0.8) { m_line_width = w; return *this; }
 			text &underscore(bool u=true)  { m_underscore = u; return *this; }
 			text &overscore(bool o=true)   { m_overscore = o; return *this; }
 			text &bold(bool b=true)        { m_bold = b; return *this; }
+
+			virtual const std::string fetch_text() { return t; }
+
+			void render(const Cairo::RefPtr<Cairo::Context>& cr) {
+				const int LINE_HEIGHT = 12;
+				cr->move_to(x, y);
+				size_t end=0, q=0;
+				while (end < std::string::npos) {
+					auto txt = this->fetch_text();
+					auto start = end; end = txt.find("\n", end);
+					cr->text_path(txt.substr(start, end-start));
+					cr->set_line_width(m_bold?m_line_width*1.2:m_line_width);
+					cr->fill_preserve();
+					cr->stroke();
+					if (m_overscore) {
+						cr->set_line_width(1.0);
+						Cairo::TextExtents extents;
+						cr->get_text_extents(txt.substr(start, end-start), extents);
+						double dy = y+extents.y_bearing+(q*LINE_HEIGHT)-2;
+						cr->move_to(x, dy);
+						cr->line_to(x + extents.width, dy);
+						cr->stroke();
+					}
+					if (m_underscore) {
+						cr->set_line_width(0.8);
+						Cairo::TextExtents extents;
+						cr->get_text_extents(txt.substr(start, end-start), extents);
+						cr->move_to(x, y+(q*LINE_HEIGHT)+1);
+						cr->line_to(x + extents.width, y+(q*LINE_HEIGHT)+1);
+						cr->stroke();
+					}
+					if (end != std::string::npos) {
+						q++; cr->move_to(x, y+(q*LINE_HEIGHT));
+						end = end + 1;
+					}
+				}
+			}
+
 		};
 
 		std::vector<pt> m_points;
 		std::vector<text> m_text;
+		std::vector<SmartPtr<text>> m_textptr;
 		std::vector<SmartPtr<Symbol>> m_symbols;
 
 		GenericDiagram &add(pt a_pt) {m_points.push_back(a_pt); return *this; }
-		GenericDiagram &add(text a_text) {m_text.push_back(a_text); return *this; }
+		GenericDiagram &add(text *a_text) {m_textptr.push_back(a_text); return *this; }
+		GenericDiagram &add(const text &a_text) {m_text.push_back(a_text); return *this; }
 		GenericDiagram &add(Symbol *a_symbol) {m_symbols.push_back(a_symbol); return *this; }
+
+		virtual WHATS_AT location(Point p) {
+			for (size_t n=0; n < m_symbols.size(); ++n) {
+				WHATS_AT w = m_symbols[n]->location(p);
+				if (w.what != WHATS_AT::NOTHING)
+					return w;
+			}
+			return CairoDrawing::location(p);
+		}
 
 		virtual bool determinate() {
 			return true;
@@ -651,49 +688,22 @@ namespace app {
 			return false;
 		}
 
-		void draw_text(const Cairo::RefPtr<Cairo::Context>& cr, const std::vector<text> &a_text) {
+		void draw_text(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			black(cr);
-			for (size_t n=0; n < a_text.size(); ++n) {
-				const int LINE_HEIGHT = 12;
-				const text &t = a_text[n];
-				cr->move_to(t.x, t.y);
-				size_t end=0, q=0;
-				while (end < std::string::npos) {
-					auto start = end; end = t.t.find("\n", end);
-					cr->text_path(t.t.substr(start, end-start));
-					cr->set_line_width(t.m_bold?t.m_line_width*1.2:t.m_line_width);
-					cr->fill_preserve();
-					cr->stroke();
-					if (t.m_overscore) {
-						cr->set_line_width(1.0);
-						Cairo::TextExtents extents;
-						cr->get_text_extents(t.t.substr(start, end-start), extents);
-						double y = t.y+extents.y_bearing+(q*LINE_HEIGHT)-2;
-						cr->move_to(t.x, y);
-						cr->line_to(t.x + extents.width, y);
-						cr->stroke();
-					}
-					if (t.m_underscore) {
-						cr->set_line_width(0.8);
-						Cairo::TextExtents extents;
-						cr->get_text_extents(t.t.substr(start, end-start), extents);
-						cr->move_to(t.x, t.y+(q*LINE_HEIGHT)+1);
-						cr->line_to(t.x + extents.width, t.y+(q*LINE_HEIGHT)+1);
-						cr->stroke();
-					}
-					if (end != std::string::npos) {
-						q++; cr->move_to(t.x, t.y+(q*LINE_HEIGHT));
-						end = end + 1;
-					}
-				}
+			for (size_t n=0; n < m_text.size(); ++n) {
+				text &t = m_text[n];
+				t.render(cr);
+			}
+			for (size_t n=0; n < m_textptr.size(); ++n) {
+				m_textptr[n]->render(cr);
 			}
 			cr->restore();
 		}
 
-		void draw_points(const Cairo::RefPtr<Cairo::Context>& cr, std::vector<pt> &a_points) {
-			for (size_t n=0; n < a_points.size(); ++n) {
-				pt &point = a_points[n];
+		void draw_points(const Cairo::RefPtr<Cairo::Context>& cr) {
+			for (size_t n=0; n < m_points.size(); ++n) {
+				pt &point = m_points[n];
 				if (point.is_first) {
 					cr->stroke();
 					cr->move_to(point.x, point.y);
@@ -743,9 +753,9 @@ namespace app {
 				cr->restore();
 			}
 
-			draw_points(cr, m_points);
+			draw_points(cr);
 			cr->set_source_rgba(0.15,0.15,0.35,1);
-			draw_text(cr, m_text);
+			draw_text(cr);
 			draw_extra(cr);
 
 			cr->restore();

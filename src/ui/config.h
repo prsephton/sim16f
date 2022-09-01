@@ -65,6 +65,30 @@ namespace app {
 			return bc;
 		}
 
+		void configure_bits() {
+			m_bits["cp"]    = make_BitConfig("config_cp",    Flags::CONFIG::CP);
+			m_bits["cpd"]   = make_BitConfig("config_cpd",   Flags::CONFIG::CPD);
+			m_bits["boren"] = make_BitConfig("config_boren", Flags::CONFIG::BOREN);
+			m_bits["lvp"]   = make_BitConfig("config_lvp",   Flags::CONFIG::LVP);
+			m_bits["mclre"] = make_BitConfig("config_mclre", Flags::CONFIG::MCLRE);
+			m_bits["pwrte"] = make_BitConfig("config_pwrte", Flags::CONFIG::PWRTE);
+			m_bits["wdte"]  = make_BitConfig("config_wdte",  Flags::CONFIG::WDTE);
+		}
+
+		void set_title(const std::string &a_filename) {
+			std::string l_title="PIC16fxxx Simulator";
+			Glib::RefPtr<Gtk::Window> l_window = Glib::RefPtr<Gtk::Window>::cast_dynamic(m_refGlade->get_object("sim16f_main"));
+			l_window->set_title(l_title + "  -   [" + a_filename + "]" );
+		}
+
+		const std::string base_name(const std::string &a_filename) {
+			if (a_filename.rfind("/") != std::string::npos)
+				return a_filename.substr(a_filename.rfind("/")+1);
+			else if (a_filename.rfind("\\") != std::string::npos)
+				return a_filename.substr(a_filename.rfind("\\")+1);
+			return a_filename;
+		}
+
 		void on_fosc_changed() {
 			WORD fosc_code = 7 - m_fosc->get_active_row_number();
 			if (fosc_code & 0b100) {
@@ -75,8 +99,10 @@ namespace app {
 
 		void on_save_hex_clicked() {
 			std::string l_filename = m_file_chooser->save_hex_file(m_filename);
-			if (l_filename.length() and dump_hex(l_filename, m_cpu))
+			if (l_filename.length() and dump_hex(l_filename, m_cpu)) {
 				std::cout << "Hex file " << l_filename << " successfully saved" << std::endl;
+				set_title(base_name(l_filename));
+			}
 		}
 
 		void on_load_hex_clicked() {
@@ -85,6 +111,8 @@ namespace app {
 				if (l_filename.length() and load_hex(l_filename, m_cpu)) {
 					std::cout << "Hex file " << l_filename << " successfully laoded" << std::endl;
 					m_cpu.control.push(ControlEvent("reset"));
+					set_title(base_name(l_filename));
+					configure_bits();
 				}
 			} catch(const std::string &err) {
 				std::cout << "An error occurred while loading " << l_filename << ": " << err << std::endl;
@@ -98,6 +126,8 @@ namespace app {
 				if (l_filename.length() and assemble(l_filename, m_cpu, instructions)) {
 					std::cout << "Assembler file " << l_filename << " successfully laoded" << std::endl;
 					m_cpu.control.push(ControlEvent("reset"));
+					set_title(base_name(l_filename));
+					configure_bits();
 				}
 			} catch(const std::string &err) {
 				std::cout << "An error occurred while assembling " << l_filename << ": " << err << std::endl;
@@ -115,15 +145,7 @@ namespace app {
 
 		Config(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
 			m_cpu(a_cpu), m_refGlade(a_refGlade) {
-
-			m_bits["cp"]    = make_BitConfig("config_cp",    Flags::CONFIG::CP);
-			m_bits["cpd"]   = make_BitConfig("config_cpd",   Flags::CONFIG::CPD);
-			m_bits["boren"] = make_BitConfig("config_boren", Flags::CONFIG::BOREN);
-			m_bits["lvp"]   = make_BitConfig("config_lvp",   Flags::CONFIG::LVP);
-			m_bits["mclre"] = make_BitConfig("config_mclre", Flags::CONFIG::MCLRE);
-			m_bits["pwrte"] = make_BitConfig("config_pwrte", Flags::CONFIG::PWRTE);
-			m_bits["wdte"]  = make_BitConfig("config_wdte",  Flags::CONFIG::WDTE);
-
+			configure_bits();
 
 			m_fosc = Glib::RefPtr<Gtk::ComboBoxText>::cast_dynamic(m_refGlade->get_object("config_fosc"));
 			m_fosc->signal_changed().connect(sigc::mem_fun(*this, &Config::on_fosc_changed));
@@ -140,6 +162,7 @@ namespace app {
 
 			m_refGlade->get_widget_derived("file_chooser", m_file_chooser);
 			m_filename = "test.hex";
+			set_title(m_filename);
 		}
 	};
 

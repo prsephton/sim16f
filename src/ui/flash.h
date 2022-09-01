@@ -126,7 +126,7 @@ namespace app {
 		}
 
 		void flash_changed(Flash *f, const std::string &name) {
-			if (name == "init" || name == "clear") {
+			if (name == "init" || name == "clear" || name == "reset") {
 				reset();
 			}
 		}

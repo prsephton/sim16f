@@ -4,6 +4,7 @@
 #include <iostream>
 #include <sstream>
 #include <queue>
+#include "../../utils/utility.h"
 #include "cairo_drawing.h"
 #include "../../devices/devices.h"
 
@@ -17,6 +18,10 @@ namespace app {
 		int m_y;
 
 		BufferSymbol m_symbol;
+
+		virtual WHATS_AT location(Point p) {
+			return m_symbol.location(p);
+		}
 
 	  public:
 
@@ -53,6 +58,10 @@ namespace app {
 
 		BufferSymbol m_symbol;
 
+		virtual WHATS_AT location(Point p) {
+			return m_symbol.location(p);
+		}
+
 	  public:
 
 		virtual bool on_motion(double x, double y) {
@@ -84,10 +93,21 @@ namespace app {
 		double m_y;
 		double m_rotation;
 		double m_scale;
+		PinSymbol m_symbol;
+
+		virtual WHATS_AT location(Point p) {
+			return m_symbol.location(p);
+		}
 
 	  public:
 
 		virtual bool on_motion(double x, double y) {
+			Rect r = m_symbol.bounding_rect();
+			bool selected = m_symbol.selected();
+			m_symbol.selected() = r.inside(Point(x, y));
+			if (selected != m_symbol.selected()) {
+				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+			}
 			return false;
 		}
 
@@ -107,7 +127,8 @@ namespace app {
 
 			this->black(cr);
 
-			PinSymbol(m_x, m_y, m_rotation, m_scale).draw_symbol(cr, Point(m_xofs, m_yofs));
+			m_symbol.draw_symbol(cr, Point(m_xofs, m_yofs));
+//			PinSymbol(m_x, m_y, m_rotation, m_scale).draw_symbol(cr, Point(m_xofs, m_yofs));
 
 
 			return false;
@@ -122,6 +143,7 @@ namespace app {
 			CairoDrawing(a_area), m_pin(a_pin), m_x(x), m_y(y), m_rotation(rotation), m_scale(scale)
 		{
 			DeviceEvent<Connection>::subscribe<PinDiagram>(this, &PinDiagram::on_connection_change, &a_pin);
+			m_symbol = PinSymbol(m_x, m_y, m_rotation, m_scale);
 		}
 	};
 
@@ -180,6 +202,10 @@ namespace app {
 
 		SchmittSymbol m_symbol;
 
+		virtual WHATS_AT location(Point p) {
+			return m_symbol.location(p);
+		}
+
 	  public:
 
 		virtual bool on_motion(double x, double y) {
@@ -212,6 +238,10 @@ namespace app {
 		int m_y;
 
 		BufferSymbol m_symbol;
+
+		virtual WHATS_AT location(Point p) {
+			return m_symbol.location(p);
+		}
 
 	  public:
 
@@ -261,6 +291,10 @@ namespace app {
 
 		RelaySymbol m_symbol;
 
+		virtual WHATS_AT location(Point p) {
+			return m_symbol.location(p);
+		}
+
 	  public:
 
 		virtual bool on_motion(double x, double y) {
@@ -299,7 +333,13 @@ namespace app {
 
 		MuxSymbol m_symbol;
 
+		virtual WHATS_AT location(Point p) {
+			return m_symbol.location(p);
+		}
+
 	  public:
+
+		void draw_forward(bool a_forward){ m_symbol.draw_forward(a_forward); }
 
 		virtual bool on_motion(double x, double y) {
 			Rect r = m_symbol.bounding_rect();
@@ -328,6 +368,7 @@ namespace app {
 
 	};
 
+
 	class LatchDiagram: public CairoDrawing {
 		Latch &m_latch;
 		bool m_point_right;
@@ -336,6 +377,10 @@ namespace app {
 		int m_y;
 		Point m_size;
 		BlockSymbol m_basic;
+
+		virtual WHATS_AT location(Point p) {
+			return m_basic.location(p);
+		}
 
 	  public:
 
@@ -412,6 +457,172 @@ namespace app {
 			CairoDrawing(a_area), m_latch(a_latch), m_point_right(point_right),  m_x(x), m_y(y), m_size(70, 70)
 		{
 			m_basic = BlockSymbol(m_x+m_size.x/2, m_y+m_size.y/2, m_size.x, m_size.y);
+		}
+	};
+
+
+	class CounterDiagram: public CairoDrawing {
+		Counter &m_counter;
+		int m_x;
+		int m_y;
+		Point m_size;
+		BlockSymbol m_basic;
+
+		virtual WHATS_AT location(Point p) {
+			return m_basic.location(p);
+		}
+
+		virtual bool on_motion(double x, double y) {
+			Rect r = m_basic.bounding_rect();
+			bool selected = m_basic.selected();
+			m_basic.selected() = r.inside(Point(x, y));
+			if (selected != m_basic.selected()) {
+				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+			}
+			return false;
+		}
+
+	  public:
+
+		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			m_basic.draw_symbol(cr, Point(m_xofs, m_yofs));
+
+			cr->save();
+			cr->translate(m_x, m_y);
+			cr->set_line_width(0.8);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+
+			std::string bits="";
+			unsigned long value = m_counter.get();
+			for (size_t n=0; n < m_counter.nbits(); ++n){
+				bits.insert(0, (value & 1 << n)?"1":"0");
+			}
+			bits += " [" + int_to_hex(value, "0x") + "]";
+
+			cr->move_to(10, m_size.y - 10);
+			cr->text_path(bits);
+			cr->set_line_width(0.6);
+
+			black(cr); cr->fill_preserve(); cr->stroke();
+
+			if (m_counter.is_sync()) {
+				auto mid = m_size.x / 2;
+				cr->move_to(mid - 10, 0);
+				cr->line_to(mid, 15);
+				cr->line_to(mid+10, 0);
+				cr->set_line_width(0.9);
+				cr->stroke();
+			}
+
+			cr->restore();
+			return false;
+		}
+
+		CounterDiagram(Counter &a_counter, Glib::RefPtr<Gtk::DrawingArea>a_area, double x, double y):
+			CairoDrawing(a_area), m_counter(a_counter), m_x(x), m_y(y),
+			m_size(a_counter.nbits() * 7 + 50, 30 + 20 * a_counter.is_sync())
+		{
+			m_basic = BlockSymbol(m_x+m_size.x/2, m_y+m_size.y/2, m_size.x, m_size.y);
+		}
+	};
+
+
+	class TraceDiagram: public CairoDrawing {
+		SignalTrace &m_trace;
+		int m_x;
+		int m_y;
+		int m_width;
+		int m_rowHeight;
+		Point m_size;
+		BlockSymbol m_basic;
+		std::vector<std::string> m_names;
+
+		virtual WHATS_AT location(Point p) {
+			return m_basic.location(p);
+		}
+
+		virtual bool on_motion(double x, double y) {
+			Rect r = m_basic.bounding_rect();
+			bool selected = m_basic.selected();
+			m_basic.selected() = r.inside(Point(x, y));
+			if (selected != m_basic.selected()) {
+				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+			}
+			return false;
+		}
+
+
+	  public:
+
+		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			m_basic.draw_symbol(cr, Point(m_xofs, m_yofs));
+
+			cr->save();
+			cr->translate(m_x+2, m_y);
+			cr->set_line_width(0.8);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+			auto first_ts = m_trace.first_us();
+			auto range =  std::chrono::duration<double>(m_trace.current_us() - first_ts).count();
+			int width = m_width-2;
+			int nth_row = 1;
+			int text_width = 0;
+			for (auto &name : m_names) {
+				Cairo::TextExtents extents;
+				cr->get_text_extents(name, extents);
+				if (text_width < extents.width) text_width = extents.width;
+				cr->move_to(0, nth_row * m_rowHeight-4);
+				cr->text_path(name);
+				cr->fill_preserve(); cr->stroke();
+				nth_row++;
+			}
+			if (text_width) text_width += 8;
+			cr->translate(text_width, 2);
+			width -= text_width;
+			auto collated = m_trace.collate();
+			nth_row = 0;
+			for (auto &c : m_trace.traced()) {
+				auto &q = collated[c];
+				bool first = true;
+				double v = 0;
+
+				while (!q.empty()) {
+					auto &data = q.front();
+					auto ts = std::chrono::duration<double>(data.ts - first_ts).count();
+					float x = ts / range;
+//					std::cout << x << "[" << data.v <<  "] ";
+					if (first) {
+						cr->move_to(x * width, nth_row * m_rowHeight +  (1 - data.v / c->Vdd) * (m_rowHeight - 4));
+						v = data.v;
+						first = false;
+					} else {
+						cr->line_to(x * width, nth_row * m_rowHeight +  (1 - v / c->Vdd) * (m_rowHeight - 4));
+						cr->line_to(x * width, nth_row * m_rowHeight +  (1 - data.v / c->Vdd) * (m_rowHeight - 4));
+						v = data.v;
+					}
+					q.pop();
+				}
+//				std::cout << std::endl;
+				if (nth_row % 2) black(cr); else blue(cr);
+				cr->stroke();
+				nth_row++;
+			}
+
+			cr->restore();
+			return false;
+		}
+
+		TraceDiagram(SignalTrace &a_trace, Glib::RefPtr<Gtk::DrawingArea>a_area, double x, double y, int width=200, int row_height=20):
+			CairoDrawing(a_area), m_trace(a_trace), m_x(x), m_y(y),
+			m_width(width), m_rowHeight(row_height),
+			m_size(m_width, a_trace.traced().size() * m_rowHeight)
+		{
+			m_basic = BlockSymbol(m_x+m_size.x/2, m_y+m_size.y/2, m_size.x, m_size.y);
+			m_names.resize(a_trace.traced().size());
+			for (size_t n=0; n < m_names.size(); ++n) {
+				m_names[n] = m_trace.traced()[n]->name();
+				if (not m_names[n].length())
+					m_names[n] = std::string("S") + int_to_hex(n, ".");
+			}
 		}
 	};
 
