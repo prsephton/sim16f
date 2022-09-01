@@ -1,3 +1,4 @@
+#pragma once
 #include <gtkmm.h>
 #include <map>
 #include "../cpu_data.h"
