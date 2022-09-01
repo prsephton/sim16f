@@ -18,6 +18,7 @@ bool parse_args(const char *in, std::queue<std::string> &args) {
 		if (*pt == '"') {
 			for (sep = pt+1; *sep && *sep != '"'; ++sep);
 			if (*sep != '"') return false;
+			args.push("\"");                     // next arg as text
 			args.push(std::string(pt+1, sep-pt-1));
 //			std::cout << "text: [" << std::string(pt+1, sep-pt-1) << "]" << std::endl;
 			pt = sep+1;
@@ -39,7 +40,6 @@ bool parse_args(const char *in, std::queue<std::string> &args) {
 	return true;
 }
 
-
 /*
  *   translate=[whitespace]<input_line><newline>
  *   input_line = <comment> | <instruction_line>
@@ -49,8 +49,8 @@ bool parse_args(const char *in, std::queue<std::string> &args) {
  *   label_part = <label><:>
  *   instruction = <mnemonic><whitespace><address_part>
  *   address_part = <address>[,<arg>]
- *
  */
+
 bool translate(const char *in,
 		std::string &label,  std::string &mnemonic, std::string &address, std::queue<std::string> &args) {
 	char *pt = (char *)in, *sep;
@@ -92,6 +92,42 @@ bool translate(const char *in,
 	return false;
 }
 
+std::string strip(const std::string &buf) {
+	std::string b = buf;
+	b.erase(b.find_last_not_of(" \n\r\t")+1);
+	b.erase(0, b.find_first_not_of(" \n\r\t"));
+	return b;
+}
+
+WORD as_number(const std::string &address, int default_radix, const std::string &fail) {
+	char *p;
+	WORD waddr;
+	if (address.substr(0,2) == "0X") {
+		waddr = strtoul(address.c_str()+2, &p, 16);
+	} else  {
+		waddr = strtoul(address.c_str(), &p, default_radix);
+	}
+	if (!p) throw(fail);
+	return waddr;
+}
+
+std::vector<WORD> as_numbers(std::string address, std::queue<std::string> &args, int default_radix, const std::string &fail) {
+	WORD waddr;
+	std::vector<WORD> numbers;
+
+	while (true) {
+		if (address == "\"") {    // TODO: handle escape sequences
+			address = args.front(); args.pop();
+			for (BYTE c: address)
+				numbers.push_back((WORD)c);
+		} else {
+			waddr = as_number(address, default_radix, fail);
+			numbers.push_back(waddr);
+		}
+		if (!args.size()) return numbers;
+		address = args.front(); args.pop();
+	}
+}
 
 bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &instructions) {   // assembly file read into flash
 	// expected format:
@@ -146,7 +182,7 @@ bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &inst
 		PC = 0;
 		fseek(f, 0, SEEK_SET);
 		if (pass)  // clear flash on second pass
-			memset(cpu.flash.data, 0, sizeof(cpu.flash.data));
+			cpu.flash.clear();
 		while (fgets(buf, sizeof(buf), f)) {
 			std::string label, mnemonic, address;
 			std::queue<std::string>args;
@@ -162,45 +198,66 @@ bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &inst
 				throw(std::string("EEC exceeds device limits: @") + int_to_hex(EEC));
 
 			if (translate(buf, label, mnemonic, address, args)) {
-//					std::cout << "label: ["<<label<<"]; mnemonic: ["<<mnemonic<<"]; address: ["<<address<<"]; arg: ["<<arg<<"]\n";
+//				std::cout << "label: ["<<label<<"]; mnemonic: ["<<mnemonic<<"]; address: ["<<address<<"]; arg: ["<<args.size()<<"]\n";
 				label = to_upper(label);
 				mnemonic = to_upper(mnemonic);
 				address = to_upper(address);
 				if (mnemonic.length()) {
 					directive_skip = true;
 					if (mnemonic == "ORG") {  // set PC
-						char *p;
-						PC = strtoul(address.c_str(), &p, 10);
-						if (!p) throw(std::string("Invalid ORG directive: [")+address+"] @"+int_to_hex(PC));
+						PC = as_number(address, 10, std::string("Invalid ORG directive: [")+address+"] @"+int_to_hex(PC));
 					} else if (mnemonic == "EEORG") {  // set EEC
-							char *p;
-							EEC = strtoul(address.c_str(), &p, 10);
-							if (!p) throw(std::string("Invalid EEORG directive: [")+address+"] @"+int_to_hex(PC));
+						EEC = as_number(address, 10, std::string("Invalid EEORG directive: [")+address+"] @"+int_to_hex(PC));
 					} else if (mnemonic == "DT") {  // compile bytes as a RETLW table, with each byte contained in an instruction
-
+						if (pass) { // write flash on second pass
+							std::vector<WORD> DT = as_numbers(address, args, radix, std::string("Invalid DT directive: [")+address+"] @"+int_to_hex(PC));
+							for (WORD waddr: DT) {
+								WORD opcode = instructions.assemble("RETLW", waddr, 0, false);
+								SmartPtr<Instruction> op = instructions.find(opcode);   // check
+								if (!op || op->mnemonic != mnemonic) throw(std::string("Error while checking assembly: ") + mnemonic);
+								cpu.flash.data[PC] = opcode;
+								++PC;  // all instructions are single word
+								if (PC > cpu.flash.size())
+									throw(std::string("PC exceeds device limits: @") + int_to_hex(PC));
+							}
+						}
 					} else if (mnemonic == "DE") {     // compile bytes of eeprom data
-
+						if (pass) { // write eeprom data on second pass
+							std::vector<WORD> DE = as_numbers(address, args, radix, std::string("Invalid DE directive: [")+address+"] @"+int_to_hex(PC));
+							for (WORD eedata: DE) {
+								cpu.eeprom.data[EEC] = eedata;
+								++EEC;  // Increment EE offset counter
+								if (EEC > cpu.eeprom.size())
+									throw(std::string("EEC exceeds device limits: @") + int_to_hex(EEC));
+							}
+						}
 					} else if (mnemonic == "DATA") {   // Create numeric & text data in flash memory
-
+						if (pass) { // write flash data on second pass
+							std::vector<WORD> DD = as_numbers(address, args, radix, std::string("Invalid DATA directive: [")+address+"] @"+int_to_hex(PC));
+							for (WORD data: DD) {
+								cpu.flash.data[PC] = data;
+								++PC;  // Increment EE offset counter
+								if (PC > cpu.flash.size())
+									throw(std::string("PC exceeds device limits: @") + int_to_hex(PC));
+							}
+						}
 					} else if (mnemonic == "EQU") {
 						if (cpu.Registers.find(address)!=cpu.Registers.end())
 							throw(std::string("Invalid EQU directive: Cannot redefine register name [")+address+"] @"+int_to_hex(PC));
-						if (variables.find(label) != variables.end())
-							throw(std::string("Invalid EQU directive: Cannot redefine existing variable [")+address+"] @"+int_to_hex(PC));
-						if (label.length() == 0)
-							throw(std::string("Invalid EQU directive: A label must be specified [")+address+"] @"+int_to_hex(PC));
-						if (address.length() == 0)
-							throw(std::string("Invalid EQU directive: Must have an address [")+address+"] @"+int_to_hex(PC));
-						variables[label] = address;
-					} else if (mnemonic == "CONFIG" || mnemonic == "__CONFIG") {
-						char *p;
-						cpu.Config = strtoul(address.c_str(), &p, radix);
-						if (!p) throw(std::string("Invalid CONFIG directive: [")+address+"] @"+int_to_hex(PC));
-					} else if (mnemonic == "RADIX") {
-						if (is_decimal(address)) {
-							char *p;
-							radix = strtoul(address.c_str(), &p, 10);
+						if (!pass) {
+							if (variables.find(label) != variables.end())
+								throw(std::string("Invalid EQU directive: Cannot redefine existing variable [")+address+"] @"+int_to_hex(PC));
+							if (label.length() == 0)
+								throw(std::string("Invalid EQU directive: A label must be specified [")+address+"] @"+int_to_hex(PC));
+							if (address.length() == 0)
+								throw(std::string("Invalid EQU directive: Must have an address [")+address+"] @"+int_to_hex(PC));
+							variables[label] = address;
 						}
+					} else if (mnemonic == "CONFIG" || mnemonic == "__CONFIG") {
+						cpu.Config = as_number(address, radix, std::string("Invalid CONFIG directive: [")+address+"] @"+int_to_hex(PC));
+					} else if (mnemonic == "RADIX") {
+						if (is_decimal(address))
+							radix = as_number(address, 10, std::string("Invalid RADIX directive: [")+address+"] @"+int_to_hex(PC));
 						else if (address == "HEX")
 							radix = 16;
 						else if (address.substr(3) == "DEC")
@@ -225,26 +282,19 @@ bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &inst
 							address = variables[address];
 
 						if (address.substr(0,2) == "0X") { // a Hex address
-							char *p;
-							waddr = strtoul(address.c_str()+2, &p, 16);
-							if (!p) throw(std::string("Invalid hex digits found: [")+address+"] @"+int_to_hex(PC));
+							waddr = as_number(address, 16, std::string("Invalid hex digits found: [")+address+"] @"+int_to_hex(PC));
 						} else if (radix==10 && is_decimal(address)) {   // its a decimal number
-							char *p;
-							waddr = strtoul(address.c_str()+2, &p, radix);
-							if (!p) throw(std::string("Invalid decimal digits found: [")+address+"] @"+int_to_hex(PC));
+							waddr = as_number(address, 10, std::string("Invalid decimal address: [")+address+"] @"+int_to_hex(PC));
 						} else if (radix==16 && is_hex(address)) {   // its a decimal number
-							char *p;
-							waddr = strtoul(address.c_str(), &p, 16);
-							if (!p) throw(std::string("Invalid hex digits found: [")+address+"] @"+int_to_hex(PC));
+							waddr = as_number(address, 16, std::string("Invalid hex digits found: [")+address+"] @"+int_to_hex(PC));
 						} else {   // a label or file register name
-
 							if (labels.find(address) != labels.end()) {
 								waddr = labels[address];
 							} else {
 								found_register = cpu.Registers.find(address);
-								if (found_register==cpu.Registers.end())
-									throw(std::string("Unknown file register name [")+address+"] @"+int_to_hex(PC));
-								waddr = cpu.Registers[address]->index();
+								if (found_register==cpu.Registers.end() && pass)
+									throw(std::string("Unknown file register or variable [")+address+"] @"+int_to_hex(PC));
+								waddr = pass?cpu.Registers[address]->index():0;
 							}
 						}
 						if (args.size()) {
@@ -256,10 +306,8 @@ bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &inst
 								warg = 0;
 								to_file = false;
 							} else {
-								if (is_decimal(arg.c_str())) {
-									char *p;
-									warg = strtoul(arg.c_str(), &p, 10);
-									if (!p) throw(std::string("Invalid argument value: [")+arg+"] @"+int_to_hex(PC));
+								if (is_decimal(arg)) {
+									warg = as_number(arg, 10, std::string("Invalid argument value: [")+arg+"] @"+int_to_hex(PC));
 								} else if (found_register != cpu.Registers.end()) {
 									if (!Flags::bit_number_for_bitname(found_register->second->index(), arg, warg)) {
 										throw(std::string("Bit name: [" + arg + "] does not apply to register [") + buf + "] @"+int_to_hex(PC));
@@ -282,11 +330,12 @@ bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &inst
 				} else {
 					throw(std::string("Problem decoding line: No mnemonic in [") + buf + "] @"+int_to_hex(PC));
 				}
-			} else {
-				std::cout << std::string("Cannot decode assembly line: ") + buf + " @"+int_to_hex(PC) << std::endl;
+			} else if (strip(buf).length() && buf[0] != ';') {  //ignore empty lines and comments
+				std::cout << std::string("Warning: Cannot decode assembly line: ") + buf + " @"+int_to_hex(PC) << std::endl;
 			}
 		}
 	}
+	cpu.flash.reset();
 	return true;
 }
 
