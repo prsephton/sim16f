@@ -878,11 +878,12 @@ class BCF: public Instruction {
 		BYTE cbits;
 		decode(opcode, idx, cbits);
 		BYTE bitmask = 1 << cbits;
-		if (idx == cpu.sram.STATUS && (bitmask == Flags::STATUS::RP0 || bitmask == Flags::STATUS::RP1)) {
-			BYTE &status = cpu.sram.status();
-			status &=  ~bitmask;
-		}
-		const std::string bitname = Flags::bit_name_for_register_bit(idx, cbits);
+
+		BYTE &status = cpu.sram.status();
+		if (idx == cpu.sram.STATUS && (bitmask == Flags::STATUS::RP0 || bitmask == Flags::STATUS::RP1))
+			status &= ~bitmask;
+		WORD bank = ((status & Flags::STATUS::RP0)?1:0 + (status & Flags::STATUS::RP1)?2:0) * 0x80;
+		const std::string bitname = Flags::bit_name_for_register_bit(bank+idx, cbits);
 		return mnemonic + pad(cpu.register_name(idx) + "," + (bitname.length()?bitname:int_to_string(cbits))) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
@@ -913,11 +914,11 @@ class BSF: public Instruction {
 		BYTE cbits;
 		decode(opcode, idx, cbits);
 		BYTE bitmask = 1 << cbits;
-		if (idx == cpu.sram.STATUS && (bitmask == Flags::STATUS::RP0 || bitmask == Flags::STATUS::RP1)) {
-			BYTE &status = cpu.sram.status();
+		BYTE &status = cpu.sram.status();
+		WORD bank = ((status & Flags::STATUS::RP0)?1:0 + (status & Flags::STATUS::RP1)?2:0) * 0x80;
+		if (idx == cpu.sram.STATUS && (bitmask == Flags::STATUS::RP0 || bitmask == Flags::STATUS::RP1))
 			status |= bitmask;
-		}
-		const std::string bitname = Flags::bit_name_for_register_bit(idx, cbits);
+		const std::string bitname = Flags::bit_name_for_register_bit(bank+idx, cbits);
 		return mnemonic + pad(cpu.register_name(idx) + "," + (bitname.length()?bitname:int_to_string(cbits))) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
@@ -947,7 +948,9 @@ class BTFSC: public Instruction {
 		BYTE idx;
 		BYTE cbits;
 		decode(opcode, idx, cbits);
-		const std::string bitname = Flags::bit_name_for_register_bit(idx, cbits);
+		BYTE &status = cpu.sram.status();
+		WORD bank = ((status & Flags::STATUS::RP0)?1:0 + (status & Flags::STATUS::RP1)?2:0) * 0x80;
+		const std::string bitname = Flags::bit_name_for_register_bit(bank+idx, cbits);
 		return mnemonic + pad(cpu.register_name(idx) + "," + (bitname.length()?bitname:int_to_string(cbits))) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
@@ -975,7 +978,9 @@ class BTFSS: public Instruction {
 		BYTE idx;
 		BYTE cbits;
 		decode(opcode, idx, cbits);
-		const std::string bitname = Flags::bit_name_for_register_bit(idx, cbits);
+		BYTE &status = cpu.sram.status();
+		WORD bank = ((status & Flags::STATUS::RP0)?1:0 + (status & Flags::STATUS::RP1)?2:0) * 0x80;
+		const std::string bitname = Flags::bit_name_for_register_bit(bank+idx, cbits);
 		return mnemonic + pad(cpu.register_name(idx) + "," + (bitname.length()?bitname:int_to_string(cbits))) + description;
 	}
 	virtual bool execute(WORD opcode, CPU_DATA &cpu) {
