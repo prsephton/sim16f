@@ -159,7 +159,7 @@ namespace app {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["RBPU"]);
 			conn.add(ConnectionDiagram::pt(   0,  0, true));
 			conn.add(ConnectionDiagram::pt( 268,  0, false, false, true));
-			conn.add(new AndSymbol(270, 10, 0, true));
+			conn.add(new AndSymbol(2, 270, 10, 0, true));
 			conn.add(ConnectionDiagram::text(0, -2, "RBPU").overscore());
 		}
 

@@ -82,7 +82,7 @@ namespace app {
 
 		void draw_out_enable() {
 			ConnectionDiagram &out_en = dynamic_cast<ConnectionDiagram &>(*m_components["Out_en"]);
-			out_en.add(new AndSymbol(0, 0, 0, false));
+			out_en.add(new AndSymbol(2, 0, 0, 0, false));
 			out_en.add(ConnectionDiagram::pt(45, 0).first());
 			out_en.add(ConnectionDiagram::pt(70, 0));
 			out_en.add(ConnectionDiagram::pt(70, -105));
@@ -174,7 +174,7 @@ namespace app {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["RBPU"]);
 			conn.add(ConnectionDiagram::pt(   0,  0, true));
 			conn.add(ConnectionDiagram::pt( 268,  0, false, false, true));
-			conn.add(new AndSymbol(270, 10, 0, true));
+			conn.add(new AndSymbol(3, 270, 10, 0, true));
 			conn.add(ConnectionDiagram::text(0, -2, "RBPU").overscore());
 		}
 

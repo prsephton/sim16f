@@ -12,23 +12,6 @@
 namespace app {
 
 /*
- * struct GdkEventButton {
- *     GdkEventType type;
- *     GdkWindow* window;
- *     gint8 send_event;
- *     guint32 time;
- *     gdouble x;
- *     gdouble y;
- *     gdouble* axes;
- *     GdkModifierType* state;
- *     guint button;
- *     GdkDevice* device;
- *     gdouble x_root;
- *     gdouble y_root;
- *  }
- */
-
-/*
  * 1. What was clicked on?
  * 2. What mouse button was clicked?
  * 3. What action to perform after click?
@@ -36,19 +19,34 @@ namespace app {
  *
  * -  Symbols have a bounding rectangle
  * -  Symbols may have hot spots
- * -     hot spots can identify input# or output#
- * -  Diagrams may define one or more symbols
- * -  Diagrams are interactive, while symbols are static
- * -  Diagrams declare an absolute origin, while symbols have a relative offset
- * -  A single output connection may connect to one or more inputs; literally,
- *      the output is plugged into an input slot; there is only one
- *      connection.
- * -  A wire has an arbitrary list of connections which may be either inputs
- *      or outputs.
- * -  A terminal is an i/o connection which also looks like a wire.
+ * -     hot spots can identify input#, output#, etc.
+ * -  Symbols only deal with visuals, and how hot spots relate to drawing space, and are not concerned
+ * -    with the logical behaviour of what they represent.
+ * -  Devices are classes of object which define a behaviour.  Inverters, gates, etc, are examples
+ * -  of devices.
+ * -  Devices do not have any interest in display logic, and are not intrinsically bound to symbols.
+ * -
+ * -  Diagrams may define one or more symbols, and reference one or more devices.
+ * -  Diagrams are interactive controllers for devices, while symbols are static visual components.
+ * -  Diagrams declare an absolute origin in drawing space, while symbols have a relative offset, so
+ *    relocating a diagram will also relocate any symbols defined by the diagram.
+ *
+ *    A GtkDrawingArea can have many diagrams associated with it, each represented as a CairoDrawingBase()
+ *    instance, and registered within an Interaction().
+ *
+ *    There is just one Interaction() per GtkDrawingArea,  The Interaction() is responsible for proxying
+ *    any mouse movement or keyboard events to the appropriate CairoDrawing.  If each CairoDrawing were
+ *    to register for these Gtk events separately, there would be a complete shambles.
+ *
+ * -  With regard to devices in general,
+ * 		-  An 'output' defines a connection object, which may be plugged into one or more empty slots.
+ * 		-  An 'input' defines a slot which may be filled with a single connection object.
+ * 		-  An 'i/o' connection is an 'output' which may be switched into a 'high impedence' mode.
+ * 		-  A wire has an arbitrary list of connections which may be either 'i/o' connections
+ *      	or outputs.
+ * 		-  A terminal is an 'i/o' connection which also looks like a wire.
  *
  */
-
 
 
 	struct Point {
@@ -57,16 +55,74 @@ namespace app {
 		bool arrow;
 		bool term;
 
+		Point(): x(0), y(0), arrow(false), term(false) {}
 		Point(double a_x, double a_y, bool a_arrow=false, bool a_term=false):
 			x(a_x), y(a_y), arrow(a_arrow), term(a_term) {}
+		Point(const Point &p): x(p.x), y(p.y), arrow(p.arrow), term(p.term) {}
+		Point &scale(double a_scale) {
+			x /= a_scale; y /= a_scale;
+			return *this;
+		}
+		Point &snap(double a_grid_size) {
+			x = ((int)(x/ a_grid_size)) * a_grid_size;
+			y = ((int)(y/ a_grid_size)) * a_grid_size;
+			return *this;
+		}
+		Point diff(const Point &p) const {
+			return Point(x-p.x, y-p.y);
+		}
+		Point add(const Point &p) const {
+			return Point(x+p.x, y+p.y);
+		}
+		Point mul(double factor) const {
+			return Point(x*factor, y*factor);
+		}
+		Point mul(const Point &p) const {
+			return Point(x*p.x, y*p.y);
+		}
+		Point to_device(const Cairo::RefPtr<Cairo::Context>& cr, const Point &dev_ofs) {
+			Point p(x, y);
+			cr->user_to_device(p.x, p.y);
+			p.x -= dev_ofs.x; p.y -= dev_ofs.y;
+			return p;
+		}
 
-		bool close_to(const Point &b) {
+		bool project_onto(const Point &p1, const Point &p2, Point &p, double &dist) const {
+			Point delta_line = p2.diff(p1);
+			Point delta_this = diff(p1);
+
+			double len_square = delta_line.x * delta_line.x + delta_line.y * delta_line.y;
+			if (len_square == 0) return false;
+
+			double t = (delta_line.x * delta_this.x + delta_line.y * delta_this.y) / len_square;
+			if (t < 0 || t > 1) return false;  // interpolation parameter
+
+			p = p1.add(delta_line.mul(t));
+			dist = fabs(delta_line.x * delta_this.y - delta_line.y * delta_this.x) / sqrt(len_square);
+
+			return true;
+		}
+
+		bool close_to_line_with(const Point &p1, const Point &p2) const {
+			const double npix = 3;
+			Point p;
+			double dist;
+
+			if (project_onto(p1, p2, p, dist))
+				if (dist <= npix) return true;
+			return false;
+		}
+
+		void cairo_translate(const Cairo::RefPtr<Cairo::Context>& cr) const {
+			cr->translate(x, y);
+		}
+
+		bool close_to(const Point &b) const {
 			const double npix = 3;
 			double dx = b.x - x;
 			double dy = b.y - y;
 			return (dx * dx + dy * dy) < npix * npix;
 		}
-
 	};
 
 	struct Rect {
@@ -94,13 +150,16 @@ namespace app {
 	};
 
 	struct WHATS_AT {
-		typedef enum {NOTHING, INPUT, OUTPUT, IN_OUT, START, END, SYMBOL} ELEMENT;
+		typedef enum {NOTHING, INPUT, OUTPUT, GATE, IN_OUT, START, END, SYMBOL, LINE, POINT, TEXT} ELEMENT;
 
 		void *pt;
 		ELEMENT what;
 		int id;
 
 		WHATS_AT(void *a_pt, ELEMENT a_element, int a_id): pt(a_pt), what(a_element), id(a_id){}
+		bool match(void *a_pt, ELEMENT a_what, int a_id) const {
+			return (pt == a_pt && what == a_what && id == a_id);
+		}
 	};
 
 
@@ -108,13 +167,15 @@ namespace app {
 
 	  protected:
 		Glib::RefPtr<Gtk::DrawingArea> m_area;
-		double m_xpos, m_ypos, m_xofs, m_yofs;
-		double m_scale;
-		bool m_interactive;
+		Point m_pos;                    // Position of this drawing
+		Point m_mouse_pos;              // Position of the mouse pointer
+		Point m_dev_origin;             // Origin of point 0,0 in device cooridinates
+		double m_scale;                 // Scaling factor
+		bool m_interactive;             // Can the user interact with this diagram?
 
 	  public:
 
-		CairoDrawingBase(Glib::RefPtr<Gtk::DrawingArea>area): m_area(area), m_xpos(0), m_ypos(0), m_xofs(0), m_yofs(0),
+		CairoDrawingBase(Glib::RefPtr<Gtk::DrawingArea>area, const Point &a_pos): m_area(area), m_pos(a_pos), m_mouse_pos(0,0), m_dev_origin(0,0),
 			m_scale(1.0), m_interactive(false) {
 		}
 		virtual ~CairoDrawingBase() {}
@@ -124,11 +185,23 @@ namespace app {
 			return WHATS_AT(this, WHATS_AT::NOTHING, 0);
 		}
 		bool interactive() const { return m_interactive; }
-		void interactive(bool a_interactive) { m_interactive = a_interactive; }
+		void interactive(bool a_interactive) { m_interactive = a_interactive; }     // allow/disallow interaction
+		double scale() { return m_scale; }
+		void position(const Point &a_pos) { m_pos = a_pos; }
+		const Point &position() const { return m_pos; }
+
+		// attempt to slot output from source into input at target
+		virtual void slot(CairoDrawingBase *source, const WHATS_AT &source_info, const WHATS_AT &target_info) {};
+		// context editor for item at target
+		virtual void context(const WHATS_AT &target_info) {};
+		// move the indicated item to requested location.  with move_dia=true, move the whole diagram, else the symbol
+		virtual void move(const WHATS_AT &target_info, const Point &destination, bool move_dia = false) {
+			position(destination);
+		};
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) = 0;
 		virtual bool on_motion(double x, double y) {
-			m_xpos = x; m_ypos = y;
+			m_mouse_pos = Point(x,y);
 			m_area->queue_draw_area(2, 2, 100, 20);
 			return false;
 		}
@@ -146,15 +219,105 @@ namespace app {
 		Glib::RefPtr<Gdk::Cursor> m_cursor_start;
 		Glib::RefPtr<Gdk::Cursor> m_cursor_end;
 		Glib::RefPtr<Gdk::Cursor> m_cursor_symbol;
+		Glib::RefPtr<Gdk::Cursor> m_cursor_line;
+		Glib::RefPtr<Gdk::Cursor> m_cursor_point;
+		Glib::RefPtr<Gdk::Cursor> m_cursor_text;
 
+		int grid_size = 5;
+
+		struct Action {
+			CairoDrawingBase *dwg;
+			Point origin;
+			WHATS_AT what;
+			Action(	CairoDrawingBase *a_dwg, const Point &a_origin, const WHATS_AT &a_what): dwg(a_dwg), origin(a_origin), what(a_what) {}
+		};
+		std::queue<Action> m_actions;
+
+		/*
+		 * struct GdkEventButton {
+		 *     GdkEventType type;
+		 *     GdkWindow* window;
+		 *     gint8 send_event;
+		 *     guint32 time;
+		 *     gdouble x;
+		 *     gdouble y;
+		 *     gdouble* axes;
+		 *     GdkModifierType* state;
+		 *     guint button;
+		 *     GdkDevice* device;
+		 *     gdouble x_root;
+		 *     gdouble y_root;
+		 *  }
+		 */
+
+		void select_source_cursor(const Glib::RefPtr<Gdk::Window> &win, WHATS_AT::ELEMENT what) {
+			if (what==WHATS_AT::IN_OUT) {
+				win->set_cursor(m_cursor_in_out);
+			} else if (what==WHATS_AT::OUTPUT) {
+				win->set_cursor(m_cursor_output);
+			} else if (what==WHATS_AT::START) {
+				win->set_cursor(m_cursor_start);
+			} else if (what==WHATS_AT::SYMBOL) {
+				win->set_cursor(m_cursor_symbol);
+			} else if (what==WHATS_AT::LINE) {
+				win->set_cursor(m_cursor_line);
+			} else if (what==WHATS_AT::POINT) {
+				win->set_cursor(m_cursor_point);
+			} else if (what==WHATS_AT::TEXT) {
+				win->set_cursor(m_cursor_text);
+			}
+		}
+
+		void select_target_cursor(const Glib::RefPtr<Gdk::Window> &win, WHATS_AT::ELEMENT what) {
+			if (what==WHATS_AT::IN_OUT) {
+				win->set_cursor(m_cursor_in_out);
+			} else if (what==WHATS_AT::END) {
+				win->set_cursor(m_cursor_end);
+			} else if (what==WHATS_AT::INPUT) {
+				win->set_cursor(m_cursor_input);
+			} else if (what==WHATS_AT::GATE) {
+				win->set_cursor(m_cursor_input);
+			}
+		}
 
 		bool button_press_event(GdkEventButton* button_event) {
-
+			for (auto &dwg : m_drawings) {
+				WHATS_AT w = dwg->location(Point(button_event->x, button_event->y));
+				if (w.what!=WHATS_AT::NOTHING) {
+					m_actions.push(Action(dwg, Point(button_event->x, button_event->y), w));
+				}
+			}
+			while (m_actions.size() > 1) m_actions.pop();  // retain only the last action
 			return true;  // Highlander: stop propagating this event
 		}
 
 		bool button_release_event(GdkEventButton* button_event) {
+			std::stack<Action> l_term;
+			if (m_actions.size()) {
+				for (auto &dwg : m_drawings) {
+					WHATS_AT w = dwg->location(Point(button_event->x, button_event->y));
+					if (w.what!=WHATS_AT::NOTHING) {
+						l_term.push(Action(dwg, Point(button_event->x, button_event->y), w));
+					}
+				}
+				if (l_term.size()) {
+					auto &source = m_actions.front();
+					auto &target = l_term.top();
+					switch (button_event->button) {
+					case 1:          // left button released
+						target.dwg->slot(source.dwg, source.what, target.what);
+						break;
+					case 2:          // middle button released
+						break;
+					case 3:          // right button released
+						if (source.origin.close_to(target.origin))
+							target.dwg->context(target.what);    // it's a click
+						break;
+					}
 
+				}
+				while (m_actions.size()) m_actions.pop();  // clear all actions
+			}
 			return true;  // Highlander: stop propagating this event
 		}
 
@@ -169,24 +332,38 @@ namespace app {
 				if (w.what!=WHATS_AT::NOTHING) {
 					locations.push(w);
 				}
-				dwg->on_motion(motion_event->x, motion_event->y);
+
+				if (!m_actions.size()) {
+					dwg->on_motion(motion_event->x, motion_event->y);
+				}
+			}
+			if (m_actions.size()) {
+				auto &source = m_actions.front();
+				if (source.what.what == WHATS_AT::SYMBOL) {
+					Point p(motion_event->x, motion_event->y);
+					p.scale(source.dwg->scale()).snap(grid_size);
+
+					if (not source.origin.close_to(p)) {
+						if ((motion_event->state & Gdk::BUTTON1_MASK) == Gdk::BUTTON1_MASK) {
+							if ((motion_event->state & Gdk::SHIFT_MASK) == Gdk::SHIFT_MASK)
+								source.dwg->move(source.what, p, true);
+							else
+								source.dwg->move(source.what, p);
+							m_area->queue_draw();
+						}
+					}
+				}
 			}
 			if (locations.size()) {
 				auto w = locations.top();
-				if (w.what==WHATS_AT::IN_OUT) {   // normal cursor
-					win->set_cursor(m_cursor_in_out);
-				} else if (w.what==WHATS_AT::INPUT) {   // normal cursor
-					win->set_cursor(m_cursor_input);
-				} else if (w.what==WHATS_AT::OUTPUT) {   // normal cursor
-					win->set_cursor(m_cursor_output);
-				} else if (w.what==WHATS_AT::START) {   // normal cursor
-					win->set_cursor(m_cursor_start);
-				} else if (w.what==WHATS_AT::END) {   // normal cursor
-					win->set_cursor(m_cursor_end);
-				} else if (w.what==WHATS_AT::SYMBOL) {   // normal cursor
-					win->set_cursor(m_cursor_symbol);
-//					std::cout << w.pt << ": sym" << std::endl;
+				if (m_actions.size()) {     // dragging over possible target
+					select_target_cursor(win, w.what);
+				} else {                    // Just moving, action selected
+					select_source_cursor(win, w.what);
 				}
+			} else if (m_actions.size()) {  // dragging over nothing
+				auto w = m_actions.front().what;
+				select_source_cursor(win, w.what);
 			} else {
 				win->set_cursor(m_cursor_arrow);
 			}
@@ -202,13 +379,15 @@ namespace app {
 
 		Interaction(Glib::RefPtr<Gtk::DrawingArea> a_area): m_area(a_area) {
 			m_cursor_arrow = Gdk::Cursor::create(Gdk::CursorType::ARROW);
-			m_cursor_in_out = Gdk::Cursor::create(Gdk::CursorType::DOTBOX);
+			m_cursor_in_out = Gdk::Cursor::create(Gdk::CursorType::DOT);
 			m_cursor_output = Gdk::Cursor::create(Gdk::CursorType::DOT);
 			m_cursor_input = Gdk::Cursor::create(Gdk::CursorType::PLUS);
 			m_cursor_start = Gdk::Cursor::create(Gdk::CursorType::LEFT_SIDE);
 			m_cursor_end = Gdk::Cursor::create(Gdk::CursorType::RIGHT_SIDE);
 			m_cursor_symbol = Gdk::Cursor::create(Gdk::CursorType::TCROSS);
-
+			m_cursor_line = Gdk::Cursor::create(Gdk::CursorType::HAND2);
+			m_cursor_point = Gdk::Cursor::create(Gdk::CursorType::PENCIL);
+			m_cursor_text = Gdk::Cursor::create(Gdk::CursorType::DRAFT_LARGE);
 
 			m_area->signal_motion_notify_event().connect(sigc::mem_fun(*this, &Interaction::motion_event));
 			m_area->signal_button_press_event().connect(sigc::mem_fun(*this, &Interaction::button_press_event));
@@ -241,13 +420,13 @@ namespace app {
 	class CairoDrawing : public CairoDrawingBase {
 
 	  protected:
-		Interaction_Factory m_interactions;
-
+		Interaction_Factory m_interactions;                        // a factory for managing interactions
+		std::map<std::string, SmartPtr<Component> > m_components;  // a registry for components added to the diagram
 
 		bool draw_content(const Cairo::RefPtr<Cairo::Context>& cr) {
-			m_xofs=0; m_yofs=0;
+			m_dev_origin = Point(0,0);
 			cr->save();
-			cr->user_to_device(m_xofs, m_yofs);
+			cr->user_to_device(m_dev_origin.x, m_dev_origin.y);
 			cr->scale(m_scale, m_scale);
 			bool ok = on_draw(cr);
 			cr->restore();
@@ -262,7 +441,7 @@ namespace app {
 			cr->set_source_rgba(0,0,0,1);
 			cr->set_line_width(0.7);
 			cr->move_to(14, 10);
-			std::string coords = std::string("x: ") + int_to_string((int)m_xpos) + "; y: " + int_to_string((int)m_ypos);
+			std::string coords = std::string("x: ") + int_to_string((int)m_mouse_pos.x) + "; y: " + int_to_string((int)m_mouse_pos.y);
 			cr->text_path(coords);
 			cr->fill_preserve(); cr->stroke();
 			cr->restore();
@@ -300,47 +479,52 @@ namespace app {
 			static constexpr double LEFT    = M_PI;
 		};
 
-		void black(const Cairo::RefPtr<Cairo::Context>& cr) {
+		// A CairoDrawing can contain other CairoDrawing components
+		SmartPtr<Component> &component(const std::string &a_name) {
+			return m_components[a_name];
+		}
+
+		static void black(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->set_source_rgba(0.0, 0.0, 0.0, 1.0);
 		}
 
-		void darkblue(const Cairo::RefPtr<Cairo::Context>& cr) {
+		static void darkblue(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->set_source_rgba(0.0, 0.0, 0.5, 1.0);
 		}
 
-		void lightblue(const Cairo::RefPtr<Cairo::Context>& cr) {
+		static void lightblue(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->set_source_rgba(0.5, 0.5, 1.0, 1.0);
 		}
 
-		void blue(const Cairo::RefPtr<Cairo::Context>& cr) {
+		static void blue(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->set_source_rgba(0.0, 0.0, 1.0, 1.0);
 		}
 
-		void selected(const Cairo::RefPtr<Cairo::Context>& cr) {
+		static void selected(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->set_source_rgba(0.0, 0.0, 0.0, 0.75);
 		}
 
-		void white(const Cairo::RefPtr<Cairo::Context>& cr) {
+		static void white(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->set_source_rgba(1.0, 1.0, 1.0, 1.0);
 		}
 
-		void gray(const Cairo::RefPtr<Cairo::Context>& cr) {
+		static void gray(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->set_source_rgba(0.0, 0.0, 0.0, 0.25);
 		}
 
-		void orange(const Cairo::RefPtr<Cairo::Context>& cr) {
+		static void orange(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->set_source_rgba(0.75, 0.55, 0.2, 1.0);
 		}
 
-		void green(const Cairo::RefPtr<Cairo::Context>& cr) {
+		static void green(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->set_source_rgba(0.5, 0.95, 0.5, 1.0);
 		}
 
-		void indeterminate(const Cairo::RefPtr<Cairo::Context>& cr) {
+		static void indeterminate(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->set_source_rgba(0.2, 0.5, 0.75, 1.0);
 		}
 
-		void draw_indicator(const Cairo::RefPtr<Cairo::Context>& cr, bool ind) {
+		static void draw_indicator(const Cairo::RefPtr<Cairo::Context>& cr, bool ind) {
 			if (ind) { orange(cr); } else { gray(cr); }
 			cr->save();
 			cr->fill_preserve();
@@ -358,7 +542,7 @@ namespace app {
 		}
 
 
-		CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>area): CairoDrawingBase(area) {
+		CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>area, const Point &a_pos = Point(0,0)): CairoDrawingBase(area, a_pos) {
 			m_area->signal_size_allocate().connect(sigc::mem_fun(*this, &CairoDrawing::size_changed));
 			m_area->signal_draw().connect(sigc::mem_fun(*this, &CairoDrawing::draw_content));
 			m_interactions.produce(area)->add_drawing(this);         // register this CairoDRawing area with interactions

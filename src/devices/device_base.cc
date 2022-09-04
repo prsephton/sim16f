@@ -13,7 +13,7 @@ template <class Wire> class
 // Here's a basic connection.  Changes to connection values always spawn and
 // process device events.
 //
-// Note:  Store conductance (1/R) instead of R because we use it way more often.
+// Note:  Store conductance (1/R) instead of R, because we use it way more often.
 //
 	void Connection::queue_change(){  // Add a voltage change event to the queue
 		eq.queue_event(new DeviceEvent<Connection>(*this, "Voltage Change"));
@@ -333,13 +333,13 @@ template <class Wire> class
 		m_out.set_value(D->rd());
 	}
 
-	ABuffer::ABuffer(Connection &in, const std::string &a_name): Device(a_name), m_in(in), m_out(Vss) {
-		DeviceEvent<Connection>::subscribe<ABuffer>(this, &ABuffer::on_change, &m_in);
+	ABuffer::ABuffer(Connection &in, const std::string &a_name): Device(a_name), m_in(&in), m_out(Vss) {
+		DeviceEvent<Connection>::subscribe<ABuffer>(this, &ABuffer::on_change, m_in);
 	}
 	ABuffer::~ABuffer() {
-		DeviceEvent<Connection>::unsubscribe<ABuffer>(this, &ABuffer::on_change, &m_in);
+		DeviceEvent<Connection>::unsubscribe<ABuffer>(this, &ABuffer::on_change, m_in);
 	}
-	void ABuffer::wr(float in) { m_in.set_value(in, true); }
+	void ABuffer::wr(float in) { m_in->set_value(in, true); }
 	Connection &ABuffer::rd() { return m_out; }
 
 //___________________________________________________________________________________
@@ -353,101 +353,100 @@ template <class Wire> class
 	}
 
 //___________________________________________________________________________________
-//  And gate, also nand for invert=true, or possibly doubles as buffer or inverter
-	void AndGate::recalc() {
-		if (!m_in.size()) return;
-		bool sig = m_in[0]->signal();
-		for (size_t n = 1; n < m_in.size(); ++n) {
-			sig = sig & m_in[n]->signal();
-		}
-		m_out.set_value((m_inverted ^ sig) * Vdd);
-	}
-	void AndGate::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+//  Generic gate,
+	void Gate::recalc() {}
+	void Gate::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
 		if (debug()) {
 			std::cout << "AndGate " << this->name() << " received event " << name << std::endl;
 		}
 		recalc();
 	}
 
-	AndGate::AndGate(const std::vector<Connection *> &in, bool inverted, const std::string &a_name):
+	Gate::Gate(const std::vector<Connection *> &in, bool inverted, const std::string &a_name):
 		Device(a_name), m_in(in), m_out(Vdd), m_inverted(inverted) {
 		for (size_t n = 0; n < m_in.size(); ++n)
-			DeviceEvent<Connection>::subscribe<AndGate>(this, &AndGate::on_change, m_in[n]);
+			DeviceEvent<Connection>::subscribe<Gate>(this, &Gate::on_change, m_in[n]);
 		recalc();
 	}
-	AndGate::~AndGate() {
+	Gate::~Gate() {
 		for (size_t n = 0; n < m_in.size(); ++n)
-			DeviceEvent<Connection>::unsubscribe<AndGate>(this, &AndGate::on_change, m_in[n]);
+			DeviceEvent<Connection>::unsubscribe<Gate>(this, &Gate::on_change, m_in[n]);
 	}
-	void AndGate::inputs(const std::vector<Connection *> &in) { m_in = in; }
-	Connection& AndGate::rd() { return m_out; }
+	void Gate::connect(size_t a_pos, Connection &in) {
+		if (a_pos+1 > m_in.size()) m_in.resize(a_pos+1);
+		if (m_in[a_pos])
+			DeviceEvent<Connection>::unsubscribe<Gate>(this, &Gate::on_change, m_in[a_pos]);
+		m_in[a_pos] = &in;
+		DeviceEvent<Connection>::subscribe<Gate>(this, &Gate::on_change, m_in[a_pos]);
+	}
+
+	void Gate::disconnect(size_t a_pos) {
+		if (a_pos+1 > m_in.size()) return;
+		if (m_in[a_pos])
+			DeviceEvent<Connection>::unsubscribe<Gate>(this, &Gate::on_change, m_in[a_pos]);
+	}
+
+	void Gate::inputs(const std::vector<Connection *> &in) { m_in = in; }
+	Connection& Gate::rd() { return m_out; }
 
 //___________________________________________________________________________________
-//  Or gate, also nor for invert=true, or possibly doubles as buffer or inverter
+//  And gate, also nand for invert=true, or possibly doubles as buffer or inverter
+	void AndGate::recalc() {
+		std::vector<Connection *> &in = inputs();
 
-	void OrGate::recalc() {
-		if (!m_in.size()) return;
-		if (debug()) std::cout << (m_inverted?"N":"") << "OR." << name() << "(";
-		bool sig = m_in[0]->signal();
-		if (debug()) std::cout << m_in[0]->name() << "[" << sig << "]";
-		for (size_t n = 1; n < m_in.size(); ++n) {
-			sig = sig | m_in[n]->signal();
-			if (debug()) std::cout << ", " << m_in[n]->name()  << "[" << m_in[n]->signal() << "]";
+		if (!in.size()) return;
+		bool sig = in[0]->signal();
+		for (size_t n = 1; n < in.size(); ++n) {
+			sig = sig & in[n]->signal();
 		}
-		if (debug()) std::cout << ") = " << (m_inverted ^ sig) << std::endl;
-		m_out.set_value((m_inverted ^ sig) * Vdd);
+		rd().set_value((inverted() ^ sig) * Vdd, false);
 	}
 
-	void OrGate::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		recalc();
-	}
+	AndGate::AndGate(const std::vector<Connection *> &in, bool inverted, const std::string &a_name)
+	: Gate(in, inverted, a_name){}
 
-	OrGate::OrGate(const std::vector<Connection *> &in, bool inverted, const std::string &a_name):
-		Device(a_name), m_in(in), m_out(Vdd), m_inverted(inverted) {
-		for (size_t n = 0; n < m_in.size(); ++n)
-			DeviceEvent<Connection>::subscribe<OrGate>(this, &OrGate::on_change, m_in[n]);
-		recalc();
-	}
-	OrGate::~OrGate() {
-		for (size_t n = 0; n < m_in.size(); ++n)
-			DeviceEvent<Connection>::unsubscribe<OrGate>(this, &OrGate::on_change, m_in[n]);
-	}
-	bool OrGate::inverted() { return m_inverted; }
-	Connection &OrGate::rd() { return m_out; }
+	AndGate::~AndGate() {}
 
 //___________________________________________________________________________________
 //  Or gate, also nor for invert=true, or possibly doubles as buffer or inverter
+	void OrGate::recalc() {
+		std::vector<Connection *> &in = inputs();
+		if (!in.size()) return;
+		if (debug()) std::cout << (inverted()?"N":"") << "OR." << name() << "(";
+		bool sig = in[0]->signal();
+		if (debug()) std::cout << in[0]->name() << "[" << sig << "]";
+		for (size_t n = 1; n < in.size(); ++n) {
+			sig = sig | in[n]->signal();
+			if (debug()) std::cout << ", " << in[n]->name()  << "[" << in[n]->signal() << "]";
+		}
+		if (debug()) std::cout << ") = " << (inverted() ^ sig) << std::endl;
+		rd().set_value((inverted() ^ sig) * Vdd, false);
+	}
 
+	OrGate::OrGate(const std::vector<Connection *> &in, bool inverted, const std::string &a_name)
+	: Gate(in, inverted, a_name) {}
+	OrGate::~OrGate() {}
+
+
+//___________________________________________________________________________________
+//  XOr gate, also xnor for invert=true, or possibly doubles as buffer or inverter
 	void XOrGate::recalc() {
-		if (!m_in.size()) return;
+		std::vector<Connection *> &in = inputs();
+		if (!in.size()) return;
 
-		bool sig = m_in[0]->signal();
+		bool sig = in[0]->signal();
 		if (debug()) std::cout << sig;
-		for (size_t n = 1; n < m_in.size(); ++n) {
-			if (debug()) std::cout << "^" << m_in[n]->signal();
-			sig = sig ^ m_in[n]->signal();
+		for (size_t n = 1; n < in.size(); ++n) {
+			if (debug()) std::cout << "^" << in[n]->signal();
+			sig = sig ^ in[n]->signal();
 		}
 		if (debug()) std::cout << " = " << sig << std::endl;
-		m_out.set_value((m_inverted ^ sig) * Vdd);
+		rd().set_value((inverted() ^ sig) * Vdd, false);
 	}
 
-	void XOrGate::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		recalc();
-	}
-
-	XOrGate::XOrGate(const std::vector<Connection *> &in, bool inverted, const std::string &a_name):
-		Device(a_name), m_in(in), m_out(Vdd), m_inverted(inverted) {
-
-		for (size_t n = 0; n < m_in.size(); ++n)
-			DeviceEvent<Connection>::subscribe<XOrGate>(this, &XOrGate::on_change, m_in[n]);
-		recalc();
-	}
-	XOrGate::~XOrGate() {
-		for (size_t n = 0; n < m_in.size(); ++n)
-			DeviceEvent<Connection>::unsubscribe<XOrGate>(this, &XOrGate::on_change, m_in[n]);
-	}
-	bool XOrGate::inverted() { return m_inverted; }
-	Connection& XOrGate::rd() { return m_out; }
+	XOrGate::XOrGate(const std::vector<Connection *> &in, bool inverted, const std::string &a_name)
+	: Gate(in, inverted, a_name) {}
+	XOrGate::~XOrGate() {}
 
 //___________________________________________________________________________________
 // A wire can be defined as a collection of connections
@@ -666,7 +665,8 @@ template <class Wire> class
 // Clamps a voltabe between a lower and upper bound.
 
 	void Clamp::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		float in = m_in.rd();
+		if (!m_in) return;
+		float in = m_in->rd();
 		bool changed = false;
 		if (in < m_lo) {
 			in = m_lo; changed = true;
@@ -675,25 +675,36 @@ template <class Wire> class
 			in = m_hi; changed = true;
 		}
 		if (changed)
-			m_in.set_value(in, m_in.impeded());
+			m_in->set_value(in, m_in->impeded());
 	}
 
 	Clamp::Clamp(Connection &in, float vLow, float vHigh):
-		m_in(in), m_lo(vLow), m_hi(vHigh) {
-		DeviceEvent<Connection>::subscribe<Clamp>(this, &Clamp::on_change, &m_in);
+		m_in(&in), m_lo(vLow), m_hi(vHigh) {
+		DeviceEvent<Connection>::subscribe<Clamp>(this, &Clamp::on_change, m_in);
 	};
 	Clamp::~Clamp() {
-		DeviceEvent<Connection>::unsubscribe<Clamp>(this, &Clamp::on_change, &m_in);
+		if (m_in) DeviceEvent<Connection>::unsubscribe<Clamp>(this, &Clamp::on_change, m_in);
 	}
 
+	void Clamp::reclamp(Connection &in) {
+		if (m_in) DeviceEvent<Connection>::unsubscribe<Clamp>(this, &Clamp::on_change, m_in);
+		m_in = &in;
+		DeviceEvent<Connection>::subscribe<Clamp>(this, &Clamp::on_change, m_in);
+	}
+	void Clamp::unclamp(){
+		if (m_in) DeviceEvent<Connection>::unsubscribe<Clamp>(this, &Clamp::on_change, m_in);
+		m_in = NULL;
+	}
 
 //___________________________________________________________________________________
 // A relay, such as a reed relay.  A signal applied closes the relay.  Functionally,
 // this is almost identical to a Tristate.
 
 	void Relay::recalc_output() {
-		bool impeded = !m_sw.signal(); // open circuit if not signal
-		float out = m_in.rd();
+		if (m_sw == NULL || m_in == NULL)
+			return;
+		bool impeded = !m_sw->signal(); // open circuit if not signal
+		float out = m_in->rd();
 		m_out.set_value(out, impeded);
 	}
 
@@ -706,19 +717,29 @@ template <class Wire> class
 	}
 
 	Relay::Relay(Connection &in, Connection &sw, const std::string &a_name):
-		Device(a_name), m_in(in), m_sw(sw), m_out(name()+"::out") {
+		Device(a_name), m_in(&in), m_sw(&sw), m_out(name()+"::out") {
 		recalc_output();
-		DeviceEvent<Connection>::subscribe<Relay>(this, &Relay::on_change, &m_in);
-		DeviceEvent<Connection>::subscribe<Relay>(this, &Relay::on_sw_change, &m_sw);
+		DeviceEvent<Connection>::subscribe<Relay>(this, &Relay::on_change, m_in);
+		DeviceEvent<Connection>::subscribe<Relay>(this, &Relay::on_sw_change, m_sw);
 	}
 	Relay::~Relay() {
-		DeviceEvent<Connection>::unsubscribe<Relay>(this, &Relay::on_change, &m_in);
-		DeviceEvent<Connection>::unsubscribe<Relay>(this, &Relay::on_sw_change, &m_sw);
+		if (m_in) DeviceEvent<Connection>::unsubscribe<Relay>(this, &Relay::on_change, m_in);
+		if (m_sw) DeviceEvent<Connection>::unsubscribe<Relay>(this, &Relay::on_sw_change, m_sw);
 	}
 	bool Relay::signal() { return m_out.signal(); }
+	void Relay::in(Connection &in) {
+		if (m_in) DeviceEvent<Connection>::unsubscribe<Relay>(this, &Relay::on_change, m_in);
+		m_in = &in;
+		DeviceEvent<Connection>::subscribe<Relay>(this, &Relay::on_change, m_in);
+	}
+	void Relay::sw(Connection &sw) {
+		if (m_sw) DeviceEvent<Connection>::unsubscribe<Relay>(this, &Relay::on_change, m_sw);
+		m_sw = &sw;
+		DeviceEvent<Connection>::subscribe<Relay>(this, &Relay::on_change, m_sw);
+	}
 
-	Connection& Relay::in() { return m_in; }
-	Connection& Relay::sw() { return m_sw; }
+	Connection& Relay::in() { return *m_in; }
+	Connection& Relay::sw() { return *m_sw; }
 	Connection& Relay::rd() { return m_out; }
 
 
@@ -726,30 +747,56 @@ template <class Wire> class
 // A generalised D flip flop or a latch, depending on how we use it
 
 	void Latch::on_clock_change(Connection *Ck, const std::string &name, const std::vector<BYTE> &data) {
+		if (!m_D) return;
 		if (debug()) std::cout << this->name() << ": Ck is " << Ck->signal() << std::endl;
 		if ((m_positive ^ (!Ck->signal()))) {
-			m_Q.set_value(m_D.rd());
+			m_Q.set_value(m_D->rd());
 			if (debug()) std::cout << this->name() << ": Q was set to " << m_Q.rd() << std::endl;
 		}
 	}
 
 	void Latch::on_data_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		if (m_positive ^ (!m_Ck.signal())) {
+		if (!m_Ck) return;
+		if (m_positive ^ (!m_Ck->signal())) {
 			if (debug()) std::cout << this->name() << ": D is " << D->signal() << std::endl;
 			m_Q.set_value(D->rd());
 		}
 	}
 
 	Latch::Latch(Connection &D, Connection &Ck, bool positive, bool clocked):
-		m_D(D), m_Ck(Ck), m_Q(Vss), m_Qc(m_Q), m_positive(positive), m_clocked(clocked) {
-		DeviceEvent<Connection>::subscribe<Latch>(this, &Latch::on_clock_change, &m_Ck);
+		m_D(&D), m_Ck(&Ck), m_Q(Vss), m_Qc(m_Q), m_positive(positive), m_clocked(clocked) {
+		DeviceEvent<Connection>::subscribe<Latch>(this, &Latch::on_clock_change, m_Ck);
 		if (!m_clocked)
-			DeviceEvent<Connection>::subscribe<Latch>(this, &Latch::on_data_change, &m_D);
+			DeviceEvent<Connection>::subscribe<Latch>(this, &Latch::on_data_change, m_D);
 	}
 	Latch::~Latch() {
-		DeviceEvent<Connection>::unsubscribe<Latch>(this, &Latch::on_clock_change, &m_Ck);
+		if (m_Ck) DeviceEvent<Connection>::unsubscribe<Latch>(this, &Latch::on_clock_change, m_Ck);
+		if (!m_clocked && m_D != NULL)
+			DeviceEvent<Connection>::unsubscribe<Latch>(this, &Latch::on_data_change, m_D);
+	}
+
+	void Latch::D(Connection &a_D) {
+		if (!m_clocked && m_D != NULL)
+			DeviceEvent<Connection>::unsubscribe<Latch>(this, &Latch::on_data_change, m_D);
+		m_D = &a_D;
 		if (!m_clocked)
-			DeviceEvent<Connection>::unsubscribe<Latch>(this, &Latch::on_data_change, &m_D);
+			DeviceEvent<Connection>::subscribe<Latch>(this, &Latch::on_data_change, m_D);
+	}
+	void Latch::Ck(Connection &a_Ck) {
+		if (m_Ck) DeviceEvent<Connection>::unsubscribe<Latch>(this, &Latch::on_clock_change, m_Ck);
+		m_Ck = &a_Ck;
+		DeviceEvent<Connection>::subscribe<Latch>(this, &Latch::on_clock_change, m_Ck);
+	}
+
+	void Latch::positive(bool a_positive) {
+		m_positive = a_positive;
+	}
+	void Latch::clocked(bool a_clocked) {
+		if (!m_clocked && m_D != NULL)
+			DeviceEvent<Connection>::unsubscribe<Latch>(this, &Latch::on_data_change, m_D);
+		m_clocked = a_clocked;
+		if (!m_clocked && m_D != NULL)
+			DeviceEvent<Connection>::subscribe<Latch>(this, &Latch::on_data_change, m_D);
 	}
 
 	bool Latch::clocked() { return m_clocked; }
@@ -759,15 +806,15 @@ template <class Wire> class
 		m_Qc.name(a_name+"::Qc");
 	}
 
-	Connection& Latch::D() {return m_D; }
-	Connection& Latch::Ck() {return m_Ck; }
+	Connection& Latch::D() {return *m_D; }
+	Connection& Latch::Ck() {return *m_Ck; }
 	Connection& Latch::Q() {return m_Q; }
 	Connection& Latch::Qc() {return m_Qc; }
+
 
 //___________________________________________________________________________________
 //  A multiplexer.  The "select" signals are bits which make up an index into the input.
 //    multiplexers can route both digital and analog signals.
-
 	void Mux::calculate_select() {
 		m_idx = 0;
 		for (int n = m_select.size()-1; n >= 0; --n) {

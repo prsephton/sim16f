@@ -14,9 +14,6 @@ namespace app {
 		ABuffer &m_buffer;
 		bool m_point_right;
 
-		int m_x;
-		int m_y;
-
 		BufferSymbol m_symbol;
 
 		virtual WHATS_AT location(Point p) {
@@ -36,16 +33,19 @@ namespace app {
 		}
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			m_symbol.draw_symbol(cr, Point(m_xofs, m_yofs));
+			cr->save();
+			position().cairo_translate(cr);
+			m_symbol.draw_symbol(cr, m_dev_origin);
+			cr->restore();
 			return false;
 		}
 
 		BufferDiagram(ABuffer &a_buffer, bool point_right, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area), m_buffer(a_buffer), m_point_right(point_right),  m_x(x), m_y(y)
+			CairoDrawing(a_area, Point(x,y)), m_buffer(a_buffer), m_point_right(point_right)
 		{
 			double rotation = 0;
 			if (!m_point_right) rotation = CairoDrawing::DIRECTION::LEFT;
-			m_symbol = BufferSymbol(m_x, m_y, rotation, false);
+			m_symbol = BufferSymbol(0, 0, rotation, false);
 		}
 	};
 
@@ -53,9 +53,6 @@ namespace app {
 		Inverter &m_inverter;
 		double m_rotation;
 
-		int m_x;
-		int m_y;
-
 		BufferSymbol m_symbol;
 
 		virtual WHATS_AT location(Point p) {
@@ -75,22 +72,22 @@ namespace app {
 		}
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			m_symbol.draw_symbol(cr, Point(m_xofs, m_yofs));
+			cr->save();
+			position().cairo_translate(cr);
+			m_symbol.draw_symbol(cr, m_dev_origin);
+			cr->restore();
 			return false;
 		}
 
 		InverterDiagram(Inverter &a_inverter, double x, double y, double rotation, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area), m_inverter(a_inverter), m_rotation(rotation),  m_x(x), m_y(y)
+			CairoDrawing(a_area, Point(x,y)), m_inverter(a_inverter), m_rotation(rotation)
 		{
-			m_symbol = BufferSymbol(m_x, m_y, m_rotation, true);
-
+			m_symbol = BufferSymbol(0, 0, m_rotation, true);
 		}
 	};
 
 	class PinDiagram:  public CairoDrawing {
 		Connection &m_pin;
-		double m_x;
-		double m_y;
 		double m_rotation;
 		double m_scale;
 		PinSymbol m_symbol;
@@ -116,18 +113,19 @@ namespace app {
 			bool indeterminate = !m_pin.determinate();
 
 			cr->save();
-			cr->translate(m_x, m_y);
+			position().cairo_translate(cr);
 			if (indeterminate) this->indeterminate(cr); else if (signal) this->green(cr); else this->gray(cr);
 
 			cr->rotate(m_rotation);
 			cr->scale(m_scale, m_scale);
 			cr->rectangle(0,-10,20,20);
 			cr->fill();
-			cr->restore();
+
 
 			this->black(cr);
+			m_symbol.draw_symbol(cr, m_dev_origin);
+			cr->restore();
 
-			m_symbol.draw_symbol(cr, Point(m_xofs, m_yofs));
 //			PinSymbol(m_x, m_y, m_rotation, m_scale).draw_symbol(cr, Point(m_xofs, m_yofs));
 
 
@@ -136,21 +134,19 @@ namespace app {
 
 		void on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data) {
 //			std::cout << "Connection change: " << name << " to " << conn->name() << std::endl;
-			m_area->queue_draw_area((int)m_x, (int)m_y-10, 20, 20);
+			m_area->queue_draw_area((int)position().x, (int)position().y-10, 20, 20);
 		}
 
 		PinDiagram(Connection &a_pin, double x, double y, double rotation, double scale, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area), m_pin(a_pin), m_x(x), m_y(y), m_rotation(rotation), m_scale(scale)
+			CairoDrawing(a_area, Point(x,y)), m_pin(a_pin), m_rotation(rotation), m_scale(scale)
 		{
 			DeviceEvent<Connection>::subscribe<PinDiagram>(this, &PinDiagram::on_connection_change, &a_pin);
-			m_symbol = PinSymbol(m_x, m_y, m_rotation, m_scale);
+			m_symbol = PinSymbol(0,0, m_rotation, m_scale);
 		}
 	};
 
 	class ClampDiagram:  public CairoDrawing {
 		Clamp &m_clamp;
-		int m_x;
-		int m_y;
 
 	  public:
 
@@ -160,11 +156,11 @@ namespace app {
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
-			cr->translate(m_x, m_y);
+			position().cairo_translate(cr);
 			cr->set_line_width(1.2);
 			black(cr);
-			DiodeSymbol(0, -10, CairoDrawing::DIRECTION::UP).draw_symbol(cr, Point(m_xofs, m_yofs));
-			DiodeSymbol(0,  17, CairoDrawing::DIRECTION::UP).draw_symbol(cr, Point(m_xofs, m_yofs));
+			DiodeSymbol(0, -10, CairoDrawing::DIRECTION::UP).draw_symbol(cr, m_dev_origin);
+			DiodeSymbol(0,  17, CairoDrawing::DIRECTION::UP).draw_symbol(cr, m_dev_origin);
 			cr->move_to(0, -10); cr->line_to(0,10);
 			cr->move_to(0, -25); cr->line_to(0,-17);
 			cr->move_to(0,  25); cr->line_to(0, 17);
@@ -189,14 +185,12 @@ namespace app {
 		}
 
 		ClampDiagram(Clamp &a_clamp, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area), m_clamp(a_clamp), m_x(x), m_y(y)
+			CairoDrawing(a_area, Point(x,y)), m_clamp(a_clamp)
 		{}
 	};
 
 	class SchmittDiagram:  public CairoDrawing {
 		Schmitt &m_schmitt;
-		int m_x;
-		int m_y;
 		double m_rotation;
 		bool m_dual;
 
@@ -219,14 +213,17 @@ namespace app {
 		}
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			m_symbol.draw_symbol(cr, Point(m_xofs, m_yofs));
+			cr->save();
+			position().cairo_translate(cr);
+			m_symbol.draw_symbol(cr, m_dev_origin);
+			cr->restore();
 			return false;
 		}
 
 		SchmittDiagram(Schmitt &a_schmitt, double x, double y, double rotation, bool dual, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area), m_schmitt(a_schmitt), m_x(x), m_y(y), m_rotation(rotation), m_dual(dual)
+			CairoDrawing(a_area, Point(x,y)), m_schmitt(a_schmitt), m_rotation(rotation), m_dual(dual)
 		{
-			m_symbol = SchmittSymbol(m_x, m_y, m_rotation, m_dual);
+			m_symbol = SchmittSymbol(0, 0, m_rotation, m_dual);
 		}
 	};
 
@@ -234,10 +231,7 @@ namespace app {
 		Tristate &m_tris;
 		bool m_point_right;
 
-		int m_x;
-		int m_y;
-
-		BufferSymbol m_symbol;
+		TristateSymbol m_symbol;
 
 		virtual WHATS_AT location(Point p) {
 			return m_symbol.location(p);
@@ -256,39 +250,27 @@ namespace app {
 		}
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->save();
-			cr->translate(m_x, m_y);
-			cr->set_line_width(1.2);
-			m_symbol.draw_symbol(cr, Point(m_xofs, m_yofs));
+			m_symbol.inverted(m_tris.inverted());
+			m_symbol.gate_inverted(m_tris.gate_invert());
 
-			if (m_tris.gate_invert()) {
-				cr->save();
-				cr->set_line_width(0.8);
-				cr->arc(15, 11, 3.5, 0, 2*M_PI);
-				cr->set_source_rgba(1.0, 1.0, 1.0, 1.0); cr->fill_preserve();
-				cr->set_source_rgba(0.0, 0.0, 0.0, 1.0); cr->stroke();
-				cr->stroke();
-				cr->restore();
-			}
+			cr->save();
+			position().cairo_translate(cr);
+			m_symbol.draw_symbol(cr, m_dev_origin);
 			cr->restore();
 			return false;
 		}
 
 		TristateDiagram(Tristate &a_tris, bool point_right, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area), m_tris(a_tris), m_point_right(point_right),  m_x(x), m_y(y)
+			CairoDrawing(a_area, Point(x,y)), m_tris(a_tris), m_point_right(point_right)
 		{
 			double rot = m_point_right?CairoDrawing::DIRECTION::RIGHT:CairoDrawing::DIRECTION::LEFT;
-			m_symbol = BufferSymbol(0,0,rot,m_tris.inverted());
+			m_symbol = TristateSymbol(0,0,rot,m_tris.inverted(), m_tris.gate_invert());
 		}
 
 	};
 
 	class RelayDiagram: public CairoDrawing {
 		Relay &m_relay;
-
-		int m_x;
-		int m_y;
-
 		RelaySymbol m_symbol;
 
 		virtual WHATS_AT location(Point p) {
@@ -309,16 +291,16 @@ namespace app {
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
-			cr->translate(m_x, m_y);
+			position().cairo_translate(cr);
 
-			m_symbol.draw_symbol(cr, Point(m_xofs, m_yofs));
+			m_symbol.draw_symbol(cr, m_dev_origin);
 
 			cr->restore();
 			return false;
 		}
 
 		RelayDiagram(Relay &a_relay, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area), m_relay(a_relay), m_x(x), m_y(y) {
+			CairoDrawing(a_area, Point(x,y)), m_relay(a_relay) {
 			m_symbol = RelaySymbol(0,0,0,m_relay.sw().signal());
 		}
 
@@ -326,12 +308,8 @@ namespace app {
 
 	class MuxDiagram: public CairoDrawing {
 		Mux &m_mux;
-
-		int m_x;
-		int m_y;
-		double m_rotation;
-
 		MuxSymbol m_symbol;
+		double m_rotation;
 
 		virtual WHATS_AT location(Point p) {
 			return m_symbol.location(p);
@@ -353,16 +331,16 @@ namespace app {
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
-			cr->translate(m_x, m_y);
+			position().cairo_translate(cr);
 
-			m_symbol.draw_symbol(cr, Point(m_xofs, m_yofs));
+			m_symbol.draw_symbol(cr, m_dev_origin);
 
 			cr->restore();
 			return false;
 		}
 
 		MuxDiagram(Mux &a_mux, double x, double y, double rotation, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area), m_mux(a_mux), m_x(x), m_y(y), m_rotation(rotation) {
+			CairoDrawing(a_area, Point(x,y)), m_mux(a_mux),  m_rotation(rotation) {
 			m_symbol = MuxSymbol(0, 0, m_rotation, m_mux.no_selects(), m_mux.no_inputs());
 		}
 
@@ -372,78 +350,32 @@ namespace app {
 	class LatchDiagram: public CairoDrawing {
 		Latch &m_latch;
 		bool m_point_right;
-
-		int m_x;
-		int m_y;
 		Point m_size;
 		BlockSymbol m_basic;
+		LatchSymbol m_latchsym;
 
 		virtual WHATS_AT location(Point p) {
-			return m_basic.location(p);
+			return m_latchsym.location(p);
 		}
 
 	  public:
 
 		virtual bool on_motion(double x, double y) {
-			Rect r = m_basic.bounding_rect();
+			Rect r = m_latchsym.bounding_rect();
 			bool selected = r.inside(Point(x, y));
-			if (selected != m_basic.selected()) {
-				m_basic.selected() = selected;
+			if (selected != m_latchsym.selected()) {
+				m_latchsym.selected() = selected;
 				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
 			}
 			return false;
 		}
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			m_basic.draw_symbol(cr, Point(m_xofs, m_yofs));
-
 			cr->save();
-			cr->translate(m_x, m_y);
-			cr->set_line_width(1.5);
-			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+			position().cairo_translate(cr);
 
-			cr->set_line_width(0.2);
-			if (m_point_right) {
-				cr->move_to(10, 17); cr->text_path("D");
-				cr->move_to(50, 17); cr->text_path("Q");
-
-				cr->move_to(10, 59); cr->text_path("Ck");
-				cr->move_to(50, 59); cr->text_path("Q");
-			} else {
-				cr->move_to(10, 17); cr->text_path("Q");
-				cr->move_to(50, 17); cr->text_path("D");
-
-				cr->move_to(10, 59); cr->text_path("Q");
-				cr->move_to(50, 59); cr->text_path("Ck");
-			}
-			cr->fill_preserve(), cr->stroke();
-			cr->set_line_width(0.8);
-			if (m_point_right) {
-				cr->move_to(50, 48); cr->line_to(60,48);
-			} else {
-				cr->move_to(10, 48); cr->line_to(20,48);
-			}
-			cr->stroke();
-
-			cr->set_source_rgba(0.5, 0.5, 0.9, 1.0);
-			cr->set_line_width(0.8);
-
-			cr->rectangle(0, 10, 5, 8);
-			draw_indicator(cr, m_point_right?m_latch.D().signal():m_latch.Q().signal());
-			if (m_point_right) {
-				cr->move_to(0, 50); cr->line_to(7,56); cr->line_to(0, 62); cr->close_path();
-			} else {
-				cr->rectangle(0, 52, 5, 8);
-			}
-			draw_indicator(cr, m_point_right?m_latch.Ck().signal():m_latch.Qc().signal());
-			cr->rectangle(65,10, 5, 8);
-			draw_indicator(cr, m_point_right?m_latch.Q().signal():m_latch.D().signal());
-			if (m_point_right) {
-				cr->rectangle(65,52, 5, 8);
-			} else {
-				cr->move_to(70, 50); cr->line_to(63,56); cr->line_to(70, 62); cr->close_path();
-			}
-			draw_indicator(cr, m_point_right?m_latch.Qc().signal():m_latch.Ck().signal());
+			m_basic.draw_symbol(cr, m_dev_origin);
+			m_latchsym.draw_symbol(cr, m_dev_origin);
 
 			cr->move_to(0, 82);
 			cr->text_path(m_latch.name());
@@ -454,17 +386,16 @@ namespace app {
 		}
 
 		LatchDiagram(Latch &a_latch, bool point_right, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area), m_latch(a_latch), m_point_right(point_right),  m_x(x), m_y(y), m_size(70, 70)
+			CairoDrawing(a_area, Point(x,y)), m_latch(a_latch), m_point_right(point_right), m_size(70, 70)
 		{
-			m_basic = BlockSymbol(m_x+m_size.x/2, m_y+m_size.y/2, m_size.x, m_size.y);
+			m_basic = BlockSymbol(m_size.x/2, m_size.y/2, m_size.x, m_size.y);
+			m_latchsym = LatchSymbol(0, 0, 0, !m_point_right);
 		}
 	};
 
 
 	class CounterDiagram: public CairoDrawing {
 		Counter &m_counter;
-		int m_x;
-		int m_y;
 		Point m_size;
 		BlockSymbol m_basic;
 
@@ -485,10 +416,11 @@ namespace app {
 	  public:
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			m_basic.draw_symbol(cr, Point(m_xofs, m_yofs));
 
 			cr->save();
-			cr->translate(m_x, m_y);
+			position().cairo_translate(cr);
+			m_basic.draw_symbol(cr, m_dev_origin);
+
 			cr->set_line_width(0.8);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 
@@ -519,18 +451,16 @@ namespace app {
 		}
 
 		CounterDiagram(Counter &a_counter, Glib::RefPtr<Gtk::DrawingArea>a_area, double x, double y):
-			CairoDrawing(a_area), m_counter(a_counter), m_x(x), m_y(y),
+			CairoDrawing(a_area, Point(x,y)), m_counter(a_counter),
 			m_size(a_counter.nbits() * 7 + 50, 30 + 20 * a_counter.is_sync())
 		{
-			m_basic = BlockSymbol(m_x+m_size.x/2, m_y+m_size.y/2, m_size.x, m_size.y);
+			m_basic = BlockSymbol(m_size.x/2, m_size.y/2, m_size.x, m_size.y);
 		}
 	};
 
 
 	class TraceDiagram: public CairoDrawing {
 		SignalTrace &m_trace;
-		int m_x;
-		int m_y;
 		int m_width;
 		int m_rowHeight;
 		Point m_size;
@@ -555,10 +485,10 @@ namespace app {
 	  public:
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			m_basic.draw_symbol(cr, Point(m_xofs, m_yofs));
 
 			cr->save();
-			cr->translate(m_x+2, m_y);
+			cr->translate(position().x+2, position().y);
+			m_basic.draw_symbol(cr, m_dev_origin);
 			cr->set_line_width(0.8);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 			auto first_ts = m_trace.first_us();
@@ -612,11 +542,11 @@ namespace app {
 		}
 
 		TraceDiagram(SignalTrace &a_trace, Glib::RefPtr<Gtk::DrawingArea>a_area, double x, double y, int width=200, int row_height=20):
-			CairoDrawing(a_area), m_trace(a_trace), m_x(x), m_y(y),
+			CairoDrawing(a_area, Point(x,y)), m_trace(a_trace),
 			m_width(width), m_rowHeight(row_height),
 			m_size(m_width, a_trace.traced().size() * m_rowHeight)
 		{
-			m_basic = BlockSymbol(m_x+m_size.x/2, m_y+m_size.y/2, m_size.x, m_size.y);
+			m_basic = BlockSymbol(m_size.x/2, m_size.y/2, m_size.x, m_size.y);
 			m_names.resize(a_trace.traced().size());
 			for (size_t n=0; n < m_names.size(); ++n) {
 				m_names[n] = m_trace.traced()[n]->name();

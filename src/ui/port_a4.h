@@ -163,7 +163,7 @@ namespace app {
 
 		void draw_nor_gate() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["NORGate"]);
-			conn.add(new OrSymbol(0,0,0,true));
+			conn.add(new OrSymbol(2, 0,0,0,true));
 			conn.add(ConnectionDiagram::pt(   1,  10, true));
 			conn.add(ConnectionDiagram::pt(-170,  10));
 		}

@@ -456,13 +456,14 @@ class Input: public Connection {
 // A buffer takes a weak high impedence input and outputs a strong signal
 class ABuffer: public Device {
   protected:
-	Connection &m_in;
+	Connection *m_in;
 	Output m_out;
 
   public:
 	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
-
+	ABuffer(): m_in(NULL) {};
 	ABuffer(Connection &in, const std::string &a_name="");
+	void connect(Connection &in) { m_in = &in; }
 	virtual ~ABuffer();
 	void wr(float in);
 	Connection &rd();
@@ -475,59 +476,69 @@ class Inverter: public ABuffer {
 	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:
+	Inverter(): ABuffer() {};
 	Inverter(Connection &in, const std::string &a_name="");
 };
 
+
 //___________________________________________________________________________________
-//  And gate, also nand for invert=true, or possibly doubles as buffer or inverter
-class AndGate: public Device {
+//  A generic gate
+class Gate: public Device {
 	std::vector<Connection *> m_in;
 	Output m_out;
 	bool m_inverted;
 
-	void recalc();
+	virtual void recalc();
 	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	AndGate(const std::vector<Connection *> &in, bool inverted=false, const std::string &a_name="");
-	virtual ~AndGate();
+	Gate(): Device(), m_inverted(false) {};
+	Gate(const std::vector<Connection *> &in, bool inverted=false, const std::string &a_name="");
+	virtual ~Gate();
+	void connect(size_t a_pos, Connection &in);
+	void disconnect(size_t a_pos);
+	void inverted(bool a_inverted) { m_inverted = a_inverted; }
+	bool inverted() {return m_inverted; }
+	std::vector<Connection *> &inputs() { return m_in; }
 	void inputs(const std::vector<Connection *> &in);
 	Connection &rd();
 };
 
+
 //___________________________________________________________________________________
-//  Or gate, also nor for invert=true, or possibly doubles as buffer or inverter
-class OrGate: public Device {
-	std::vector<Connection *> m_in;
-	Output m_out;
-	bool m_inverted;
+//  And gate, also nand for invert=true, or possibly doubles as buffer or inverter
+class AndGate: public Gate {
 
-	void recalc();
-
-	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
+	virtual void recalc();
 
   public:
-	OrGate(const std::vector<Connection *> &in, bool inverted=false, const std::string &a_name="");
-	virtual ~OrGate();
-	bool inverted();
-	Connection &rd();
+	AndGate(): Gate() {};
+	AndGate(const std::vector<Connection *> &in, bool inverted=false, const std::string &a_name="");
+	virtual ~AndGate();
 };
 
 //___________________________________________________________________________________
 //  Or gate, also nor for invert=true, or possibly doubles as buffer or inverter
-class XOrGate: public Device {
-	std::vector<Connection *> m_in;
-	Output m_out;
-	bool m_inverted;
+class OrGate: public Gate {
 
-	void recalc();
-	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
+	virtual void recalc();
 
   public:
+	OrGate(): Gate() {};
+	OrGate(const std::vector<Connection *> &in, bool inverted=false, const std::string &a_name="");
+	virtual ~OrGate();
+};
+
+//___________________________________________________________________________________
+//  Or gate, also nor for invert=true, or possibly doubles as buffer or inverter
+class XOrGate: public Gate {
+
+	virtual void recalc();
+
+  public:
+	XOrGate(): Gate() {}
 	XOrGate(const std::vector<Connection *> &in, bool inverted=false, const std::string &a_name="");
 	virtual ~XOrGate();
-	bool inverted();
-	Connection &rd();
 };
 
 //___________________________________________________________________________________
@@ -593,6 +604,7 @@ class Tristate: public Device {
 	virtual void on_gate_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:
+	Tristate(): Device(), m_in(NULL), m_gate(NULL), m_invert_gate(false), m_invert_output(false) {}
 	Tristate(Connection &in, Connection &gate, bool invert_gate=false, bool invert_output=false, const std::string &a_name="ts");
 	virtual ~Tristate();
 	void set_name(const std::string &a_name);
@@ -614,16 +626,20 @@ class Tristate: public Device {
 };
 
 //___________________________________________________________________________________
-// Clamps a voltabe between a lower and upper bound.
+// Clamps a voltage between a lower and upper bound.
 class Clamp: public Device {
-	Connection &m_in;
+	Connection *m_in;
 	float m_lo;
 	float m_hi;
 
 	void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:
+	Clamp(): Device(), m_in(NULL), m_lo(0), m_hi(0) {}
 	Clamp(Connection &in, float vLow=0.0, float vHigh=5.0);
+	void reclamp(Connection &in);
+	void unclamp();
+	void limits(double a_lo, double a_hi) {m_lo = a_lo; m_hi = a_hi; }
 	~Clamp();
 };
 
@@ -633,8 +649,8 @@ class Clamp: public Device {
 // this is almost identical to a Tristate.
 class Relay: public Device {
   protected:
-	Connection &m_in;
-	Connection &m_sw;
+	Connection *m_in;
+	Connection *m_sw;
 	Connection m_out;
 
 	void recalc_output();
@@ -642,9 +658,12 @@ class Relay: public Device {
 	virtual void on_sw_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:
+	Relay() : Device(), m_in(NULL), m_sw(NULL) {}
 	Relay(Connection &in, Connection &sw, const std::string &a_name="sw");
 	virtual ~Relay();
 	bool signal();
+	void in(Connection &in);
+	void sw(Connection &sw);
 
 	Connection &in();
 	Connection &sw();
@@ -655,8 +674,8 @@ class Relay: public Device {
 //___________________________________________________________________________________
 // A generalised D flip flop or a latch, depending on how we use it
 class Latch: public Device {
-	Connection &m_D;
-	Connection &m_Ck;
+	Connection *m_D;
+	Connection *m_Ck;
 	Output m_Q;
 	Inverse m_Qc;
 	bool m_positive;
@@ -666,9 +685,15 @@ class Latch: public Device {
 	void on_data_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:   // pulsed==true simulates a D flip flop, otherwise its a transparent latch
+	Latch(): Device(), m_D(NULL), m_Ck(NULL), m_Qc(m_Q), m_positive(false),  m_clocked(true) {}
 	Latch(Connection &D, Connection &Ck, bool positive=false, bool clocked=true);
 	virtual ~Latch();
 
+	void D(Connection &a_D);
+	void Ck(Connection &a_Ck);
+	void positive(bool a_positive);
+	void clocked(bool a_clocked);
+	bool positive();
 	bool clocked();
 	void set_name(const std::string &a_name);
 

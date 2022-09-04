@@ -88,7 +88,7 @@ namespace app {
 		void draw_T0SE_Gate() {
 			ConnectionDiagram * dia = new ConnectionDiagram(m_T0SE_Gate.rd(), 125, 155, m_area);
 			m_components["T0SE Gate"] = dia;
-			dia->add(new OrSymbol(0, 0, 0, false, true));
+			dia->add(new OrSymbol(2, 0, 0, 0, false, true));
 			dia->add(ConnectionDiagram::pt(45,0).first());
 			dia->add(ConnectionDiagram::pt(65,0));
 		}

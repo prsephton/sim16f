@@ -21,6 +21,7 @@ namespace app {
 		bool   m_selected;
 		Rect   m_rect;
 		Point  m_ofs;
+		std::vector<Point> m_hotspots;
 
 	  public:
 		virtual void outline(const Cairo::RefPtr<Cairo::Context>& cr) {
@@ -66,12 +67,35 @@ namespace app {
 			m_rect = Rect(r.x - m_ofs.x, r.y-m_ofs.y, r.w, r.h);
 		}
 
+		const Point &hotspot(size_t id) const {
+			if (id >= m_hotspots.size())
+				return m_hotspots[0];
+			return m_hotspots[id];
+		}
+		void hotspot(const Cairo::RefPtr<Cairo::Context>& cr, size_t id, Point p) {
+			cr->user_to_device(p.x, p.y);
+			p.x -= m_ofs.x; p.y -= m_ofs.y;
+			if (id >= m_hotspots.size())
+				m_hotspots.resize((id/10+1) * 10);
+			m_hotspots[id] = p;
+		}
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {return NULL;}
+
+
 		bool inside(const Rect r, Point p) {
 			return r.inside(p);
 		}
 
 		bool inside(Point p) {
 			return m_rect.inside(p);
+		}
+		void diagram_pos(const Point &a_pos) {
+			m_ofs = a_pos;
+		}
+		Point origin() const { return Point(m_x, m_y); }
+		void move(const Point &a_destination) {
+			m_x = a_destination.x;
+			m_y = a_destination.y;
 		}
 
 		virtual WHATS_AT location(Point p) {
@@ -85,7 +109,9 @@ namespace app {
 
 		Symbol(double x=0, double y=0, double rotation=0, double scale=1.0):
 			m_x(x), m_y(y), m_rotation(rotation), m_scale(scale), m_selected(false),
-			m_rect(0,0,0,0), m_ofs(0,0) {}
+			m_rect(0,0,0,0), m_ofs(0,0) {
+			m_hotspots.resize(10);
+		}
 		virtual ~Symbol() {}
 	};
 
@@ -168,13 +194,27 @@ namespace app {
 	};
 
 	class PinSymbol: public Symbol {
+
 	  public:
+
+		virtual WHATS_AT location(Point p) {
+			if (hotspot(0).close_to(p))
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 0);
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			if (what.match((void *)this, WHATS_AT::IN_OUT, 0))
+				return &hotspot(0);
+			return NULL;
+		}
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
 			rotate(cr); scale(cr);
 			bounding_rect(cr, Rect(0, -10, 20, 20));
+			hotspot(cr, 0, Point(0, 0));
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 			cr->rectangle(0,-10,20,20);
@@ -193,11 +233,29 @@ namespace app {
 	class DiodeSymbol: public Symbol  {
 	  public:
 
+		virtual WHATS_AT location(Point p) {
+			if (hotspot(0).close_to(p))
+				return WHATS_AT(this, WHATS_AT::INPUT, 0);
+			if (hotspot(1).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0);
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			if (what.match((void *)this, WHATS_AT::INPUT, 0))
+				return &hotspot(0);
+			if (what.match((void *)this, WHATS_AT::OUTPUT, 0))
+				return &hotspot(1);
+			return NULL;
+		}
+
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(m_rotation);
 			bounding_rect(cr, Rect(0, -7, 10, 14));
+			hotspot(cr, 0, Point(0, -7));
+			hotspot(cr, 1, Point(0, 7));
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 			cr->move_to(0, -6); cr->line_to(0,  6); cr->line_to(6,  0); cr->close_path(); cr->stroke();
@@ -212,11 +270,24 @@ namespace app {
 	class VssSymbol: public Symbol {
 	  public:
 
+		virtual WHATS_AT location(Point p) {
+			if (hotspot(0).close_to(p))
+				return WHATS_AT(this, WHATS_AT::INPUT, 0);
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			if (what.match((void *)this, WHATS_AT::INPUT, 0))
+				return &hotspot(0);
+			return NULL;
+		}
+
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(m_rotation);
 			bounding_rect(cr, Rect(-5, 0, 10, 10));
+			hotspot(cr, 0, Point(0, 0));
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_BUTT);
 			cr->move_to(-5, 0); cr->line_to(0, 10); cr->line_to(5, 0);
@@ -233,11 +304,35 @@ namespace app {
 		bool m_with_vdd;
 	  public:
 
+		virtual WHATS_AT location(Point p) {
+			if (hotspot(0).close_to(p))
+				return WHATS_AT(this, WHATS_AT::INPUT, 0);
+			if (hotspot(1).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0);
+			if (hotspot(2).close_to(p))
+				return WHATS_AT(this, WHATS_AT::GATE, 0);
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			if (what.match((void *)this, WHATS_AT::INPUT, 0))
+				return &hotspot(0);
+			if (what.match((void *)this, WHATS_AT::OUTPUT, 0))
+				return &hotspot(1);
+			if (what.match((void *)this, WHATS_AT::GATE, 0))
+				return &hotspot(2);
+			return NULL;
+		}
+
+
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(m_rotation);
 			bounding_rect(cr, Rect(0, -20, 20, 40));
+			hotspot(cr, 0, Point(20, -20));
+			hotspot(cr, 1, Point(20,  20));
+			hotspot(cr, 2, Point(0,  0));
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 			cr->move_to(0, 0); cr->line_to(5,0); cr->stroke();
@@ -274,11 +369,29 @@ namespace app {
 		bool m_inverted;
 	  public:
 
+		virtual WHATS_AT location(Point p) {
+			if (hotspot(0).close_to(p))
+				return WHATS_AT(this, WHATS_AT::INPUT, 0);
+			if (hotspot(1).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0);
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			if (what.match((void *)this, WHATS_AT::INPUT, 0))
+				return &hotspot(0);
+			if (what.match((void *)this, WHATS_AT::OUTPUT, 0))
+				return &hotspot(1);
+			return NULL;
+		}
+
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(m_rotation);
 			bounding_rect(cr, Rect(0, -15, 30, 30));
+			hotspot(cr, 0, Point(0, 0));
+			hotspot(cr, 1, Point(30, 0));
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 			cr->move_to(0, -15); cr->line_to(0, 15);
@@ -295,32 +408,65 @@ namespace app {
 			cr->stroke();
 			cr->restore();
 		}
+
+		void inverted(bool a_invert) { m_inverted = a_invert; }
+
 		BufferSymbol(double x=0, double y=0, double rotation=0, bool inverted=false):
 			Symbol(x, y, rotation), m_inverted(inverted) {}
 	};
 
 	class AndSymbol: public Symbol {
 		bool m_inverted;
+		int  m_inputs;
 	  public:
+
+		virtual WHATS_AT location(Point p) {
+			for (int n=0; n<m_inputs; ++n)
+				if (hotspot(n).close_to(p))
+					return WHATS_AT(this, WHATS_AT::INPUT, n);
+			if (hotspot(m_inputs).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, m_inputs);
+
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			for (int n=0; n<m_inputs; ++n)
+				if (what.match((void *)this, WHATS_AT::INPUT, n))
+					return &hotspot(n);
+			if (what.match((void *)this, WHATS_AT::OUTPUT, 0))
+				return &hotspot(m_inputs);
+			return NULL;
+		}
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			double h = 30;
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(m_rotation);
-			bounding_rect(cr, Rect(0, -h/2, h*1.5, h));
 			cr->set_line_width(1.2);
+			bounding_rect(cr, Rect(0, -h/2, h, h));
+			for (int n=1; n<=m_inputs; ++n) {
+				double y = -h/2+n*h/(m_inputs+1);
+				hotspot(cr, n-1, Point(0, y));
+				cr->move_to(-3.5, y);
+				cr->line_to(0, y);
+				cr->stroke();
+			}
+			hotspot(cr, m_inputs, Point(h, 0));
+
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 
-			cr->move_to(h,-h/2); cr->line_to(0,-h/2); cr->line_to(0,h/2); cr->line_to(h,h/2);
+			cr->move_to(h/2,-h/2); cr->line_to(0,-h/2); cr->line_to(0,h/2); cr->line_to(h/2,h/2);
 			cr->stroke();
-			cr->arc(h,0,h/2, -M_PI/2, M_PI/2);
+			cr->arc(h/2,0, h/2, -M_PI/2, M_PI/2);
 			cr->stroke();
+
 
 			if (m_inverted) {
 				cr->save();
 				cr->set_line_width(0.8);
-				cr->arc(h*3/2 + 3.5, 0, 3.5, 0, 2*M_PI);
+				cr->arc(h + 3.5, 0, 3.5, 0, 2*M_PI);
 				cr->set_source_rgba(1.0, 1.0, 1.0, 1.0); cr->fill_preserve();
 				cr->set_source_rgba(0.0, 0.0, 0.0, 1.0); cr->stroke();
 				cr->restore();
@@ -328,14 +474,34 @@ namespace app {
 
 			cr->restore();
 		}
-		AndSymbol(double x=0, double y=0, double rotation=0, bool inverted=false):
-			Symbol(x, y, rotation), m_inverted(inverted) {}
+		AndSymbol(int a_inputs, double x=0, double y=0, double rotation=0, bool inverted=false):
+			Symbol(x, y, rotation), m_inverted(inverted), m_inputs(a_inputs){}
 	};
 
 	class OrSymbol: public Symbol  {
 		bool m_inverted;
 		bool m_xor;
+		int  m_inputs;
 	  public:
+
+		virtual WHATS_AT location(Point p) {
+			for (int n=0; n<m_inputs; ++n)
+				if (hotspot(n).close_to(p))
+					return WHATS_AT(this, WHATS_AT::INPUT, n);
+			if (hotspot(m_inputs).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, m_inputs);
+
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			for (int n=0; n<m_inputs; ++n)
+				if (what.match((void *)this, WHATS_AT::INPUT, n))
+					return &hotspot(n);
+			if (what.match((void *)this, WHATS_AT::OUTPUT, 0))
+				return &hotspot(m_inputs);
+			return NULL;
+		}
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			double h   = 30.0;
@@ -343,77 +509,284 @@ namespace app {
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(m_rotation);
-			bounding_rect(cr, Rect(0, -h/2, h*1.5, h));
+			cr->set_line_width(1.2);
+			bounding_rect(cr, Rect(0, -h/2, h, h));
+			for (int n=1; n<=m_inputs; ++n) {
+				double y = -h/2+n*h/(m_inputs+1);
+				hotspot(cr, n-1, Point(0, -h/2+n*h/(m_inputs+1)));
+				cr->move_to(-3.5, y);
+				cr->line_to(0, y);
+				cr->stroke();
+			}
+			hotspot(cr, m_inputs, Point(h, 0));
 
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
-			cr->set_line_width(1.2);
-
 			cr->save();
-			cr->rectangle(-ofs, -h/2, h-ofs, h);
+			cr->rectangle(0, -h/2, h-ofs, h);
 			cr->clip();
 			cr->scale(1/4.0, 1.0);
-			cr->arc(-2*ofs, 0, h/2, -M_PI/2, M_PI/2);
+			cr->arc(-ofs, 0, h/2, -M_PI/2, M_PI/2);
 			cr->restore();
 			cr->stroke();
+
 			if (m_xor) {
 				cr->save();
 				cr->scale(1/4.0, 1.0);
-				cr->arc(ofs*2, 0, h/2, -M_PI/2, M_PI/2);
+				cr->arc(ofs, 0, h/2, -M_PI/2, M_PI/2);
 				cr->restore();
 				cr->stroke();
 			}
 
-			cr->move_to(-ofs,-h/2); cr->line_to(h-ofs*2,-h/2);
-			cr->move_to(-ofs, h/2); cr->line_to(h-ofs*2, h/2);
+			cr->move_to(0,-h/2); cr->line_to(h-ofs*6,-h/2);
+			cr->move_to(0, h/2); cr->line_to(h-ofs*6, h/2);
 			cr->stroke();
 
 			cr->save();
 			cr->scale(1.5, 1);
-			cr->arc(h/2, 0.0, h/2, -M_PI/2, M_PI/2);
+			cr->arc(h/5, 0.0, h/2, -M_PI/2, M_PI/2);
 			cr->restore();
 			cr->stroke();
 
 			if (m_inverted) {
 				cr->save();
 				cr->set_line_width(0.8);
-				cr->arc(h*3/2 + 3.5, 0, 3.5, 0, 2*M_PI);
+				cr->arc(h + 3.5, 0, 3.5, 0, 2*M_PI);
 				cr->set_source_rgba(1.0, 1.0, 1.0, 1.0); cr->fill_preserve();
 				cr->set_source_rgba(0.0, 0.0, 0.0, 1.0); cr->stroke();
 				cr->restore();
 			}
 			cr->restore();
 		}
-		OrSymbol(double x=0, double y=0, double rotation=0, bool inverted=false, bool is_xor=false):
-			Symbol(x, y, rotation), m_inverted(inverted), m_xor(is_xor){}
+		OrSymbol(int a_inputs, double x=0, double y=0, double rotation=0, bool inverted=false, bool is_xor=false):
+			Symbol(x, y, rotation), m_inverted(inverted), m_xor(is_xor), m_inputs(a_inputs){}
 	};
+
+
+	class TristateSymbol: public BufferSymbol {
+		bool m_gate_inverted;
+	  public:
+
+		virtual WHATS_AT location(Point p) {
+			if (hotspot(2).close_to(p))
+				return WHATS_AT(this, WHATS_AT::GATE, 0);
+			if (hotspot(3).close_to(p))
+				return WHATS_AT(this, WHATS_AT::GATE, 1);
+
+			return BufferSymbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			if (what.match((void *)this, WHATS_AT::GATE, 0))
+					return &hotspot(2);
+			if (what.match((void *)this, WHATS_AT::GATE, 1))
+					return &hotspot(3);
+			return BufferSymbol::hotspot_at(what);
+		}
+
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			BufferSymbol::draw(cr);
+			cr->save();
+
+			cr->translate(m_x, m_y);
+			cr->rotate(m_rotation);
+
+			hotspot(cr, 2, Point(15,  7.5));
+			hotspot(cr, 3, Point(15, -7.5));
+
+			cr->set_line_width(1.2);
+			if (m_gate_inverted) {
+				cr->save();
+				cr->set_line_width(0.8);
+				cr->arc(15, 11, 3.5, 0, 2*M_PI);
+				cr->set_source_rgba(1.0, 1.0, 1.0, 1.0); cr->fill_preserve();
+				cr->set_source_rgba(0.0, 0.0, 0.0, 1.0); cr->stroke();
+				cr->stroke();
+				cr->restore();
+			}
+
+			cr->restore();
+		}
+
+		void gate_inverted(bool a_invert) { m_gate_inverted = a_invert; }
+
+		TristateSymbol(double x=0, double y=0, double rotation=0, bool inverted=false,  bool gate_inverted=false):
+			BufferSymbol(x, y, rotation, inverted), m_gate_inverted(gate_inverted) {}
+
+	};
+
+	class LatchSymbol: public Symbol {
+		bool m_point_right;
+		bool D, Ck, Q;
+	  public:
+
+		virtual WHATS_AT location(Point p) {
+			if (hotspot(0).close_to(p))
+				return WHATS_AT(this, WHATS_AT::INPUT, 0);
+			else if (hotspot(1).close_to(p))
+				return WHATS_AT(this, WHATS_AT::GATE, 0);
+			else if (hotspot(2).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0);
+			else if (hotspot(3).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 1);
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			if (what.match((void *)this, WHATS_AT::INPUT, 0))
+				return &hotspot(0);
+			else if (what.match((void *)this, WHATS_AT::GATE, 0))
+				return &hotspot(1);
+			else if (what.match((void *)this, WHATS_AT::OUTPUT, 0))
+				return &hotspot(2);
+			else if (what.match((void *)this, WHATS_AT::OUTPUT, 1))
+				return &hotspot(3);
+			return NULL;
+		}
+
+		void signals(bool a_D, bool a_Ck, bool a_Q) {
+			D = a_D; Ck = a_Ck; Q = a_Q;
+		}
+
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+
+			bounding_rect(cr, Rect(0,0,70,70));
+			if (m_point_right) {
+				hotspot(cr, 0, Point(0, 14));
+				hotspot(cr, 1, Point(0, 56));
+				hotspot(cr, 2, Point(70, 14));
+				hotspot(cr, 3, Point(70, 56));
+			} else {
+				hotspot(cr, 0, Point(70, 14));
+				hotspot(cr, 1, Point(70, 56));
+				hotspot(cr, 2, Point(0, 14));
+				hotspot(cr, 3, Point(0, 56));
+			}
+
+			cr->set_line_width(1.5);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+
+			cr->set_line_width(0.2);
+			if (m_point_right) {
+				cr->move_to(10, 17); cr->text_path("D");
+				cr->move_to(50, 17); cr->text_path("Q");
+
+				cr->move_to(10, 59); cr->text_path("Ck");
+				cr->move_to(50, 59); cr->text_path("Q");
+			} else {
+				cr->move_to(10, 17); cr->text_path("Q");
+				cr->move_to(50, 17); cr->text_path("D");
+
+				cr->move_to(10, 59); cr->text_path("Q");
+				cr->move_to(50, 59); cr->text_path("Ck");
+			}
+			cr->fill_preserve(), cr->stroke();
+			cr->set_line_width(0.8);
+			if (m_point_right) {
+				cr->move_to(50, 48); cr->line_to(60,48);
+			} else {
+				cr->move_to(10, 48); cr->line_to(20,48);
+			}
+			cr->stroke();
+
+			cr->set_source_rgba(0.5, 0.5, 0.9, 1.0);
+			cr->set_line_width(0.8);
+
+			cr->rectangle(0, 10, 5, 8);
+			CairoDrawing::draw_indicator(cr, m_point_right?D:Q);
+			if (m_point_right) {
+				cr->move_to(0, 50); cr->line_to(7,56); cr->line_to(0, 62); cr->close_path();
+			} else {
+				cr->rectangle(0, 52, 5, 8);
+			}
+			CairoDrawing::draw_indicator(cr, m_point_right?Ck:(!Q));
+			cr->rectangle(65, 10, 5, 8);
+			CairoDrawing::draw_indicator(cr, m_point_right?Q:D);
+			if (m_point_right) {
+				cr->rectangle(65,52, 5, 8);
+			} else {
+				cr->move_to(70, 50); cr->line_to(63,56); cr->line_to(70, 62); cr->close_path();
+			}
+			CairoDrawing::draw_indicator(cr, m_point_right?(!Q):Ck);
+		}
+
+		LatchSymbol(double x=0, double y=0, double rotation=0, bool backward=false):
+			Symbol(x, y, rotation), m_point_right(!backward), D(false), Ck(false), Q(false) {}
+	};
+
 
 	class MuxSymbol: public Symbol  {
 		int m_gates, m_inputs;
 		bool m_forward;
 	  public:
 
+		virtual WHATS_AT location(Point p) {
+			for (int n=0; n<m_gates; ++n)
+				if (hotspot(n).close_to(p))
+					return WHATS_AT(this, WHATS_AT::GATE, n);
+			for (int n=0; n<m_inputs; ++n)
+				if (hotspot(m_gates+n).close_to(p))
+					return WHATS_AT(this, WHATS_AT::INPUT, n);
+			if (hotspot(m_gates+m_inputs).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0);
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			for (int n=0; n<m_gates; ++n)
+				if (what.match((void *)this, WHATS_AT::GATE, n))
+					return &hotspot(n);
+			for (int n=0; n<m_inputs; ++n)
+				if (what.match((void *)this, WHATS_AT::INPUT, n))
+					return &hotspot(m_gates+n);
+			if (what.match((void *)this, WHATS_AT::OUTPUT, 0))
+				return &hotspot(m_inputs+m_gates);
+			return NULL;
+		}
+
+
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(m_rotation);
+			cr->set_line_width(1.2);
+
 			int cw = 5, ch = 14;
 			int width = cw * (m_gates+1);
-			int height = ch * (m_inputs+1);
-			bounding_rect(cr, Rect(0, -height/2, width, height));
-			cr->set_line_width(1.2);
+			int height0 = ch * (m_inputs+1) + width*2;
+			int height1 = ch * (m_inputs+1);
+			bounding_rect(cr, Rect(0, -height0/2, width, height0));
+
+			for (int n=1; n<=m_gates; ++n) {
+				double x = width*n/(m_gates+1);
+				double y = x - height0/2;
+				hotspot(cr, n-1, Point(x,  y));
+				cr->move_to(x, y);
+				cr->line_to(x, y-3.5);
+				cr->stroke();
+			}
+			for (int n=1; n<=m_inputs; ++n) {
+				double y=-height0/2+height0*n/(m_inputs+1);
+				hotspot(cr, m_gates+n-1, Point(0, y));
+				cr->move_to(-3.5, y);
+				cr->line_to(0, y);
+				cr->stroke();
+			}
+			hotspot(cr, m_gates+m_inputs, Point(width, 0));
+
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
-			cr->move_to(0, -height/2 - width); cr->line_to(0, height/2 + width);
-			cr->line_to(width,  height/2);
-			cr->line_to(width, -height/2);
+			cr->move_to(0, -height0/2); cr->line_to(0, height0/2);
+			cr->line_to(width,  height1/2);
+			cr->line_to(width, -height1/2);
 			cr->close_path();
 			cr->stroke();
 
 			cr->set_line_width(0.2);
-			double h = (height+2*width) / (m_inputs+1);
-			double ofs = 3;  // adjust for character height
+			double h = (height0) / (m_inputs+1);
 			for (int r=0; r < m_inputs; ++r) {
-				cr->move_to((width-cw)/2, ofs + height/2.0 + width - (r+1) * h);
+				cr->move_to(width/2, height0/2.0 - (r+1) * h);
 				cr->save();
+				cr->rotate(-m_rotation);
+				cr->rel_move_to(-cw/2, 0);
 				cr->scale(0.8, 0.8);
 				cr->text_path(int_to_hex(m_forward?r:(m_inputs-r-1), "", ""));
 				cr->fill_preserve(); cr->stroke();
@@ -466,6 +839,29 @@ namespace app {
 		bool m_dual;
 	  public:
 
+		virtual WHATS_AT location(Point p) {
+			int n_inputs = m_dual?2:1;
+
+			for (int n=0; n<n_inputs; ++n)
+				if (hotspot(n).close_to(p))
+					return WHATS_AT(this, WHATS_AT::INPUT, n);
+			if (hotspot(n_inputs).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, n_inputs);
+
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			int n_inputs = m_dual?2:1;
+			for (int n=0; n<n_inputs; ++n)
+				if (what.match((void *)this, WHATS_AT::INPUT, n))
+					return &hotspot(n);
+			if (what.match((void *)this, WHATS_AT::OUTPUT, 0))
+				return &hotspot(n_inputs);
+			return NULL;
+		}
+
+
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
@@ -473,19 +869,35 @@ namespace app {
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 
+			int x1 = 4, x2 = 10, x3 = 15, x4 = 20, x5 = 26;
+			int y1 = 6, y2 = -6;
+
 			if (m_dual) {
-				AndSymbol s = AndSymbol();
+				AndSymbol s = AndSymbol(2);
 				s.draw(cr);
-				bounding_rect(cr, Rect(0, -15, 45, 30));
+				bounding_rect(cr, Rect(0, -15, 30, 30));
+
+				int h = 30;
+				for (int n=1; n<=2; ++n) {
+					double y = -h/2+n*h/(2+1);
+					hotspot(cr, n-1, Point(0, y));
+					cr->move_to(-3.5, y);
+					cr->line_to(0, y);
+					cr->stroke();
+				}
+				hotspot(cr, 2, Point(h, 0));
 			} else {
-				cr->move_to(0, -22); cr->line_to(0, 22);
-				cr->line_to(45, 0); cr->close_path();
-				bounding_rect(cr, Rect(0, -22, 45, 44));
+				BufferSymbol s = BufferSymbol();
+				s.draw(cr);
+				bounding_rect(cr, Rect(0, -15, 30, 30));
+				hotspot(cr, 0, Point(0, 0));
+				hotspot(cr, 1, Point(30, 0));
+				x1 = 2; x2 = 7; x3 = 11; x4 = 15; x5 = 20;
+				y1 = 6; y2 = -4;
 			}
-			cr->stroke();
 			cr->set_line_width(0.8);
-			cr->move_to( 4,6); cr->line_to(10,6); cr->line_to(15,-6); cr->line_to(26,-6);
-			cr->move_to(10,6); cr->line_to(15,6); cr->line_to(20,-6);
+			cr->move_to(x1,y1); cr->line_to(x2,y1); cr->line_to(x3,y2); cr->line_to(x5,y2);
+			cr->move_to(x2,y1); cr->line_to(x3,y1); cr->line_to(x4,y2);
 			cr->stroke();
 			cr->restore();
 		}
@@ -572,8 +984,7 @@ namespace app {
 	};
 
 	class GenericDiagram: public CairoDrawing {
-		int m_x;
-		int m_y;
+//		Point m_pos;
 
 		virtual bool on_motion(double x, double y) {
 
@@ -597,8 +1008,11 @@ namespace app {
 			bool is_first;
 			bool is_join;
 			bool is_invert;
+			bool hilight;
+			bool segstart;
+			Point dev;   // device coordinates for x,y
 			pt(double a_x, double a_y, bool first=false, bool join=false, bool invert=false):
-				x(a_x), y(a_y), is_first(first), is_join(join), is_invert(invert) {}
+				x(a_x), y(a_y), is_first(first), is_join(join), is_invert(invert), hilight(false), segstart(false) {}
 			pt &join(bool j=true) { is_join = j; return *this; }
 			pt &first(bool f=true) { is_first = f; return *this; }
 			pt &invert(bool i=true) { is_invert = i; return *this; }
@@ -672,13 +1086,50 @@ namespace app {
 		GenericDiagram &add(Symbol *a_symbol) {m_symbols.push_back(a_symbol); return *this; }
 
 		virtual WHATS_AT location(Point p) {
+
 			for (size_t n=0; n < m_symbols.size(); ++n) {
 				WHATS_AT w = m_symbols[n]->location(p);
 				if (w.what != WHATS_AT::NOTHING)
 					return w;
 			}
+
+			for (size_t n = 0; n + 1 < m_points.size(); ++n) {
+				auto &p1 = m_points[n];
+				auto &p2 = m_points[n+1];
+
+				if (p.close_to(p1.dev)) {
+					return WHATS_AT(this, WHATS_AT::POINT, n);
+				} else if (p.close_to(p2.dev)) {
+					return WHATS_AT(this, WHATS_AT::POINT, n+1);
+				} else if (p.close_to_line_with(p1.dev, p2.dev)) {
+					p1.segstart = true;
+					p2.hilight = true;
+					m_area->queue_draw();
+					return WHATS_AT(this, WHATS_AT::LINE, n);
+				} else if (p2.hilight) {
+					p1.segstart = false;
+					p2.hilight = false;
+					m_area->queue_draw();
+				}
+			}
+
 			return CairoDrawing::location(p);
 		}
+
+		virtual void move(const WHATS_AT &target_info, const Point &destination, bool move_dia = false) {
+			if (move_dia) {
+				if (target_info.what == WHATS_AT::SYMBOL) {
+					Symbol *sym = (Symbol *)target_info.pt;
+					position(destination.diff(sym->origin()));
+				}
+			} else {
+				if (target_info.what == WHATS_AT::SYMBOL) {
+					Symbol *sym = (Symbol *)target_info.pt;
+					sym->move(destination.diff(position()));
+				}
+			}
+		}
+
 
 		virtual bool determinate() {
 			return true;
@@ -704,11 +1155,22 @@ namespace app {
 		void draw_points(const Cairo::RefPtr<Cairo::Context>& cr) {
 			for (size_t n=0; n < m_points.size(); ++n) {
 				pt &point = m_points[n];
+				point.dev = Point(point.x, point.y).to_device(cr, m_dev_origin);
+				if (point.hilight) {
+					cr->set_line_width(2.5);
+				} else {
+					cr->set_line_width(1.2);
+				}
+
 				if (point.is_first) {
 					cr->stroke();
 					cr->move_to(point.x, point.y);
 				} else {
 					cr->line_to(point.x, point.y);
+				}
+				if ((point.hilight || point.segstart) && !point.is_join && !point.is_invert) {
+					cr->stroke();
+					cr->move_to(point.x, point.y);
 				}
 				if (point.is_join) {
 					cr->stroke();
@@ -734,7 +1196,7 @@ namespace app {
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
-			cr->translate(m_x, m_y);
+			cr->translate(position().x, position().y);
 
 			cr->set_line_width(1.2);
 			if (determinate()) {
@@ -749,7 +1211,7 @@ namespace app {
 			for (size_t n=0; n < m_symbols.size(); ++n) {
 				cr->save();
 				black(cr);
-				m_symbols[n]->draw_symbol(cr, Point(m_xofs, m_yofs));
+				m_symbols[n]->draw_symbol(cr, m_dev_origin);
 				cr->restore();
 			}
 
@@ -763,7 +1225,7 @@ namespace app {
 		}
 
 		GenericDiagram(double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area), m_x(x), m_y(y){}
+			CairoDrawing(a_area, Point(x, y)) { }
 
 	};
 

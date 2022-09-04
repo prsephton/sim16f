@@ -83,7 +83,7 @@ namespace app {
 
 		void draw_and1() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["And1.out"]);
-			conn.add(new AndSymbol(0, 0, ConnectionDiagram::DIRECTION::LEFT, true));
+			conn.add(new AndSymbol(2, 0, 0, ConnectionDiagram::DIRECTION::LEFT, true));
 			conn.add(ConnectionDiagram::pt(-50,0, true));
 			conn.add(ConnectionDiagram::pt(-65,0));
 			conn.add(new VssSymbol(-65, 0, CairoDrawing::DIRECTION::DOWN));

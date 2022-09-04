@@ -79,7 +79,7 @@ namespace app {
 
 		void draw_out_enable() {
 			ConnectionDiagram &out_en = dynamic_cast<ConnectionDiagram &>(*m_components["Out_en"]);
-			out_en.add(new OrSymbol(0, 0, 0, false));
+			out_en.add(new OrSymbol(2, 0, 0, 0, false));
 			out_en.add(ConnectionDiagram::pt(45, 0).first());
 			out_en.add(ConnectionDiagram::pt(55, 0));
 			out_en.add(ConnectionDiagram::pt(55, -85));
@@ -197,7 +197,7 @@ namespace app {
 
 		void draw_SR2en() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["SR2en"]);
-			conn.add(new AndSymbol(0, 0, DIRECTION::LEFT));
+			conn.add(new AndSymbol(2, 0, 0, DIRECTION::LEFT));
 			conn.add(ConnectionDiagram::pt(-45,   0, true));
 			conn.add(ConnectionDiagram::pt(-60, 0));
 		}
@@ -223,14 +223,14 @@ namespace app {
 
 		void draw_pin_changed() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["PIN_Changed"]);
-			conn.add(new OrSymbol(0, 0, DIRECTION::LEFT, false, true));
+			conn.add(new OrSymbol(2, 0, 0, DIRECTION::LEFT, false, true));
 			conn.add(ConnectionDiagram::pt(   -45,  0).first());
 			conn.add(ConnectionDiagram::pt(  -105,  0));
 		}
 
 		void draw_RBIF() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["RBIF"]);
-			conn.add(new AndSymbol(0, 0, DIRECTION::LEFT));
+			conn.add(new AndSymbol(3, 0, 0, DIRECTION::LEFT));
 			conn.add(ConnectionDiagram::pt(   -45,  0).first());
 			conn.add(ConnectionDiagram::pt(  -165,  0));
 			conn.add(ConnectionDiagram::text(-160, -2, "Set RBIF"));
@@ -241,7 +241,7 @@ namespace app {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["RBPU"]);
 			conn.add(ConnectionDiagram::pt(   0,  0, true));
 			conn.add(ConnectionDiagram::pt( 268,  0, false, false, true));
-			conn.add(new AndSymbol(270, 10, 0, true));
+			conn.add(new AndSymbol(3, 270, 10, 0, true));
 			conn.add(ConnectionDiagram::text(0, -2, "RBPU").overscore());
 		}
 
