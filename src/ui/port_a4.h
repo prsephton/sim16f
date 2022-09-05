@@ -93,7 +93,7 @@ namespace app {
 
 		void draw_schmitt() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["SchmittOut"]);
-			conn.add(ConnectionDiagram::pt(   0, 45, true));
+			conn.add(ConnectionDiagram::pt(   0, 30, true));
 			conn.add(ConnectionDiagram::pt(   0, 74));
 			conn.add(ConnectionDiagram::pt(-160, 74));
 		}
@@ -173,7 +173,7 @@ namespace app {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["NORGate.out"]);
 			conn.add(new FETSymbol(0,0,0,true,true));
 			conn.add(ConnectionDiagram::pt(0,0, true));
-			conn.add(ConnectionDiagram::pt(-27, 0));
+			conn.add(ConnectionDiagram::pt(-42, 0));
 		}
 
 

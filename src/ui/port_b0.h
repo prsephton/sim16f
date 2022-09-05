@@ -165,14 +165,14 @@ namespace app {
 
 		void draw_rbpu_and() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["RBPU_AND"]);
-			conn.add(ConnectionDiagram::pt( 320,  10, true));
+			conn.add(ConnectionDiagram::pt( 305,  10, true));
 			conn.add(ConnectionDiagram::pt( 360,  10, false, false, true));
 			conn.add(new FETSymbol(360, 10, 0, false, false, true));
 		}
 
 		void draw_int_output() {
 			WireDiagram &wire = dynamic_cast<WireDiagram &>(*m_components["INT_WIRE"]);
-			wire.add(WireDiagram::pt(280, 0, true));
+			wire.add(WireDiagram::pt(295, 0, true));
 			wire.add(WireDiagram::pt(0, 0));
 			wire.add(WireDiagram::text(8, -2, "INT"));
 			wire.add(new VssSymbol(0, 0, M_PI*0.5));

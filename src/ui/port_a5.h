@@ -84,7 +84,7 @@ namespace app {
 		void draw_and1() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["And1.out"]);
 			conn.add(new AndSymbol(2, 0, 0, ConnectionDiagram::DIRECTION::LEFT, true));
-			conn.add(ConnectionDiagram::pt(-50,0, true));
+			conn.add(ConnectionDiagram::pt(-35,0, true));
 			conn.add(ConnectionDiagram::pt(-65,0));
 			conn.add(new VssSymbol(-65, 0, CairoDrawing::DIRECTION::DOWN));
 			conn.add(ConnectionDiagram::text(-65, -20, "MCLR Circuit"));
@@ -93,8 +93,8 @@ namespace app {
 
 		void draw_schmitt1() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["Schmitt1_Out"]);
-			conn.add(ConnectionDiagram::pt( -45, 0, true, false, true));
-			conn.add(ConnectionDiagram::pt( -45, 0, true));
+			conn.add(ConnectionDiagram::pt( -30, 0, true, false, true));
+			conn.add(ConnectionDiagram::pt( -30, 0, true));
 			conn.add(ConnectionDiagram::pt( -80, 0));
 			conn.add(new BlockSymbol(-120, 0, 80, 30));
 			conn.add(ConnectionDiagram::text(-145, 6, "MCLR Filter"));
@@ -105,7 +105,7 @@ namespace app {
 
 		void draw_schmitt2() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["Schmitt2_Out"]);
-			conn.add(ConnectionDiagram::pt(   0, 45, true));
+			conn.add(ConnectionDiagram::pt(   0, 30, true));
 			conn.add(ConnectionDiagram::pt(   0, 74));
 			conn.add(ConnectionDiagram::pt( -50, 74));
 		}

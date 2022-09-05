@@ -85,7 +85,7 @@ namespace app {
 
 		void draw_schmitt() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["SchmittOut"]);
-			conn.add(ConnectionDiagram::pt(   0, 45, true));
+			conn.add(ConnectionDiagram::pt(   0, 30, true));
 			conn.add(ConnectionDiagram::pt(   0, 64));
 			conn.add(ConnectionDiagram::pt(-160, 64));
 		}
@@ -156,14 +156,14 @@ namespace app {
 		void draw_and1() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["And1"]);
 			conn.add(new AndSymbol(2));
-			conn.add(ConnectionDiagram::pt(  45,  0, true));
+			conn.add(ConnectionDiagram::pt(  30,  0, true));
 			conn.add(ConnectionDiagram::pt(  80,  0));
 		}
 
 		void draw_nor1() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["NOR1"]);
 			conn.add(new OrSymbol(2, 0,0,0,true));
-			conn.add(ConnectionDiagram::pt(  45,   0, true));
+			conn.add(ConnectionDiagram::pt(  30,   0, true));
 			conn.add(ConnectionDiagram::pt(  65,   0));
 			conn.add(ConnectionDiagram::pt(  65,-160));
 		}

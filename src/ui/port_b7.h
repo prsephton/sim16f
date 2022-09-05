@@ -80,7 +80,7 @@ namespace app {
 		void draw_out_enable() {
 			ConnectionDiagram &out_en = dynamic_cast<ConnectionDiagram &>(*m_components["Out_en"]);
 			out_en.add(new OrSymbol(2, 0, 0, 0, false));
-			out_en.add(ConnectionDiagram::pt(45, 0).first());
+			out_en.add(ConnectionDiagram::pt(30, 0).first());
 			out_en.add(ConnectionDiagram::pt(55, 0));
 			out_en.add(ConnectionDiagram::pt(55, -85));
 		}
@@ -124,14 +124,14 @@ namespace app {
 		void draw_schmitt_out() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["SchmittOut"]);
 			conn.add(ConnectionDiagram::pt(  0, 0, true));
-			conn.add(ConnectionDiagram::pt(-40, 0));
+			conn.add(ConnectionDiagram::pt(-55, 0));
 		}
 
 		void draw_out_buffer() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["OutBuf"]);
 			conn.add(new AndSymbol(2, 0,0,DIRECTION::DOWN));
 			// Wire between input buffer and input latch
-			conn.add(ConnectionDiagram::pt(  0, 45).first());
+			conn.add(ConnectionDiagram::pt(  0, 30).first());
 			conn.add(ConnectionDiagram::pt(  0, 55));
 			conn.add(ConnectionDiagram::pt(-20, 55));
 
@@ -223,7 +223,7 @@ namespace app {
 		void draw_SR2en() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["SR2en"]);
 			conn.add(new AndSymbol(2, 0, 0, DIRECTION::LEFT));
-			conn.add(ConnectionDiagram::pt(-45,   0, true));
+			conn.add(ConnectionDiagram::pt(-30,   0, true));
 			conn.add(ConnectionDiagram::pt(-60, 0));
 		}
 
@@ -249,14 +249,14 @@ namespace app {
 		void draw_pin_changed() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["PIN_Changed"]);
 			conn.add(new OrSymbol(2, 0, 0, DIRECTION::LEFT, false, true));
-			conn.add(ConnectionDiagram::pt(   -45,  0).first());
+			conn.add(ConnectionDiagram::pt(   -30,  0).first());
 			conn.add(ConnectionDiagram::pt(  -105,  0));
 		}
 
 		void draw_RBIF() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["RBIF"]);
 			conn.add(new AndSymbol(3, 0, 0, DIRECTION::LEFT));
-			conn.add(ConnectionDiagram::pt(   -45,  0).first());
+			conn.add(ConnectionDiagram::pt(   -30,  0).first());
 			conn.add(ConnectionDiagram::pt(  -165,  0));
 			conn.add(ConnectionDiagram::text(-160, -2, "Set RBIF"));
 			conn.add(new VssSymbol(-165, 0, M_PI*0.5));
@@ -272,7 +272,7 @@ namespace app {
 
 		void draw_rbpu_and() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["RBPU_AND"]);
-			conn.add(ConnectionDiagram::pt( 320,  10, true));
+			conn.add(ConnectionDiagram::pt( 305,  10, true));
 			conn.add(ConnectionDiagram::pt( 360,  10, false, false, true));
 			conn.add(new FETSymbol(360, 10, 0, false, false, true));
 		}
@@ -280,7 +280,7 @@ namespace app {
 		void draw_sprog() {
 			WireDiagram &wire = dynamic_cast<WireDiagram &>(*m_components["SPROG"]);
 			wire.add(new AndSymbol(2, 295, 0, DIRECTION::LEFT));
-			wire.add(WireDiagram::pt(250, 0, true));
+			wire.add(WireDiagram::pt(265, 0, true));
 			wire.add(WireDiagram::pt(0, 0));
 			wire.add(WireDiagram::text(8, 10, "Serial Programming Input"));
 			wire.add(new VssSymbol(0, 0, M_PI*0.5));
@@ -359,7 +359,7 @@ namespace app {
 			m_components["RBPU"]= new ConnectionDiagram(p7.RBPU(), 100.0, 50.0, m_area);
 			m_components["RBPU_AND"]= new ConnectionDiagram(RBPU.rd(), 100.0, 50.0, m_area);
 			m_components["Schmitt"]  = new SchmittDiagram(trigger, 480, 265, CairoDrawing::DIRECTION::LEFT, false, m_area);
-			m_components["SchmittOut"]= new ConnectionDiagram(trigger.rd(), 440.0, 265.0, m_area);
+			m_components["SchmittOut"]= new ConnectionDiagram(trigger.rd(), 455.0, 265.0, m_area);
 
 			m_components["SPROG"] = new WireDiagram(SPROG, 105, 270, m_area);
 

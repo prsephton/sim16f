@@ -83,7 +83,7 @@ namespace app {
 		void draw_out_enable() {
 			ConnectionDiagram &out_en = dynamic_cast<ConnectionDiagram &>(*m_components["Out_en"]);
 			out_en.add(new AndSymbol(2, 0, 0, 0, false));
-			out_en.add(ConnectionDiagram::pt(45, 0).first());
+			out_en.add(ConnectionDiagram::pt(30, 0).first());
 			out_en.add(ConnectionDiagram::pt(70, 0));
 			out_en.add(ConnectionDiagram::pt(70, -105));
 		}
@@ -133,7 +133,7 @@ namespace app {
 
 		void draw_schmitt() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["SchmittOut"]);
-			conn.add(ConnectionDiagram::pt(  0, 45, true));
+			conn.add(ConnectionDiagram::pt(  0, 30, true));
 			conn.add(ConnectionDiagram::pt(  0, 74));
 			conn.add(ConnectionDiagram::pt(-60, 74));
 		}
@@ -189,7 +189,7 @@ namespace app {
 
 		void draw_rbpu_and() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["RBPU_AND"]);
-			conn.add(ConnectionDiagram::pt( 320,  10, true));
+			conn.add(ConnectionDiagram::pt( 305,  10, true));
 			conn.add(ConnectionDiagram::pt( 360,  10, false, false, true));
 			conn.add(new FETSymbol(360, 10, 0, false, false, true));
 		}
@@ -212,7 +212,7 @@ namespace app {
 
 		void draw_usart_rec() {
 			WireDiagram &wire = dynamic_cast<WireDiagram &>(*m_components["USART_REC_WIRE"]);
-			wire.add(WireDiagram::pt(280, 0, true));
+			wire.add(WireDiagram::pt(295, 0, true));
 			wire.add(WireDiagram::pt(0, 0));
 			wire.add(WireDiagram::text(8, -2, "USART Receive"));
 			wire.add(new VssSymbol(0, 0, M_PI*0.5));

@@ -128,32 +128,6 @@ namespace app {
 			conn.add(ConnectionDiagram::text(0,  64, "WR TrisB"));
 		}
 
-
-//		void draw_schmitt() {
-//			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["SchmittOut"]);
-//			conn.add(ConnectionDiagram::pt(  0, 45, true));
-//			conn.add(ConnectionDiagram::pt(  0, 74));
-//			conn.add(ConnectionDiagram::pt(-60, 74));
-//		}
-
-//		void draw_lvp() {
-//			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["LVP"]);
-//			conn.add(ConnectionDiagram::pt(0,   0, true));
-//			conn.add(ConnectionDiagram::pt(205, 0));
-//
-//			conn.add(ConnectionDiagram::pt(205, -230));
-//			conn.add(ConnectionDiagram::pt(270, -230).invert());
-//
-//			conn.add(ConnectionDiagram::pt(205, -95).first().join());
-//			conn.add(ConnectionDiagram::pt(230, -95));
-//
-//			conn.add(ConnectionDiagram::pt(205, 0).first().join());
-//			conn.add(ConnectionDiagram::pt(205, 140));
-//			conn.add(ConnectionDiagram::pt(170, 140).invert());
-//
-//			conn.add(ConnectionDiagram::text(0, -2, "LVP (configuration bit)"));
-//		}
-
 		void draw_rd_trisb() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["RD_TRISB"]);
 			conn.add(ConnectionDiagram::pt(0,   0, true));
@@ -195,7 +169,7 @@ namespace app {
 		void draw_SR2en() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["SR2en"]);
 			conn.add(new AndSymbol(2, 0, 0, DIRECTION::LEFT));
-			conn.add(ConnectionDiagram::pt(-45,   0, true));
+			conn.add(ConnectionDiagram::pt(-30,   0, true));
 			conn.add(ConnectionDiagram::pt(-60, 0));
 		}
 
@@ -221,14 +195,14 @@ namespace app {
 		void draw_pin_changed() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["PIN_Changed"]);
 			conn.add(new OrSymbol(2, 0, 0, DIRECTION::LEFT, false, true));
-			conn.add(ConnectionDiagram::pt(   -45,  0).first());
+			conn.add(ConnectionDiagram::pt(   -30,  0).first());
 			conn.add(ConnectionDiagram::pt(  -105,  0));
 		}
 
 		void draw_RBIF() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["RBIF"]);
 			conn.add(new AndSymbol(3, 0, 0, DIRECTION::LEFT));
-			conn.add(ConnectionDiagram::pt(   -45,  0).first());
+			conn.add(ConnectionDiagram::pt(   -30,  0).first());
 			conn.add(ConnectionDiagram::pt(  -165,  0));
 			conn.add(ConnectionDiagram::text(-160, -2, "Set RBIF"));
 			conn.add(new VssSymbol(-165, 0, M_PI*0.5));
@@ -244,18 +218,10 @@ namespace app {
 
 		void draw_rbpu_and() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["RBPU_AND"]);
-			conn.add(ConnectionDiagram::pt( 320,  10, true));
+			conn.add(ConnectionDiagram::pt( 305,  10, true));
 			conn.add(ConnectionDiagram::pt( 360,  10, false, false, true));
 			conn.add(new FETSymbol(360, 10, 0, false, false, true));
 		}
-
-//		void draw_pgm_rec() {
-//			WireDiagram &wire = dynamic_cast<WireDiagram &>(*m_components["PGM"]);
-//			wire.add(WireDiagram::pt(300, 0, true));
-//			wire.add(WireDiagram::pt(0, 0));
-//			wire.add(WireDiagram::text(8, -2, "PGM Input"));
-//			wire.add(new VssSymbol(0, 0, M_PI*0.5));
-//		}
 
 		void on_wire_change(Wire *wire, const std::string &name, const std::vector<BYTE> &data) {
 			m_area->queue_draw();
