@@ -116,11 +116,12 @@ namespace app {
 			position().cairo_translate(cr);
 			if (indeterminate) this->indeterminate(cr); else if (signal) this->green(cr); else this->gray(cr);
 
+			cr->save();
 			cr->rotate(m_rotation);
 			cr->scale(m_scale, m_scale);
 			cr->rectangle(0,-10,20,20);
 			cr->fill();
-
+			cr->restore();
 
 			this->black(cr);
 			m_symbol.draw_symbol(cr, m_dev_origin);
