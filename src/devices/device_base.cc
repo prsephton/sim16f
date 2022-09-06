@@ -89,7 +89,7 @@ template <class Wire> class
 	}
 
 	void Connection::conductance(float iR) {  // set internal resistanve
-		if (iR >= min_R and iR <= max_R) {
+		if (iR >= min_R && iR <= max_R) {
 			m_conductance = iR;
 		} else if (iR < min_R) {
 			impeded(true);
@@ -166,7 +166,7 @@ template <class Wire> class
 
 	float Terminal::calc_voltage_drop(float out_voltage) {
 		float total_vDrop = Connection::calc_voltage_drop(out_voltage); // vDrop = out_voltage - V
-		if ( not impeded() and m_connects.size()) {    // if we have inputs, update them
+		if ( not impeded() && m_connects.size()) {    // if we have inputs, update them
 			for (auto &c : m_connects ) {
 				if (not c->impeded()) {
 					c->set_vdrop(out_voltage);
@@ -203,7 +203,7 @@ template <class Wire> class
 		//       least one input, we cannot (should not) override the internal voltage by using
 		//       set_value().   We can achieve the same effect as set_value() by setting default
 		//       direction, and calling set_vdrop() instead.
-		if (m_connects.size() and not m_terminal_impeded) {
+		if (m_connects.size() && !m_terminal_impeded) {
 			Connection::impeded_suppress_change(a_impeded);
 			float drop = vDrop();
 			set_vdrop(V);

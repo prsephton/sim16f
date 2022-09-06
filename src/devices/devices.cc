@@ -250,15 +250,15 @@ void Clock::toggle() {
 	DeviceEventQueue eq;
 	eq.queue_event(new DeviceEvent<Clock>(*this, "oscillator", {(BYTE)high}));
 
-	Q1 = phase == 1; if (Q1 and high) eq.queue_event(new DeviceEvent<Clock>(*this, "Q1"));
-	Q2 = phase == 2; if (Q2 and high) eq.queue_event(new DeviceEvent<Clock>(*this, "Q2"));
-	Q3 = phase == 3; if (Q3 and high) eq.queue_event(new DeviceEvent<Clock>(*this, "Q3"));
-	Q4 = phase == 4; if (Q4 and high) eq.queue_event(new DeviceEvent<Clock>(*this, "Q4"));
+	Q1 = phase == 1; if (Q1 && high) eq.queue_event(new DeviceEvent<Clock>(*this, "Q1"));
+	Q2 = phase == 2; if (Q2 && high) eq.queue_event(new DeviceEvent<Clock>(*this, "Q2"));
+	Q3 = phase == 3; if (Q3 && high) eq.queue_event(new DeviceEvent<Clock>(*this, "Q3"));
+	Q4 = phase == 4; if (Q4 && high) eq.queue_event(new DeviceEvent<Clock>(*this, "Q4"));
 
 	if (phase % 2)
 		eq.queue_event(new DeviceEvent<Clock>(*this, "CLKOUT", {(BYTE)(phase/2?0:1)}));
 
-	if (high and Q1) {
+	if (high && Q1) {
 		eq.queue_event(new DeviceEvent<Clock>(*this, "cycle"));
 	}
 }
