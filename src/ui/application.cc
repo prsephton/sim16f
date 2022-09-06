@@ -13,6 +13,7 @@
 #include "machine.h"
 #include "display_registers.h"
 #include "timer0.h"
+#include "paint/dlg_context.h"
 
 
 Sim16F::Sim16F(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>& refGlade)
@@ -28,6 +29,8 @@ void Sim16F::init_cpu(CPU_DATA &cpu) {
 	m_parts["Machine"] = new app::Machine(cpu, m_refGlade);
 	m_parts["Registers"] = new app::DisplayRegisters(cpu, m_refGlade);
 	m_parts["Timer0"] = new app::Timer0(cpu, m_refGlade);
+
+	new app::ContextDialogFactory(m_refGlade);  // initialise factory.
 
 	this->signal_delete_event().connect(sigc::mem_fun(*this, &Sim16F::delete_event));
 }
