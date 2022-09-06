@@ -394,6 +394,10 @@ namespace app {
 			return NULL;
 		}
 
+		// context menu integration
+		virtual bool needs_inverted(bool &a_inverted){ a_inverted = inverted(); return true; }
+		virtual void set_inverted(bool a_inverted){ inverted(a_inverted); }
+
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
@@ -448,6 +452,16 @@ namespace app {
 				return &hotspot(m_inputs);
 			return NULL;
 		}
+
+		// context menu integration
+		virtual bool needs_inverted(bool &a_inverted){ a_inverted = inverted(); return true; }
+		virtual void set_inverted(bool a_inverted){ inverted(a_inverted); }
+		virtual bool needs_inputs(int &a_inputs){a_inputs = m_inputs; return true; }
+		virtual void set_inputs(int a_inputs){ m_inputs = a_inputs; }
+
+		void inverted(bool a_invert) { m_inverted = a_invert; }
+		bool inverted() const { return m_inverted; }
+		int inputs() const { return m_inputs; }
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			double h = 30;
@@ -512,6 +526,19 @@ namespace app {
 				return &hotspot(m_inputs);
 			return NULL;
 		}
+
+		// context menu integration
+		virtual bool needs_inverted(bool &a_inverted){ a_inverted = inverted(); return true; }
+		virtual void set_inverted(bool a_inverted){ inverted(a_inverted); }
+		virtual bool needs_inputs(int &a_inputs){a_inputs = m_inputs; return true; }
+		virtual void set_inputs(int a_inputs){ m_inputs = a_inputs; }
+		virtual bool needs_xor(bool &a_xor){a_xor = is_xor(); return true; }
+		virtual void set_xor(int a_xor){ m_xor = a_xor; }
+
+		void inverted(bool a_invert) { m_inverted = a_invert; }
+		bool inverted() const { return m_inverted; }
+		int inputs() const { return m_inputs; }
+		bool is_xor() const { return m_xor; }
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			double h   = 30.0;
