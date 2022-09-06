@@ -250,7 +250,17 @@ namespace app {
 			return false;
 		}
 
+		// Context menu for m_symbol
+		virtual void context(const WHATS_AT &target_info) {
+			ContextDialogFactory().popup_context(m_symbol);
+			m_tris.name(m_symbol.name());
+			m_tris.inverted(m_symbol.inverted());
+			m_tris.gate_invert(m_symbol.gate_inverted());
+			m_area->queue_draw();
+		};
+
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			m_symbol.name(m_tris.name());
 			m_symbol.inverted(m_tris.inverted());
 			m_symbol.gate_inverted(m_tris.gate_invert());
 
@@ -266,6 +276,7 @@ namespace app {
 		{
 			double rot = m_point_right?CairoDrawing::DIRECTION::RIGHT:CairoDrawing::DIRECTION::LEFT;
 			m_symbol = TristateSymbol(0,0,rot,m_tris.inverted(), m_tris.gate_invert());
+			m_symbol.name(a_tris.name());
 		}
 
 	};

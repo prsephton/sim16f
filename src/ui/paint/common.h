@@ -6,14 +6,17 @@
 #include <queue>
 #include <cmath>
 #include "cairo_drawing.h"
+#include "dlg_context.h"
 #include "../../devices/devices.h"
 
 namespace app {
 
-	class Symbol {
+	class Symbol : public Configurable {
+
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) = 0;
 
 	  protected:
+		std::string m_name;
 		double m_x;
 		double m_y;
 		double m_rotation;
@@ -107,14 +110,20 @@ namespace app {
 		const bool selected() const { return m_selected; }
 		bool &selected() { return m_selected; }
 
+		const std::string &name() const { return m_name; }
+		void name(const std::string &name) { m_name = name; }
+
+		// context menu integration
+		virtual bool needs_name(std::string &a_name){ a_name = name(); return true; }
+		virtual void set_name(const std::string &a_name){ name(a_name); }
+
 		Symbol(double x=0, double y=0, double rotation=0, double scale=1.0):
-			m_x(x), m_y(y), m_rotation(rotation), m_scale(scale), m_selected(false),
+			m_name(""), m_x(x), m_y(y), m_rotation(rotation), m_scale(scale), m_selected(false),
 			m_rect(0,0,0,0), m_ofs(0,0) {
 			m_hotspots.resize(10);
 		}
 		virtual ~Symbol() {}
 	};
-
 
 	class BusSymbol: public Symbol {
 		Point p1, p2;
@@ -410,6 +419,7 @@ namespace app {
 		}
 
 		void inverted(bool a_invert) { m_inverted = a_invert; }
+		bool inverted() const { return m_inverted; }
 
 		BufferSymbol(double x=0, double y=0, double rotation=0, bool inverted=false):
 			Symbol(x, y, rotation), m_inverted(inverted) {}
@@ -583,6 +593,16 @@ namespace app {
 			return BufferSymbol::hotspot_at(what);
 		}
 
+		// context menu integration
+		virtual bool needs_inverted(bool &a_inverted){ a_inverted = inverted(); return true; }
+		virtual bool needs_gate_inverted(bool &a_inverted){ a_inverted = gate_inverted(); return true; }
+
+		virtual void set_inverted(bool a_inverted){ inverted(a_inverted); }
+		virtual void set_gate_inverted(bool a_inverted){ gate_inverted(a_inverted); }
+
+		void gate_inverted(bool a_invert) { m_gate_inverted = a_invert; }
+		bool gate_inverted() const { return m_gate_inverted; }
+
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			BufferSymbol::draw(cr);
 			cr->save();
@@ -606,8 +626,6 @@ namespace app {
 
 			cr->restore();
 		}
-
-		void gate_inverted(bool a_invert) { m_gate_inverted = a_invert; }
 
 		TristateSymbol(double x=0, double y=0, double rotation=0, bool inverted=false,  bool gate_inverted=false):
 			BufferSymbol(x, y, rotation, inverted), m_gate_inverted(gate_inverted) {}
