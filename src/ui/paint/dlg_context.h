@@ -74,7 +74,9 @@ namespace app {
 		virtual bool needs_switch(bool &on){ return false; }
 		virtual bool needs_font(std::string &font_face, float &font_size){ return false; }
 		virtual bool needs_fg_colour(double &r, double &g, double &b){ return false; }
+		virtual bool needs_xor(bool &a_xor){ return false; }
 
+		virtual void set_xor(int a_xor){}
 		virtual void set_name(const std::string &a_name){}
 		virtual void set_voltage(double V){}
 		virtual void set_resistance(double R){}
@@ -184,6 +186,7 @@ namespace app {
 		Glib::RefPtr<Gtk::CheckButton> m_underscore;
 		Glib::RefPtr<Gtk::CheckButton> m_overscore;
 		Glib::RefPtr<Gtk::CheckButton> m_bold;
+		Glib::RefPtr<Gtk::CheckButton> m_is_xor;
 
 		Glib::RefPtr<Gtk::Box> m_box_switch;
 		Glib::RefPtr<Gtk::RadioButton> m_rb_switch_open;

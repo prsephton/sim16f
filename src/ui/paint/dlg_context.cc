@@ -89,7 +89,7 @@ namespace app {
 		int l_rows=1, l_inputs=1, l_selectors=1;
 		bool l_attr_ntype=false, l_attr_synchronous=false, l_attr_first=false, l_attr_join=false;
 		bool l_attr_invert=false, l_attr_underscore=false, l_attr_overscore=false, l_attr_bold=false;
-		bool l_switch_open=false;
+		bool l_switch_open=false, l_attr_xor=false;
 		std::string l_font_face="Sans";
 		float l_font_size=10;
 		double l_red=0, l_green=0, l_blue=0;
@@ -217,6 +217,7 @@ namespace app {
 		bool need_underscore = component.needs_underscore(l_attr_underscore);
 		bool need_overscore = component.needs_overscore(l_attr_overscore);
 		bool need_bold = component.needs_bold(l_attr_bold);
+		bool need_xor = component.needs_xor(l_attr_xor);
 		m_ntype->set_visible(need_ntype);
 		m_synchronous->set_visible(need_synchronous);
 		m_first->set_visible(need_first);
@@ -225,6 +226,7 @@ namespace app {
 		m_underscore->set_visible(need_underscore);
 		m_overscore->set_visible(need_overscore);
 		m_bold->set_visible(need_bold);
+		m_is_xor->set_visible(need_xor);
 		if (need_ntype) m_ntype->set_active(l_attr_ntype);
 		if (need_synchronous) m_synchronous->set_active(l_attr_synchronous);
 		if (need_first) m_first->set_active(l_attr_first);
@@ -233,11 +235,12 @@ namespace app {
 		if (need_underscore) m_underscore->set_active(l_attr_underscore);
 		if (need_overscore) m_overscore->set_active(l_attr_overscore);
 		if (need_bold) m_bold->set_active(l_attr_bold);
+		if (need_xor) m_is_xor->set_active(l_attr_xor);
 
 		bool need_attributes = (
 				need_ntype || need_synchronous || need_first ||
 				need_join || need_invert || need_underscore ||
-				need_overscore || need_bold);
+				need_overscore || need_bold || need_xor);
 
 		m_lb_attributes->set_visible(need_attributes);
 		m_box_attributes->set_visible(need_attributes);
@@ -313,6 +316,7 @@ namespace app {
 			if (need_underscore) component.set_underscore(m_underscore->get_active());
 			if (need_overscore) component.set_overscore(m_overscore->get_active());
 			if (need_bold) component.set_bold(m_bold->get_active());
+			if (need_xor) component.set_xor(m_is_xor->get_active());
 
 			if (need_switch) component.set_switch(m_rb_switch_open->get_active());
 			if (need_font) {
@@ -409,6 +413,7 @@ namespace app {
 		m_underscore = Glib::RefPtr<Gtk::CheckButton>::cast_dynamic(m_builder->get_object("ctx_underscore"));
 		m_overscore = Glib::RefPtr<Gtk::CheckButton>::cast_dynamic(m_builder->get_object("ctx_overscore"));
 		m_bold = Glib::RefPtr<Gtk::CheckButton>::cast_dynamic(m_builder->get_object("ctx_bold"));
+		m_is_xor = Glib::RefPtr<Gtk::CheckButton>::cast_dynamic(m_builder->get_object("ctx_xor"));
 
 		m_box_switch = Glib::RefPtr<Gtk::Box>::cast_dynamic(m_builder->get_object("ctx_box_switch"));
 		m_rb_switch_open = Glib::RefPtr<Gtk::RadioButton>::cast_dynamic(m_builder->get_object("ctx_switch_open"));
