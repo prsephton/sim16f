@@ -1047,7 +1047,7 @@ namespace app {
 		}
 
 	  public:
-		struct pt {
+		struct pt : public Configurable {
 			double x;
 			double y;
 			bool is_first;
@@ -1061,6 +1061,16 @@ namespace app {
 			pt &join(bool j=true) { is_join = j; return *this; }
 			pt &first(bool f=true) { is_first = f; return *this; }
 			pt &invert(bool i=true) { is_invert = i; return *this; }
+
+			virtual bool needs_first(bool &first){ first = is_first; return true; }
+			virtual bool needs_join(bool &join){ join = is_join; return true; }
+			virtual bool needs_invert(bool &invert){ invert = is_invert; return true; }
+			virtual bool needs_position(double &a_x, double &a_y){ a_x = x; a_y = y; return true; }
+
+			virtual void set_first(bool first){ is_first = first; }
+			virtual void set_join(bool join){ is_join = join; }
+			virtual void set_invert(bool invert){ is_invert = invert; }
+			virtual void set_position(double a_x, double a_y){x = a_x; y = a_y; }
 		};
 
 		struct text {
@@ -1132,20 +1142,14 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 
-			for (size_t n=0; n < m_symbols.size(); ++n) {
-				WHATS_AT w = m_symbols[n]->location(p);
-				if (w.what != WHATS_AT::NOTHING)
-					return w;
-			}
-
 			for (size_t n = 0; n + 1 < m_points.size(); ++n) {
 				auto &p1 = m_points[n];
 				auto &p2 = m_points[n+1];
 
 				if (p.close_to(p1.dev)) {
-					return WHATS_AT(this, WHATS_AT::POINT, n);
+					return WHATS_AT(&p1, WHATS_AT::POINT, n);
 				} else if (p.close_to(p2.dev)) {
-					return WHATS_AT(this, WHATS_AT::POINT, n+1);
+					return WHATS_AT(&p2, WHATS_AT::POINT, n+1);
 				} else if (p.close_to_line_with(p1.dev, p2.dev)) {
 					p1.segstart = true;
 					p2.hilight = true;
@@ -1158,8 +1162,26 @@ namespace app {
 				}
 			}
 
+			for (size_t n=0; n < m_symbols.size(); ++n) {
+				WHATS_AT w = m_symbols[n]->location(p);
+				if (w.what != WHATS_AT::NOTHING)
+					return w;
+			}
+
 			return CairoDrawing::location(p);
 		}
+
+		// Context menu for various things
+		virtual void context(const WHATS_AT &target_info) {
+			if (target_info.what == WHATS_AT::SYMBOL) {
+				ContextDialogFactory().popup_context(*(Symbol *)target_info.pt);
+				m_area->queue_draw();
+			}
+			if (target_info.what == WHATS_AT::POINT) {
+				ContextDialogFactory().popup_context(*(pt *)target_info.pt);
+				m_area->queue_draw();
+			}
+		};
 
 		virtual void move(const WHATS_AT &target_info, const Point &destination, bool move_dia = false) {
 			if (move_dia) {
