@@ -453,35 +453,6 @@ class Input: public Connection {
 };
 
 //___________________________________________________________________________________
-// A buffer takes a weak high impedence input and outputs a strong signal
-class ABuffer: public Device {
-  protected:
-	Connection *m_in;
-	Output m_out;
-
-  public:
-	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
-	ABuffer(): m_in(NULL) {};
-	ABuffer(Connection &in, const std::string &a_name="");
-	void connect(Connection &in) { m_in = &in; }
-	virtual ~ABuffer();
-	void wr(float in);
-	Connection &rd();
-};
-
-//___________________________________________________________________________________
-// Inverts a high impedence input and outputs a signal
-class Inverter: public ABuffer {
-
-	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
-
-  public:
-	Inverter(): ABuffer() {};
-	Inverter(Connection &in, const std::string &a_name="");
-};
-
-
-//___________________________________________________________________________________
 //  A generic gate
 class Gate: public Device {
 	std::vector<Connection *> m_in;
@@ -504,6 +475,27 @@ class Gate: public Device {
 	Connection &rd();
 };
 
+//___________________________________________________________________________________
+// A buffer takes a weak high impedence input and outputs a strong signal
+class ABuffer: public Gate {
+
+  public:
+	ABuffer(): Gate({}, false) {};
+	ABuffer(Connection &in, const std::string &a_name="");
+	void connect(Connection &in) { Gate::connect(0, in); }
+	Connection &rd();
+};
+
+//___________________________________________________________________________________
+// Inverts a high impedence input and outputs a signal
+class Inverter: public Gate {
+
+  public:
+	Inverter(): Gate({}, true) {};
+	Inverter(Connection &in, const std::string &a_name="");
+	void connect(Connection &in) { Gate::connect(0, in); }
+	Connection &rd();
+};
 
 //___________________________________________________________________________________
 //  And gate, also nand for invert=true, or possibly doubles as buffer or inverter

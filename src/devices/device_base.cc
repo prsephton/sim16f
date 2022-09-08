@@ -325,34 +325,6 @@ template <class Wire> class
 	void Input::determinate(bool on) { if (wrapper) c.determinate(on); else Connection::determinate(on); }
 
 //___________________________________________________________________________________
-// A buffer takes a weak high impedence input and outputs a strong signal
-	void ABuffer::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		if (debug()) {
-			std::cout << "Buffer " << this->name() << " received event " << name << std::endl;
-		}
-		m_out.set_value(D->rd());
-	}
-
-	ABuffer::ABuffer(Connection &in, const std::string &a_name): Device(a_name), m_in(&in), m_out(Vss) {
-		DeviceEvent<Connection>::subscribe<ABuffer>(this, &ABuffer::on_change, m_in);
-	}
-	ABuffer::~ABuffer() {
-		DeviceEvent<Connection>::unsubscribe<ABuffer>(this, &ABuffer::on_change, m_in);
-	}
-	void ABuffer::wr(float in) { m_in->set_value(in, true); }
-	Connection &ABuffer::rd() { return m_out; }
-
-//___________________________________________________________________________________
-// Inverts a high impedence input and outputs a signal
-	void Inverter::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		m_out.set_value(!(D->signal()) * Vdd);
-	}
-
-	Inverter::Inverter(Connection &in, const std::string &a_name): ABuffer(in, a_name) {
-		m_out.set_value(!(in.signal()) * Vdd);
-	}
-
-//___________________________________________________________________________________
 //  Generic gate,
 	void Gate::recalc() {}
 	void Gate::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
@@ -388,6 +360,20 @@ template <class Wire> class
 
 	void Gate::inputs(const std::vector<Connection *> &in) { m_in = in; }
 	Connection& Gate::rd() { return m_out; }
+
+//___________________________________________________________________________________
+// A buffer takes a weak high impedence input and outputs a strong signal
+	ABuffer::ABuffer(Connection &in, const std::string &a_name):
+			Gate({&in}, false, a_name) {
+	}
+	Connection &ABuffer::rd() { return Gate::rd(); }
+
+//___________________________________________________________________________________
+// Inverts a high impedence input and outputs a signal
+	Inverter::Inverter(Connection &in, const std::string &a_name):
+			Gate({&in}, true, a_name) {
+	}
+	Connection &Inverter::rd() { return Gate::rd(); }
 
 //___________________________________________________________________________________
 //  And gate, also nand for invert=true, or possibly doubles as buffer or inverter
