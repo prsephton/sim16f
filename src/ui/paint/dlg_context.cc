@@ -5,15 +5,15 @@ namespace app {
 	SmartPtr<ContextDialogFactory> ContextDialogFactory::factory;
 
 	std::string ContextDialog::as_text(double a_value) {
-		std::string s;
-		std::stringstream(s) << std::setprecision(4) << a_value;
-		return s;
+		std::stringstream s;
+		s << std::setprecision(4) << a_value;
+		return s.str();
 	}
 
 	std::string ContextDialog::as_text(int a_value) {
-		std::string s;
-		std::stringstream(s) << a_value;
-		return s;
+		std::stringstream s;
+		s << a_value;
+		return s.str();
 	}
 
 	double ContextDialog::as_double(std::string a_text) {
@@ -117,7 +117,7 @@ namespace app {
 
 		bool need_capacitance = component.needs_capacitance(l_capacitance);
 		m_capacitance->get_parent()->set_visible(need_capacitance);
-		m_lb_resistance->set_visible(need_capacitance);
+		m_lb_capacitance->set_visible(need_capacitance);
 		if (need_capacitance) {
 			scaled_value(m_capacitance, m_capacitance_unit, 0).set_from_value(l_capacitance);
 		}
