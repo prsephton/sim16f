@@ -4,56 +4,18 @@
 #include <iostream>
 #include <sstream>
 #include <queue>
+#include <type_traits>
 #include "../../utils/utility.h"
 #include "cairo_drawing.h"
 #include "../../devices/devices.h"
 
 namespace app {
 
-	class BufferDiagram:  public CairoDrawing {
-		ABuffer &m_buffer;
-		bool m_point_right;
 
-		BufferSymbol m_symbol;
-
-		virtual WHATS_AT location(Point p) {
-			return m_symbol.location(p);
-		}
-
-	  public:
-
-		virtual bool on_motion(double x, double y) {
-			Rect r = m_symbol.bounding_rect();
-			bool selected = m_symbol.selected();
-			m_symbol.selected() = r.inside(Point(x, y));
-			if (selected != m_symbol.selected()) {
-				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
-			}
-			return false;
-		}
-
-		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->save();
-			position().cairo_translate(cr);
-			m_symbol.draw_symbol(cr, m_dev_origin);
-			cr->restore();
-			return false;
-		}
-
-		BufferDiagram(ABuffer &a_buffer, bool point_right, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area, Point(x,y)), m_buffer(a_buffer), m_point_right(point_right)
-		{
-			double rotation = 0;
-			if (!m_point_right) rotation = CairoDrawing::DIRECTION::LEFT;
-			m_symbol = BufferSymbol(0, 0, rotation, false);
-		}
-	};
-
-	class InverterDiagram:  public CairoDrawing {
-		Inverter &m_inverter;
+	template<class GateType, class SymType, bool invert=false, bool is_xor=false> class GateDiagram: public CairoDrawing {
+		GateType &m_gate;
 		double m_rotation;
-
-		BufferSymbol m_symbol;
+		SymType m_symbol;
 
 		virtual WHATS_AT location(Point p) {
 			return m_symbol.location(p);
@@ -79,12 +41,29 @@ namespace app {
 			return false;
 		}
 
-		InverterDiagram(Inverter &a_inverter, double x, double y, double rotation, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area, Point(x,y)), m_inverter(a_inverter), m_rotation(rotation)
+		template <class T> void create_symbol(std::true_type) {
+			m_symbol = T(0, 0, m_rotation, invert, is_xor);
+		}
+
+		template <class T> void create_symbol(std::false_type) {
+			m_symbol = T(0, 0, m_rotation, invert);
+		}
+
+		GateDiagram(GateType &a_gate, double x, double y, double rotation, Glib::RefPtr<Gtk::DrawingArea>a_area):
+			CairoDrawing(a_area, Point(x,y)), m_gate(a_gate), m_rotation(rotation)
 		{
-			m_symbol = BufferSymbol(0, 0, m_rotation, true);
+			create_symbol<SymType>(std::is_same<SymType, OrSymbol>());
 		}
 	};
+
+	typedef class GateDiagram<ABuffer, BufferSymbol> BufferDiagram;
+	typedef class GateDiagram<Inverter, BufferSymbol, true> InverterDiagram;
+	typedef class GateDiagram<AndGate, AndSymbol> AndDiagram;
+	typedef class GateDiagram<AndGate, AndSymbol, true> NandDiagram;
+	typedef class GateDiagram<OrGate, OrSymbol> OrDiagram;
+	typedef class GateDiagram<OrGate, OrSymbol, true> NorDiagram;
+	typedef class GateDiagram<XOrGate, OrSymbol, false, true> XOrDiagram;
+	typedef class GateDiagram<XOrGate, OrSymbol, true, true> XNorDiagram;
 
 	class PinDiagram:  public CairoDrawing {
 		Connection &m_pin;
