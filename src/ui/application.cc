@@ -23,7 +23,7 @@ Sim16F::Sim16F(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>& refGla
 void Sim16F::init_cpu(CPU_DATA &cpu) {
 	m_cpu = &cpu;
 	m_parts["CPU"] = new app::CPUModel(cpu, m_refGlade);
-	m_parts["EEPROM"] = new app::EEPROM(cpu, m_refGlade);
+	m_parts["EEPROM"] = new app::EEMemory(cpu, m_refGlade);
 	m_parts["Flash"] = new app::FlashMemory(cpu, m_refGlade);
 	m_parts["Config"] = new app::Config(cpu, m_refGlade);
 	m_parts["Machine"] = new app::Machine(cpu, m_refGlade);

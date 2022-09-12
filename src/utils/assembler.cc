@@ -181,8 +181,10 @@ bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &inst
 	for (int pass=0; pass<2; ++pass) {
 		PC = 0;
 		fseek(f, 0, SEEK_SET);
-		if (pass)  // clear flash on second pass
+		if (pass)  { // clear flash & eeprom memory on second pass
 			cpu.flash.clear();
+			cpu.eeprom.clear();
+		}
 		while (fgets(buf, sizeof(buf), f)) {
 			std::string label, mnemonic, address;
 			std::queue<std::string>args;

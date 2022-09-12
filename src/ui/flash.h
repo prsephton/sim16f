@@ -190,6 +190,7 @@ namespace app {
 				m_listing->apply_tag(m_tags->lookup("left20"), start->get_iter(), m_listing->end());
 				buffer = std::stringbuf(); os.rdbuf(&buffer);
 			}
+			grid->reset();
 		}
 
 		void apply_highlight(const CpuEvent &e, WORD pc, bool apply) {

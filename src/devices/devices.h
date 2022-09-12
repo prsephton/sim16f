@@ -38,6 +38,8 @@ class WDT: public Device {
 
 
 class EEPROM: public Device {
+	DeviceEventQueue eq;
+
   public:
 	BYTE data[EEPROM_SIZE];
 
@@ -49,10 +51,16 @@ class EEPROM: public Device {
 
 	void clear() {
 		memset(data, 0, sizeof(data));
+		eq.queue_event(new DeviceEvent<EEPROM>(*this, "clear", {}));
+		eq.process_events();
 	}
+
 	void set_data(WORD address, const std::string &ds) {
 		for(WORD n=0; n<ds.length() && n+address<size(); ++n)
 			data[n+address] = ds[n];
+
+		eq.queue_event(new DeviceEvent<EEPROM>(*this, "init", {}));
+		eq.process_events();
 	}
 };
 

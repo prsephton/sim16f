@@ -1886,7 +1886,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">3</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -1900,7 +1900,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">2</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -1914,7 +1914,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">2</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -2153,7 +2153,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">2</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -2167,7 +2167,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">2</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -2181,7 +2181,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">2</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -2195,7 +2195,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">2</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -2209,7 +2209,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">2</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -2223,7 +2223,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">2</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -2237,7 +2237,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">3</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -2251,7 +2251,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">3</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -2265,7 +2265,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">3</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -2279,7 +2279,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">3</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -2293,7 +2293,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">3</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -2307,7 +2307,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">3</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -2321,7 +2321,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">3</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -6141,7 +6141,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">2</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -6155,7 +6155,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">2</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -6394,7 +6394,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">2</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -6408,7 +6408,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">2</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -6422,7 +6422,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">2</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -6436,7 +6436,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">2</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -6450,7 +6450,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">2</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -6464,7 +6464,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">2</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -6478,7 +6478,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">3</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -6492,7 +6492,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">3</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -6506,7 +6506,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">3</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -6520,7 +6520,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">3</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -6534,7 +6534,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">3</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -6548,7 +6548,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">3</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -6562,7 +6562,7 @@
                                                 <property name="can_focus">True</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">3</property>
-                                                <property name="width_chars">5</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -10081,7 +10081,7 @@
                                                 <property name="halign">end</property>
                                                 <property name="valign">baseline</property>
                                                 <property name="max_length">3</property>
-                                                <property name="width_chars">6</property>
+                                                <property name="width_chars">3</property>
                                                 <property name="max_width_chars">4</property>
                                               </object>
                                               <packing>
@@ -14796,6 +14796,7 @@
                   <packing>
                     <property name="expand">False</property>
                     <property name="fill">True</property>
+                    <property name="padding">6</property>
                     <property name="position">0</property>
                   </packing>
                 </child>
@@ -14804,7 +14805,7 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="label" translatable="yes">PC:</property>
-                    <property name="width_chars">10</property>
+                    <property name="width_chars">3</property>
                     <property name="xalign">1</property>
                   </object>
                   <packing>
@@ -14817,7 +14818,7 @@
                   <object class="GtkLabel" id="flash_pc">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="width_chars">8</property>
+                    <property name="width_chars">6</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -14830,7 +14831,7 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="label" translatable="yes">SP:</property>
-                    <property name="width_chars">10</property>
+                    <property name="width_chars">3</property>
                     <property name="xalign">1</property>
                   </object>
                   <packing>
@@ -14843,7 +14844,7 @@
                   <object class="GtkLabel" id="flash_sp">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="width_chars">8</property>
+                    <property name="width_chars">5</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -14856,7 +14857,7 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="label" translatable="yes">W:</property>
-                    <property name="width_chars">10</property>
+                    <property name="width_chars">3</property>
                     <property name="xalign">1</property>
                   </object>
                   <packing>
@@ -14869,7 +14870,7 @@
                   <object class="GtkLabel" id="flash_w">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="width_chars">8</property>
+                    <property name="width_chars">5</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -14954,6 +14955,7 @@
                   <packing>
                     <property name="expand">False</property>
                     <property name="fill">True</property>
+                    <property name="padding">5</property>
                     <property name="position">8</property>
                   </packing>
                 </child>
@@ -15050,6 +15052,7 @@
                   <packing>
                     <property name="expand">False</property>
                     <property name="fill">True</property>
+                    <property name="padding">5</property>
                     <property name="position">10</property>
                   </packing>
                 </child>

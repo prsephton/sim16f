@@ -95,7 +95,9 @@ namespace app {
 
 		void set_up_grid(int max_length) {
 			auto cstyle = Gtk::CssProvider::create();
-			cstyle->load_from_data(".entry:selected { color: #2020ff; background: #afaf3f; }");
+			cstyle->load_from_data(
+					"entry {font: 12px \"Fixed\"; }\n" \
+					"entry:selected {color: #2020ff; background-color: #afaf3f; }");
 
 			if (m_grid) {
 				for (int n=0; n<16; ++n) {
@@ -104,10 +106,10 @@ namespace app {
 
 						auto *e = dynamic_cast<Gtk::Entry *>(m_grid->get_child_at(c+1, n+1));
 						e->set_max_length(max_length);
-						e->set_width_chars(5);
-						e->set_margin_left(1);
+						e->set_width_chars(4);
+//						e->set_margin_left(1);
 						e->set_margin_right(1);
-						e->set_margin_top(1);
+//						e->set_margin_top(1);
 						e->set_margin_bottom(1);
 						auto style = e->get_style_context();
 						style->add_provider(cstyle, GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
@@ -144,6 +146,10 @@ namespace app {
 
 
 	  public:
+		void reset() {
+			show_grid_data(0);
+		}
+
 		void position_for(WORD pc, bool on) {
 			WORD scroll_pos = m_adjustment->get_value();
 			if (pc < scroll_pos or pc >= scroll_pos+256) {
