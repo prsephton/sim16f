@@ -328,7 +328,16 @@ bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &inst
 						++PC;  // all instructions are single word
 					}
 				} else {
-					throw(std::string("Problem decoding line: No mnemonic in [") + buf + "] @"+int_to_hex(PC));
+					if (label.length()) {
+						if (!(is_decimal(label) || is_hex(label))) {    // Not a real label
+							if (labels.find(to_upper(label))==labels.end()) {
+								labels[label] = PC;  // record current address as a label
+							} else if (!pass) {
+								throw(std::string("Format error: Non-unique label: ")+label);
+							}
+						}
+					} else
+						throw(std::string("Problem decoding line: No mnemonic in [") + buf + "] @"+int_to_hex(PC));
 				}
 			} else if (strip(buf).length() && buf[0] != ';') {  //ignore empty lines and comments
 				std::cout << std::string("Warning: Cannot decode assembly line: ") + buf + " @"+int_to_hex(PC) << std::endl;
