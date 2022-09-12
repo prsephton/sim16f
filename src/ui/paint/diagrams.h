@@ -11,14 +11,17 @@
 
 namespace app {
 
-
-	template<class GateType, class SymType, bool invert=false, bool is_xor=false> class GateDiagram: public CairoDrawing {
+	template<class GateType, class SymType, bool invert=false, bool is_xor=false>
+	class GateDiagram: public CairoDrawing {
 		GateType &m_gate;
 		double m_rotation;
 		SymType m_symbol;
 
 		virtual WHATS_AT location(Point p) {
 			return m_symbol.location(p);
+		}
+		virtual const Point *point_at(const WHATS_AT &w) const {
+			return m_symbol.hotspot_at(w);
 		}
 
 	  public:
@@ -34,12 +37,24 @@ namespace app {
 		}
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			m_symbol.name(m_gate.name());
+			m_symbol.inverted(m_gate.inverted());
 			cr->save();
 			position().cairo_translate(cr);
 			m_symbol.draw_symbol(cr, m_dev_origin);
 			cr->restore();
 			return false;
 		}
+
+
+		// Context menu for m_symbol
+		virtual void context(const WHATS_AT &target_info) {
+			ContextDialogFactory().popup_context(m_symbol);
+			m_gate.name(m_symbol.name());
+			m_gate.inverted(m_symbol.inverted());
+			m_area->queue_draw();
+		};
+
 
 		template <class T> void create_symbol(std::true_type) {
 			m_symbol = T(0, 0, m_rotation, invert, is_xor);
@@ -73,6 +88,10 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			return m_symbol.location(p);
+		}
+
+		virtual const Point *point_at(const WHATS_AT &w) const {
+			return m_symbol.hotspot_at(w);
 		}
 
 	  public:
@@ -133,6 +152,10 @@ namespace app {
 		virtual bool on_motion(double x, double y) {
 			return false;
 		}
+		virtual const Point *point_at(const WHATS_AT &w) const {
+			return NULL;
+		}
+
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
@@ -179,6 +202,32 @@ namespace app {
 		virtual WHATS_AT location(Point p) {
 			return m_symbol.location(p);
 		}
+		virtual const Point *point_at(const WHATS_AT &w) const {
+			return m_symbol.hotspot_at(w);
+		}
+
+		// Create a new connection as described by InterConnect c.
+		virtual void connect(Component *c){
+			InterConnection *ic = dynamic_cast<InterConnection *>(c);
+			if (ic) {
+				if (ic->dst_index.what == WHATS_AT::INPUT)
+					ic->connection = &m_schmitt.in();
+				else if (ic->dst_index.what == WHATS_AT::GATE)
+					ic->connection = &m_schmitt.en();
+				Connection *conn = dynamic_cast<Connection *>(ic->connection);
+				if (conn) {
+					const Point *p1 = ic->from->point_at(ic->src_index);
+					const Point *p2 = ic->to->point_at(ic->dst_index);
+					if (p2 && p2) {
+						ConnectionDiagram *cd = new ConnectionDiagram(*conn, 0, 0, m_area);
+						ic->connection_diagram = cd;
+						cd->add(ConnectionDiagram::pt(p1->x,p1->y).first());
+						cd->add(ConnectionDiagram::pt(p2->x,p2->y));
+						m_area->queue_draw();
+					}
+				}
+			}
+		}
 
 	  public:
 
@@ -193,12 +242,25 @@ namespace app {
 		}
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			m_symbol.name(m_schmitt.name());
+			m_symbol.inverted(m_schmitt.out_invert());
+			m_symbol.gate_inverted(m_schmitt.gate_invert());
 			cr->save();
 			position().cairo_translate(cr);
 			m_symbol.draw_symbol(cr, m_dev_origin);
 			cr->restore();
 			return false;
 		}
+
+		// Context menu for m_symbol
+		virtual void context(const WHATS_AT &target_info) {
+			ContextDialogFactory().popup_context(m_symbol);
+			m_schmitt.name(m_symbol.name());
+			m_schmitt.out_invert(m_symbol.inverted());
+			m_schmitt.gate_invert(m_symbol.gate_inverted());
+			m_area->queue_draw();
+		};
+
 
 		SchmittDiagram(Schmitt &a_schmitt, double x, double y, double rotation, bool dual, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area, Point(x,y)), m_schmitt(a_schmitt), m_rotation(rotation), m_dual(dual)
@@ -216,6 +278,10 @@ namespace app {
 		virtual WHATS_AT location(Point p) {
 			return m_symbol.location(p);
 		}
+		virtual const Point *point_at(const WHATS_AT &w) const {
+			return m_symbol.hotspot_at(w);
+		}
+
 
 	  public:
 
@@ -267,6 +333,9 @@ namespace app {
 		virtual WHATS_AT location(Point p) {
 			return m_symbol.location(p);
 		}
+		virtual const Point *point_at(const WHATS_AT &w) const {
+			return m_symbol.hotspot_at(w);
+		}
 
 	  public:
 
@@ -304,6 +373,9 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			return m_symbol.location(p);
+		}
+		virtual const Point *point_at(const WHATS_AT &w) const {
+			return m_symbol.hotspot_at(w);
 		}
 
 	  public:
@@ -347,6 +419,9 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			return m_latchsym.location(p);
+		}
+		virtual const Point *point_at(const WHATS_AT &w) const {
+			return m_latchsym.hotspot_at(w);
 		}
 
 	  public:
@@ -392,6 +467,9 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			return m_basic.location(p);
+		}
+		virtual const Point *point_at(const WHATS_AT &w) const {
+			return m_basic.hotspot_at(w);
 		}
 
 		virtual bool on_motion(double x, double y) {
@@ -460,6 +538,9 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			return m_basic.location(p);
+		}
+		virtual const Point *point_at(const WHATS_AT &w) const {
+			return m_basic.hotspot_at(w);
 		}
 
 		virtual bool on_motion(double x, double y) {

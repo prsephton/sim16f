@@ -882,6 +882,9 @@ namespace app {
 
 	class SchmittSymbol: public Symbol  {
 		bool m_dual;
+		bool m_inverted;
+		bool m_gate_inverted;
+
 	  public:
 
 		virtual WHATS_AT location(Point p) {
@@ -906,7 +909,6 @@ namespace app {
 			return NULL;
 		}
 
-
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
@@ -918,7 +920,7 @@ namespace app {
 			int y1 = 6, y2 = -6;
 
 			if (m_dual) {
-				AndSymbol s = AndSymbol(2);
+				AndSymbol s = AndSymbol(2, 0, 0, 0, m_inverted);
 				s.draw(cr);
 				bounding_rect(cr, Rect(0, -15, 30, 30));
 
@@ -932,7 +934,7 @@ namespace app {
 				}
 				hotspot(cr, 2, Point(h, 0));
 			} else {
-				BufferSymbol s = BufferSymbol();
+				BufferSymbol s = BufferSymbol(0,0,0,m_inverted);
 				s.draw(cr);
 				bounding_rect(cr, Rect(0, -15, 30, 30));
 				hotspot(cr, 0, Point(0, 0));
@@ -946,8 +948,21 @@ namespace app {
 			cr->stroke();
 			cr->restore();
 		}
+
+		// context menu integration
+		virtual bool needs_inverted(bool &a_inverted){ a_inverted = inverted(); return true; }
+		virtual bool needs_gate_inverted(bool &a_inverted){ a_inverted = gate_inverted(); return true; }
+
+		virtual void set_inverted(bool a_inverted){ inverted(a_inverted); }
+		virtual void set_gate_inverted(bool a_inverted){ gate_inverted(a_inverted); }
+
+		bool inverted() const {return m_inverted;}
+		void inverted(bool a_invert) {m_inverted = a_invert;}
+		bool gate_inverted() const {return m_gate_inverted;}
+		void gate_inverted(bool a_invert) {m_gate_inverted = a_invert;}
+
 		SchmittSymbol(double x=0, double y=0, double rotation=0, bool dual=true):
-			Symbol(x, y, rotation), m_dual(dual) {}
+			Symbol(x, y, rotation), m_dual(dual), m_inverted(false), m_gate_inverted(false) {}
 	};
 
 	class BlockSymbol: public Symbol  {

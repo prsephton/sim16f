@@ -160,8 +160,16 @@ namespace app {
 		bool match(void *a_pt, ELEMENT a_what, int a_id) const {
 			return (pt == a_pt && what == a_what && id == a_id);
 		}
-	};
+		const std::string asText(int i) const {
+			std::ostringstream s;
+			s << i;
+			return s.str();
+		}
+		const std::string asText(const std::string &prefix) const {
+			return prefix + "::" + asText((int)what) + "::" + asText(id);
+		}
 
+	};
 
 	class CairoDrawingBase: public Component {
 
@@ -184,14 +192,22 @@ namespace app {
 		virtual WHATS_AT location(Point p) {
 			return WHATS_AT(this, WHATS_AT::NOTHING, 0);
 		}
+
+		virtual const Point *point_at(const WHATS_AT &w) const {
+			return NULL;
+		}
+
 		bool interactive() const { return m_interactive; }
 		void interactive(bool a_interactive) { m_interactive = a_interactive; }     // allow/disallow interaction
 		double scale() { return m_scale; }
 		void position(const Point &a_pos) { m_pos = a_pos; }
 		const Point &position() const { return m_pos; }
 
-		// attempt to slot output from source into input at target
+		// Attempt to slot output from source into input at target.  We don't need to redefine this method upstream.
 		virtual void slot(CairoDrawingBase *source, const WHATS_AT &source_info, const WHATS_AT &target_info) {};
+		// Create a new connection as described by InterConnect c.  This method must be implemented
+		// by diagrams which wish to support connections to defined input slots.
+		virtual void connect(Component *c){}
 		// context editor for item at target
 		virtual void context(const WHATS_AT &target_info) {};
 		// move the indicated item to requested location.  with move_dia=true, move the whole diagram, else the symbol
@@ -207,6 +223,24 @@ namespace app {
 		}
 	};
 
+	struct InterConnection: public Component {
+		CairoDrawingBase *from;     		// source CairoDrawing for this connection
+		CairoDrawingBase *to;       		// destination CairoDrawing for this connection
+		WHATS_AT src_index;
+		WHATS_AT dst_index;
+		Device *connection;         	    // a wire, or a connection, or null.
+		SmartPtr<Component> connection_diagram;	// a [wirediagram] or [connectiondiagram] object, or null
+
+		InterConnection(
+				CairoDrawingBase *source, const WHATS_AT &source_info,
+				CairoDrawingBase *target, const WHATS_AT &target_info)
+			: from(source), to(target), src_index(source_info), dst_index(target_info),
+			  connection(NULL), connection_diagram(NULL)
+		{
+			target->connect(this);
+		}
+
+	};
 
 	class Interaction : public Component {             // Proxy
 		std::vector<CairoDrawingBase *> m_drawings;
@@ -282,6 +316,8 @@ namespace app {
 
 		bool button_press_event(GdkEventButton* button_event) {
 			for (auto &dwg : m_drawings) {
+				if (!dwg->interactive()) continue;
+
 				WHATS_AT w = dwg->location(Point(button_event->x, button_event->y));
 				if (w.what!=WHATS_AT::NOTHING) {
 					m_actions.push(Action(dwg, Point(button_event->x, button_event->y), w));
@@ -328,6 +364,7 @@ namespace app {
 			Glib::RefPtr<Gdk::Window> win = Glib::wrap(motion_event->window, true);
 
 			for (auto &dwg : m_drawings) {
+				if (!dwg->interactive()) continue;
 				WHATS_AT w = dwg->location(Point(motion_event->x, motion_event->y));
 				if (w.what!=WHATS_AT::NOTHING) {
 					locations.push(w);
@@ -422,6 +459,13 @@ namespace app {
 	  protected:
 		Interaction_Factory m_interactions;                        // a factory for managing interactions
 		std::map<std::string, SmartPtr<Component> > m_components;  // a registry for components added to the diagram
+
+
+		// attempt to slot output from source into input at target
+		// An input "slot" can only have one source at a time.  Sources may be used any number of times.
+		virtual void slot(CairoDrawingBase *source, const WHATS_AT &source_info, const WHATS_AT &target_info) {
+			m_components[target_info.asText("Connection")] = new InterConnection(source, source_info, this, target_info);
+		};
 
 		bool draw_content(const Cairo::RefPtr<Cairo::Context>& cr) {
 			m_dev_origin = Point(0,0);
