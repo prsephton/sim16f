@@ -483,7 +483,6 @@ class ABuffer: public Gate {
 	ABuffer(): Gate({}, false) {};
 	ABuffer(Connection &in, const std::string &a_name="");
 	void connect(Connection &in) { Gate::connect(0, in); }
-	Connection &rd();
 };
 
 //___________________________________________________________________________________
@@ -494,7 +493,6 @@ class Inverter: public Gate {
 	Inverter(): Gate({}, true) {};
 	Inverter(Connection &in, const std::string &a_name="");
 	void connect(Connection &in) { Gate::connect(0, in); }
-	Connection &rd();
 };
 
 //___________________________________________________________________________________
@@ -762,7 +760,9 @@ class Schmitt: public Device {
 	virtual ~Schmitt();
 
 	void gate_invert(bool invert);
+	bool gate_invert() const { return m_gate_invert; }
 	void out_invert(bool invert);
+	bool out_invert() const { return m_out_invert; }
 
 	Connection &in();
 	Connection &en();

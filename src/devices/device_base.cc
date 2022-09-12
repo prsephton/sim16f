@@ -366,14 +366,12 @@ template <class Wire> class
 	ABuffer::ABuffer(Connection &in, const std::string &a_name):
 			Gate({&in}, false, a_name) {
 	}
-	Connection &ABuffer::rd() { return Gate::rd(); }
 
 //___________________________________________________________________________________
 // Inverts a high impedence input and outputs a signal
 	Inverter::Inverter(Connection &in, const std::string &a_name):
 			Gate({&in}, true, a_name) {
 	}
-	Connection &Inverter::rd() { return Gate::rd(); }
 
 //___________________________________________________________________________________
 //  And gate, also nand for invert=true, or possibly doubles as buffer or inverter
