@@ -26,7 +26,6 @@ namespace app {
 
 		CPU_DATA &m_cpu;
 		Glib::RefPtr<Gtk::Builder> m_refGlade;
-		std::map<std::string, SmartPtr<Component> > m_components;
 
 		std::queue<Timer0Data> m_queue;
 		Connection m_Fosc;      //  (Clock oscillator cycle signal)
@@ -55,8 +54,8 @@ namespace app {
 			white(cr);
 			cr->paint();
 			black(cr);
-			show_coords(cr);
-			cr->move_to(400, 20);
+//			show_coords(cr);
+			cr->move_to(260, 20);
 			cr->scale(2.0, 2.0);
 			cr->set_line_width(0.1);
 			cr->text_path("Diagram of Timer0/WDT");
@@ -64,7 +63,6 @@ namespace app {
 			cr->restore();
 			return false;
 		}
-
 
 		void draw_pin() {
 			ConnectionDiagram * dia = new ConnectionDiagram(m_T0CKI, 40, 150, m_area);
@@ -252,7 +250,6 @@ namespace app {
 
 		}
 
-
 		void draw_TimerSync() {
 			CounterDiagram *counter = new CounterDiagram(m_Sync, m_area, 370, 130);
 			m_components["Sync"] = counter;
@@ -263,7 +260,6 @@ namespace app {
 			dia->add(ConnectionDiagram::pt(35,0));
 
 		}
-
 
 		void draw_trace() {
 			TraceDiagram *trace = new TraceDiagram(m_trace, m_area, 500, 230);
@@ -352,6 +348,8 @@ namespace app {
 			m_tmr0(m_Sync.bit(0), true, 8),
 			m_trace({&m_PSA_Mux3.rd(), &m_Fosc, &m_Sync.bit(0)})
 		{
+			pix_extents(740.0, 500.0);
+
 			DeviceEvent<Timer0>::subscribe<Timer0Diagram>(this, &Timer0Diagram::timer0_changed);
 			DeviceEvent<Clock>::subscribe<Timer0Diagram>(this, &Timer0Diagram::clock_changed);
 

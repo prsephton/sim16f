@@ -14,8 +14,6 @@ namespace app {
 	class PortA1: public CairoDrawing {
 		CPU_DATA &m_cpu;
 		Glib::RefPtr<Gtk::Builder> m_refGlade;
-	  protected:
-		std::map<std::string, SmartPtr<Component> > m_components;
 	  public:
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
@@ -24,6 +22,7 @@ namespace app {
 			white(cr);
 			cr->paint();
 			black(cr);
+
 			cr->move_to(400, 50);
 			cr->scale(2.0, 2.0);
 			cr->set_line_width(0.1);
@@ -179,6 +178,8 @@ namespace app {
 			CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>::cast_dynamic(a_refGlade->get_object("dwg_RA1"))),
 			m_cpu(a_cpu), m_refGlade(a_refGlade)
 		{
+			pix_extents(600,520);
+
 			auto &p1 = dynamic_cast<SinglePortA_Analog &>(*(m_cpu.porta.RA[1]));
 			auto &c = p1.components();
 			Latch &DataLatch = dynamic_cast<Latch &>(*(c["Data Latch"]));

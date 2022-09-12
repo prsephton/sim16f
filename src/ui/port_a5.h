@@ -23,6 +23,7 @@ namespace app {
 			white(cr);
 			cr->paint();
 			black(cr);
+
 			cr->set_line_width(0.1);
 			show_coords(cr);
 			cr->move_to(400, 50);
@@ -169,6 +170,7 @@ namespace app {
 			CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>::cast_dynamic(a_refGlade->get_object("dwg_RA5"))),
 			m_cpu(a_cpu), m_refGlade(a_refGlade)
 		{
+			pix_extents(680,470);
 
 			auto &p5 = dynamic_cast<SinglePortA_MCLR_RA5 &>(*(m_cpu.porta.RA[5]));
 			auto &c = p5.components();

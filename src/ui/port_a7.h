@@ -23,7 +23,8 @@ namespace app {
 			white(cr);
 			cr->paint();
 			black(cr);
-			cr->move_to(400, 50);
+
+			cr->move_to(320, 50);
 			cr->scale(2.0, 2.0);
 			cr->set_line_width(0.1);
 			cr->text_path("Device RA7/OSC1/CLKIN");
@@ -183,6 +184,9 @@ namespace app {
 			CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>::cast_dynamic(a_refGlade->get_object("dwg_RA7"))),
 			m_cpu(a_cpu), m_refGlade(a_refGlade)
 		{
+
+			pix_extents(600,460);
+
 			auto &p7 = dynamic_cast<PortA_RA7 &>(*(m_cpu.porta.RA[7]));
 			auto &c = p7.components();
 			Latch &DataLatch = dynamic_cast<Latch &>(*(c["Data Latch"]));

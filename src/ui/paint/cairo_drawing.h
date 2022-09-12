@@ -258,6 +258,12 @@ namespace app {
 		Glib::RefPtr<Gdk::Cursor> m_cursor_text;
 
 		int grid_size = 5;
+		float m_pix_width = 860.0;
+		float m_pix_height = 620.0;
+		float m_alloc_width = m_pix_width;
+		float m_alloc_height = m_pix_height;
+
+		double m_scale;
 
 		struct Action {
 			CairoDrawingBase *dwg;
@@ -407,14 +413,33 @@ namespace app {
 			return true;   // there can be only one!
 		}
 
+		void recalc_scale() {
+			double swidth =  m_alloc_width / m_pix_width;
+			double sheight = m_alloc_height / m_pix_height;
+			m_scale = swidth < sheight?swidth:sheight;  // maintain aspect ratio
+		}
+
+		void size_changed(Gtk::Allocation& allocation) {
+			m_alloc_width = allocation.get_width();
+			m_alloc_height = allocation.get_height();
+			recalc_scale();
+		}
 
 	  public:
+
+		void set_extents(float a_pix_width, float a_pix_height) {
+			m_pix_width = a_pix_width; m_pix_height = a_pix_height;
+			recalc_scale();
+		}
+
+		double get_scale() const { return m_scale; }
 
 		void add_drawing(CairoDrawingBase *drawing) {
 			m_drawings.push_back(drawing);
 		}
 
 		Interaction(Glib::RefPtr<Gtk::DrawingArea> a_area): m_area(a_area) {
+
 			m_cursor_arrow = Gdk::Cursor::create(Gdk::CursorType::ARROW);
 			m_cursor_in_out = Gdk::Cursor::create(Gdk::CursorType::DOT);
 			m_cursor_output = Gdk::Cursor::create(Gdk::CursorType::DOT);
@@ -429,6 +454,7 @@ namespace app {
 			m_area->signal_motion_notify_event().connect(sigc::mem_fun(*this, &Interaction::motion_event));
 			m_area->signal_button_press_event().connect(sigc::mem_fun(*this, &Interaction::button_press_event));
 			m_area->signal_button_release_event().connect(sigc::mem_fun(*this, &Interaction::button_release_event));
+			m_area->signal_size_allocate().connect(sigc::mem_fun(*this, &Interaction::size_changed));
 
 			m_area->add_events(Gdk::POINTER_MOTION_MASK | Gdk::BUTTON_PRESS_MASK | Gdk::BUTTON_RELEASE_MASK );
 
@@ -471,7 +497,8 @@ namespace app {
 			m_dev_origin = Point(0,0);
 			cr->save();
 			cr->user_to_device(m_dev_origin.x, m_dev_origin.y);
-			cr->scale(m_scale, m_scale);
+			double l_scale = m_interactions.produce(m_area)->get_scale();
+			cr->scale(l_scale, l_scale);
 			bool ok = on_draw(cr);
 			cr->restore();
 			return ok;
@@ -528,6 +555,10 @@ namespace app {
 			return m_components[a_name];
 		}
 
+		void pix_extents(float a_pix_width, float a_pix_height) {
+			m_interactions.produce(m_area)->set_extents(a_pix_width, a_pix_height);
+		}
+
 		static void black(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->set_source_rgba(0.0, 0.0, 0.0, 1.0);
 		}
@@ -578,16 +609,7 @@ namespace app {
 			cr->restore();
 		}
 
-		void size_changed(Gtk::Allocation& allocation) {
-			double swidth = allocation.get_width() / 860.0;
-			double sheight = allocation.get_height() / 620.0;
-//			std::cout << "w: " << std::dec << (int)(allocation.get_width()) << "; h: " << std::dec << (int)(allocation.get_height()) << std::endl;
-			m_scale = swidth < sheight?swidth:sheight;  // maintain aspect ratio
-		}
-
-
 		CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>area, const Point &a_pos = Point(0,0)): CairoDrawingBase(area, a_pos) {
-			m_area->signal_size_allocate().connect(sigc::mem_fun(*this, &CairoDrawing::size_changed));
 			m_area->signal_draw().connect(sigc::mem_fun(*this, &CairoDrawing::draw_content));
 			m_interactions.produce(area)->add_drawing(this);         // register this CairoDRawing area with interactions
 		}

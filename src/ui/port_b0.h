@@ -23,7 +23,7 @@ namespace app {
 			white(cr);
 			cr->paint();
 			black(cr);
-			show_coords(cr);
+
 			cr->move_to(400, 20);
 			cr->scale(2.0, 2.0);
 			cr->set_line_width(0.1);
@@ -200,6 +200,8 @@ namespace app {
 			CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>::cast_dynamic(a_refGlade->get_object("dwg_RB0"))),
 			m_cpu(a_cpu), m_refGlade(a_refGlade)
 		{
+			pix_extents(600,520);
+
 			auto &p0 = dynamic_cast<BasicPortB &>(*(m_cpu.portb.RB[0]));
 			auto &c = p0.components();
 			Latch &DataLatch = dynamic_cast<Latch &>(*(c["Data Latch"]));

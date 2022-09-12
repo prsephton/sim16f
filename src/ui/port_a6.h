@@ -23,6 +23,7 @@ namespace app {
 			white(cr);
 			cr->paint();
 			black(cr);
+
 			cr->set_line_width(0.1);
 			show_coords(cr);
 			cr->move_to(400, 50);
@@ -217,6 +218,7 @@ namespace app {
 			CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>::cast_dynamic(a_refGlade->get_object("dwg_RA6"))),
 			m_cpu(a_cpu), m_refGlade(a_refGlade)
 		{
+			pix_extents(680, 560);
 			auto &p6 = dynamic_cast<SinglePortA_RA6_CLKOUT &>(*(m_cpu.porta.RA[6]));
 			auto &c = p6.components();
 			Latch &DataLatch = dynamic_cast<Latch &>(*(c["Data Latch"]));
