@@ -11,17 +11,100 @@ While this is admittedly an ambitious project, the reward is personal.  It has b
 
 # How does this project add to what PicSim already provides?
 
-Where PicSim is a real time simulator, sim16f makes no pretense of being that.  In fact, "real time" is way to fast for what sim16f aims to accomplish.
+Where PicSim is a "*real time*" simulator, sim16f makes no pretense of being that.  In fact, "*real time*" is way to fast for what sim16f aims to accomplish.  Rather than trying for device implementations which can execute close to or at the 1-5Mhz range, there may be some value in a different approach. 
 
 When reading a data sheet, the PIC16f document shows a variety of block diagrams describing the design of various components in the chip.  One day, while I was re-reading one of those block diagrams, I though to myself: "I wonder what it would be like if those diagrams were live?", and that was the start of sim16f.
 
-Sim16f animates several of the block digrams found in the PIC16f data sheet, and can show how signals between the components of the chip are affected by a running program.  I find that this helps to trace behaviour rather closely.
+![CPU Live Block Diagram](docs/CPU_Block_Dia.png?raw=true "CPU Block Diagram")
+
+Sim16f animates several of the block digrams found in the PIC16f data sheet, and can show how signals between the components of the chip are affected by a running program.  I find that this helps to trace behaviour rather closely, although absolute accuracy is of course, impossible.
+
+![RA6 Diagram](docs/PortA_RA6.png?raw=true "Block Diagram for Pin RA6")
+
+A really fun one was the TMR0 implementation.  Particularly the way the clock and prescaler work together to determine the timer value, as well as triggering the T0IF interrupt flag.  To demonstrate the signal timeing, a small scope component was built.
+
+![TMR0 Diagram](docs/TMR0.png?raw=true "Block Diagram for TMR0")
 
 Not all sim16f tools are animated graphical block diagrams;  sim16f also provides editors for eeprom & flash, and pages for exploring register values as they change during program execution.
 
+Common to all app displays, is the assembler listing of the flash content.  This is produced by disassembling the flash, and then displaying each instruction in turn.  At the same time, a program trace is produced to STDOUT.  The trace is quite useful as it shows a full history of program execution.
+
+The program includes a HEX file loader, as well as quite a nice assembler.  For example, the following assembler code is meant to test TMR0 function, including a TMR0 interrupt handler (see timer0.a).
+
+		;__________________________________________________________________________________________
+		;  This program exercises the TMR0 interrupt
+		;  ===========================================
+		
+		w-save:			EQU 0x7f          ; where we save the W register during interrupts
+		sts-save: 		EQU 0x22          ; where we save the STATUS register during interrupts
+		direction:		EQU 0x26          ; increments or decrements PORTA depending on direction
+		tmr0-initval:	EQU 0xE1          ; value to use when initialising TMR0
+		
+				CONFIG	0x3f71        		; set configuration
+		;______________________________________________________________________
+		;  Program starts here
+		program-start:	
+				ORG 0             		; Code starts at PC=0
+				call	initialise    		; Call the initialise procedure
+				goto    start         	; Start adding 'direction' to PORTB
+		
+		;______________________________________________________________________
+		;  After TMR0 overflows, we come here, with GIE disabled
+		isr-save:
+				ORG 4                 ; this is the start of the interrupt vector.
+				movwf	w-save            ; save W register
+				swapf	STATUS,w          ; swap high & low nibbles of status, store in W
+				clrf	STATUS            ; Clear status register
+				movwf	sts-save          ; save W to sts-save
+		irq-handler:
+				btfss	INTCON,T0IF       ; Was TMR0 the interrupt source?
+				goto	exit-irq          ;  if not, exit the IRQ
+				bcf	INTCON,T0IF	  		; Clear TMR0 interrupt flag
+				movf	direction,w	  	; move direction into W
+				sublw	0x00              ; W = 0 - W
+				movwf	direction         ; save W to  direction
+				movlw	tmr0-initval      ; W = tmr0-initval
+				movwf	TMR0              ; Store W to TMR0
+		exit-irq:
+				swapf	sts-save,w        ; Swap nibbles in sts-save, store in W
+				movwf	STATUS            ; Restore status from W
+				swapf	w-save,f          ; Swap nibbles in w-save, store in w-save
+				swapf	w-save,w          ; Swap nibbles in w-save, store in W
+				retfie
+		
+		;______________________________________________________________________
+		;  This is the initialisation routine
+		initialise:
+				clrf	PORTA      ; Clear PORTA
+				clrf	PORTB             ; and PORTB
+				bsf	STATUS,RP0        	; Select Bank 1
+				clrf	TRISA             ; Clear TRISA
+				clrf	TRISB             ; and TRISB, setting ports for output
+				clrf	OPTION            ; Clear OPTION (and thus T0CS is low)
+				bsf	OPTION,PSA        	; Set PSA high
+				bcf	STATUS,RP0        	; Select bank 0
+				movlw	0x01              ; W = 1
+				movwf	direction         ; Store W to direction
+				movlw	tmr0-initval      ; W = tmr1-initval (0xE1)
+				movwf	TMR0              ; Store W to TMR0
+				bsf	INTCON,T0IE       	; Enable TMR0 Interrupts
+				bcf	INTCON,T0IF       	; Clear the TMR0 interrupt flag
+				bsf	INTCON,GIE       		; Enable interrupts globally
+				return
+		
+		;______________________________________________________________________
+		;  Add direction to portB and loop
+		start:	movf	direction,w       ; W = direction
+				addwf	PORTB,f           ; PORTB = PORTB + direction
+				goto	start             ; and do that again
+
+Of course, there is nothing wrong with using the Microchip assembler or C compiler [built into MPLAB](https://www.microchip.com/en-us/tools-resources/develop/mplab-x-ide "Microchip MPLAB") instead (or even something like [PicForth](https://rfc1149.net/devel/picforth.html "A Forth Compiler"), which I have found extraordinarily useful) to produce your code, but having a built-in assembler is convenient.
+
 # Why the PIC16f6xx series?
 
-No particular reason, other than that these are in my opinion small miracles of technology.  In an 18 pin DIP package, these chips implement an inbuilt 4MHz clock with the option of a 20MHz external oscillator, two analog comparators, a voltage reference, two bidirectional 8 bit ports, one CCP module, two analog comparators, three timers with interrupt support, up to 256 bytes of EEPROM, up to 4K programmable flash memory, advanced functions such as low voltage in circuit programming and brown out reset, and a built in serial USART.  The CCP module can easily be made to drive a PWM interface, amongst other uses.
+No particular reason, other than that these are in my opinion small miracles of technology.  Also, the PIC16f series, being comparatively simple, is a good starting point to build from.
+
+In an 18 pin DIP package, these chips implement an inbuilt 4MHz oscillator (1MHz clock) with the option of a (up to) 20MHz external oscillator, two analog comparators, a voltage reference, two bidirectional 8 bit ports, one CCP module, two analog comparators, three timers with interrupt support, up to 256 bytes of EEPROM, up to 4K programmable flash memory, advanced functions such as low voltage in circuit programming and brown out reset, and a built in serial USART.  The CCP module can easily be made to drive a PWM interface, amongst other uses.
 
 Clearly, not all of these functions are available at once, and one would need to make some choices- for example, the CCP uses pin 3 of port b, but these chips are amazingly versatile, cheap and carry a huge punch when designing any microcontroller based circuit.  Why not the Arduino?  Mainly cost and footprint.  One does not need a 5 pound hammer to drive a thumb tack. If your circuit must have a very low power consumption and does not need a large software component, with a little initiative a small PIC microcontroller is more than adequate for many tasks.
 
