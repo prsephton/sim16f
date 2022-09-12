@@ -22,7 +22,7 @@
 
 
 w-save:		EQU 0x7f              ; where we save the W register during interrupts
-sts-save: 	EQU 0x22              ; where we save teh STATUS register during interrupts
+sts-save: 	EQU 0x22              ; where we save the STATUS register during interrupts
 direction:	EQU 0x26              ; increments or decrements PORTA depending on direction
 tmr0-initval:	EQU 0xE1              ; value to use when initialising TMR0
 
@@ -40,7 +40,8 @@ isr-save:	ORG 4                     ; this is the start of the interrupt vector.
 		swapf	STATUS,w          ; swap high & low nibbles of status, store in W
 		clrf	STATUS            ; Clear status register
 		movwf	sts-save          ; save W to sts-save
-irq-handler:	btfss	INTCON,T0IF       ; Was TMR0 the interrupt source?
+irq-handler:	
+		btfss	INTCON,T0IF       ; Was TMR0 the interrupt source?
 		goto	exit-irq          ;  if not, exit the IRQ
 		bcf	INTCON,T0IF	  ; Clear TMR0 interrupt flag
 		movf	direction,w	  ; move direction into W
@@ -75,7 +76,8 @@ initialise:	clrf	PORTA             ; Clear PORTA
 
 ;______________________________________________________________________
 ;  Add direction to portB and loop
-start:		movf	direction,w       ; W = direction
+start:		
+		movf	direction,w       ; W = direction
 		addwf	PORTB,f           ; PORTB = PORTB + direction
 		goto	start             ; and do that again
 
