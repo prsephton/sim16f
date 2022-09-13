@@ -300,6 +300,8 @@ class CPU {
 			data.set_params(PIC16f628a);
 		} else  if (a_model.find("16f648") != std::string::npos) {
 			data.set_params(PIC16f648a);
+		} else {
+			throw(std::string("Invalid processor choice: "+a_model));
 		}
 	}
 

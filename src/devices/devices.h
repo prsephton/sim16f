@@ -53,7 +53,7 @@ class EEPROM: public Device {
 	void size(size_t a_size) {
 		m_size = a_size;
 		data = (BYTE *)realloc((void *)data, a_size * sizeof(BYTE));
-		clear();
+		if (!data) throw(std::string("An error occured while allocating EEPROM memory"));
 	}
 
 	void clear() {
@@ -313,8 +313,8 @@ class Flash: public Device {
 
 	void size(size_t a_size) {
 		m_size = a_size;
-		data = (WORD *)realloc((void *)data, a_size * sizeof(WORD));
-		clear();
+		data = (WORD *)realloc(data, (a_size+1) * sizeof(WORD));
+		if (!data) throw(std::string("An error occured while allocating flash memory"));
 	}
 
 	void set_data(WORD address, const std::string &ds) {

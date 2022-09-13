@@ -203,11 +203,20 @@ class CPU_DATA {
 	}
 
 	void set_params(const Params &a_params) {
+		std::cout << "setting parameters ...\n";
 		params = a_params;
-		stack = (WORD *)realloc(stack, params.stack_size * sizeof(WORD));
+		stack = (WORD *)realloc(stack, (params.stack_size+1) * sizeof(WORD));
+		std::cout << "stack allocated ...\n";
+
 		flash.size(params.flash_size);
+		std::cout << "flash memory initialised ...\n";
 		eeprom.size(params.eeprom_size);
+		std::cout << "eeprom memory initialised ...\n";
 		sram.init_params(params.ram_banks, params.bank_size);
+		std::cout << "SRAM initialised ...\n";
+		flash.clear();
+		eeprom.clear();
+		std::cout << "parameters are set\n";
 	}
 
 	CPU_DATA();
