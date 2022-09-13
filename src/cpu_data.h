@@ -111,6 +111,8 @@ class CONFIG: public Register {
 // Contains the current machine state.  Includes stack, memory and devices.
 class CPU_DATA {
   public:
+	Params params;   // Parameters for this CPU
+
 	Flash flash;
 
 	WORD execPC;  // PC of currently executing instruction.
@@ -118,7 +120,7 @@ class CPU_DATA {
 	WORD W;       // W after execute
 	WORD Config;  // Configuration word
 
-	WORD stack[STACK_SIZE];
+	WORD *stack = NULL;
 	std::map<std::string, SmartPtr<Register> > Registers;
 	std::map<BYTE, std::string> RegisterNames;
 
@@ -155,7 +157,7 @@ class CPU_DATA {
 
 	void push(WORD value) {
 		--SP;
-		SP = (SP + STACK_SIZE) % STACK_SIZE;
+		SP = (SP + params.stack_size) % params.stack_size;
 		stack[SP] = value;
 	}
 
@@ -166,7 +168,7 @@ class CPU_DATA {
 
 	WORD pop() {
 		WORD value = stack[SP];
-		SP = SP % STACK_SIZE;
+		SP = SP % params.stack_size;
 		++SP;
 		return value;
 	}
@@ -198,6 +200,14 @@ class CPU_DATA {
 		} else {
 			return reg->second->read();
 		}
+	}
+
+	void set_params(const Params &a_params) {
+		params = a_params;
+		stack = (WORD *)realloc(stack, params.stack_size * sizeof(WORD));
+		flash.size(params.flash_size);
+		eeprom.size(params.eeprom_size);
+		sram.init_params(params.ram_banks, params.bank_size);
 	}
 
 	CPU_DATA();

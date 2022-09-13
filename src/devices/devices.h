@@ -39,18 +39,25 @@ class WDT: public Device {
 
 class EEPROM: public Device {
 	DeviceEventQueue eq;
+	WORD m_size = 0;
 
   public:
-	BYTE data[EEPROM_SIZE];
+	BYTE *data = NULL;
 
 	void load(const std::string &a_file);
 
 	WORD size() {
-		return EEPROM_SIZE;
+		return m_size;
+	}
+
+	void size(size_t a_size) {
+		m_size = a_size;
+		data = (BYTE *)realloc((void *)data, a_size * sizeof(BYTE));
+		clear();
 	}
 
 	void clear() {
-		memset(data, 0, sizeof(data));
+		memset(data, 0, m_size*sizeof(BYTE));
 		eq.queue_event(new DeviceEvent<EEPROM>(*this, "clear", {}));
 		eq.process_events();
 	}
@@ -66,6 +73,7 @@ class EEPROM: public Device {
 
 
 class PINS: public Device {
+	static const BYTE PIN_COUNT=18;
 
 	Terminal pins[PIN_COUNT];
 
@@ -277,18 +285,19 @@ class PORTB: public Device {
 class Flash: public Device {
 //	std::vector<WORD>data;
 	DeviceEventQueue eq;
+	WORD m_size = 0;
   public:
 	Flash() : Device("FLASH") {}
-	WORD data[FLASH_SIZE];
+	WORD *data = NULL;
 
 	void load(const std::string &a_file);
 
 	WORD fetch(WORD PC) {
-		return data[PC % FLASH_SIZE];
+		return data[PC % size()];
 	}
 
 	void clear() {
-		memset(data, 0, sizeof(data));
+		memset(data, 0, m_size * sizeof(WORD));
 		eq.queue_event(new DeviceEvent<Flash>(*this, "clear", {}));
 		eq.process_events();
 	}
@@ -299,9 +308,14 @@ class Flash: public Device {
 	}
 
 	WORD size() {
-		return FLASH_SIZE;
+		return m_size;
 	}
 
+	void size(size_t a_size) {
+		m_size = a_size;
+		data = (WORD *)realloc((void *)data, a_size * sizeof(WORD));
+		clear();
+	}
 
 	void set_data(WORD address, const std::string &ds) {
 		for(WORD n=0; n<ds.length() && n+address<size(); n += 2)

@@ -66,7 +66,7 @@ class CPU {
 			}
 			if (current) cycles = current->cycles;
 			data.execPC = PC;
-			++PC; PC = PC % FLASH_SIZE;
+			++PC; PC = PC % data.flash.size();
 			data.sram.set_PC(PC);
 		}
 	}
@@ -289,9 +289,21 @@ class CPU {
 		DeviceEvent<Register>::unsubscribe<CPU>(this, &CPU::register_event);
 	}
 
+	void model(const std::string &a_model) {
+		auto PIC16f627a = Params{"PIC16f627a", 1024, 128, 4, 0x80, 18, 8};
+		auto PIC16f628a = Params{"PIC16f628a", 2048, 128, 4, 0x80, 18, 8};
+		auto PIC16f648a = Params{"PIC16f648a", 4096, 256, 4, 0x80, 18, 8};
+
+		if (a_model.find("16f627") != std::string::npos) {
+			data.set_params(PIC16f627a);
+		} else  if (a_model.find("16f628") != std::string::npos) {
+			data.set_params(PIC16f628a);
+		} else  if (a_model.find("16f648") != std::string::npos) {
+			data.set_params(PIC16f648a);
+		}
+	}
+
 	CPU(): active(true), debug(true), paused(true), skip(false), cycles(0), nsteps(0) {
-		memset(data.flash.data, 0, sizeof(data.flash.data));
-		memset(data.eeprom.data, 0, sizeof(data.eeprom.data));
 
 		DeviceEvent<Clock>::subscribe<CPU>(this, &CPU::clock_event);
 		DeviceEvent<Register>::subscribe<CPU>(this, &CPU::register_event);

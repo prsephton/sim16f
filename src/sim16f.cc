@@ -4,18 +4,18 @@
 
 //___________________________________________________________________________________
 // Some runtime parameters
-typedef struct run_params {
+struct RunParams {
 	CPU           cpu;
 	unsigned long delay_us;
 	bool          debug;
 	std::string   filename;
-} Params;
+};
 
 //___________________________________________________________________________________
 // Runtime thread for the machine.  This deals with iterating device queues and
 // processing instructions.  As fast as possible.
 void *run_machine(void *a_params) {
-	Params &params = *(Params *)a_params;
+	RunParams &params = *(RunParams *)a_params;
 	CPU &cpu = params.cpu;
 	try {
 		while (cpu.running()) {
@@ -40,7 +40,7 @@ void *run_machine(void *a_params) {
 // Implement the clock device by using a microsecond sleep which generates queue
 // events at the appropriate frequency.
 void *run_clock(void *a_params) {
-	Params &params = *(Params *)a_params;
+	RunParams &params = *(RunParams *)a_params;
 	CPU &cpu = params.cpu;
 	std::cout << "Running CPU clock: delay is: " << params.delay_us << "\n";
 	try {
@@ -60,7 +60,7 @@ void *run_clock(void *a_params) {
 #ifndef TESTING
 
 int main(int argc, char *argv[]) {
-	Params params;
+	RunParams params;
 	CPU &cpu = params.cpu;
 
 	std::string outfile = "-";
@@ -84,6 +84,7 @@ int main(int argc, char *argv[]) {
 		std::cout << "    -u filename     - dump the current CPU configuration into a hex file.\n";
 		std::cout << "    -r              - run the emulator\n";
 		std::cout << "    -g              - run the emulator in debug mode\n";
+		std::cout << "    -m model        - select the kind of processor [default 16f628a]\n";
 		std::cout << "\n";
 		std::cout << "Options may be used together.  For example,\n";
 		std::cout << "  'sim16f -c 0x10,0x20 -a test.a -e 0x10,0x20 -u -o test.hex'\n";
@@ -98,6 +99,14 @@ int main(int argc, char *argv[]) {
 	}
 
 	try {
+		if (cmdline.cmdOptionExists("-m")) {
+			if (cmdline.getCmdOption("-m") == "?") {
+
+			} else
+				cpu.model(cmdline.getCmdOption("-m"));
+		} else
+			cpu.model("16f628a");
+
 		if (cmdline.cmdOptionExists("-f")) {
 			char *p;
 			std::string freq = cmdline.getCmdOption("-f");

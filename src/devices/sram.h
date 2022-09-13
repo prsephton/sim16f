@@ -7,7 +7,9 @@
 #include "device_base.h"
 
 class SRAM: public Device{
-	BYTE m_bank[RAM_BANKS][BANK_SIZE];
+	BYTE m_bank[4][0x80];
+	int  RAM_BANKS;
+	int  BANK_SIZE;
 
   public:
 	static const WORD INDF    = 0x00;
@@ -116,6 +118,11 @@ class SRAM: public Device{
 		m_bank[0][PCLATH] = (BYTE)(PC >> 8) & 0x1f;
 		m_bank[0][PCL] = (BYTE)(PC & 0xff);
 	}
+
+	void init_params(int a_ram_banks, int a_bank_size) {
+		RAM_BANKS = a_ram_banks;
+		BANK_SIZE = a_bank_size;
+	};
 
 	void reset();
 

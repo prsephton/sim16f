@@ -84,13 +84,13 @@ bool dump_hex(const std::string &a_filename, CPU_DATA &cpu) {
 	FILE *f = fopen(a_filename.c_str(), "w+");
 
 	char *flash = (char *)cpu.flash.data;
-	int limit = FLASH_SIZE*sizeof(WORD);
+	size_t limit = cpu.flash.size()*sizeof(WORD);
 	while (limit>0 && flash[limit-1]==0) --limit;
 
 	write_hex_records(f, 0x10, 0, flash, limit);
 
 	char *eeprom = (char *)cpu.eeprom.data;
-	limit = EEPROM_SIZE;
+	limit = cpu.eeprom.size();
 	while (limit>0 && eeprom[limit-1]==0) --limit;
 
 	auto config = cpu.configuration();

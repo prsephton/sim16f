@@ -351,9 +351,9 @@ bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &inst
 }
 
 void disassemble(CPU_DATA &cpu, InstructionSet &instructions, std::vector<Disasm> &listing) {
-	int limit = FLASH_SIZE;
+	size_t limit = cpu.flash.size();
 	while (limit>0 && cpu.flash.data[limit-1]==0) --limit;
-	for (int pc=0; pc < limit; ++pc) {
+	for (size_t pc=0; pc < limit; ++pc) {
 		WORD opcode = cpu.flash.data[pc];
 		SmartPtr<Instruction> op = instructions.find(opcode);
 		listing.push_back(Disasm(pc, opcode, op->disasm(opcode, cpu)));
@@ -361,9 +361,9 @@ void disassemble(CPU_DATA &cpu, InstructionSet &instructions, std::vector<Disasm
 }
 
 void disassemble(CPU_DATA &cpu, InstructionSet &instructions) {
-	int limit = FLASH_SIZE;
+	size_t limit = cpu.flash.size();
 	while (limit>0 && cpu.flash.data[limit-1]==0) --limit;
-	for (int pc=0; pc < limit; ++pc) {
+	for (size_t pc=0; pc < limit; ++pc) {
 		WORD opcode = cpu.flash.data[pc];
 		SmartPtr<Instruction> op = instructions.find(opcode);
 

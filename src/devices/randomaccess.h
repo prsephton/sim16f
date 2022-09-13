@@ -21,7 +21,7 @@ class DeviceRandomAccessAdapter: public RandomAccess {
 	  public:
 		EEPROM_Adapter(EEPROM &a_eeprom):
 			m_eeprom(a_eeprom) {}
-		virtual unsigned int size() { return EEPROM_SIZE; }
+		virtual unsigned int size() { return m_eeprom.size(); }
 		virtual int get_data(size_t idx) { return m_eeprom.data[idx]; }
 		virtual void set_data(size_t idx, int value) { m_eeprom.data[idx] = value; }
 	};
@@ -31,7 +31,7 @@ class DeviceRandomAccessAdapter: public RandomAccess {
 	  public:
 		Flash_Adapter(Flash &a_flash):
 			m_flash(a_flash) {}
-		virtual unsigned int size() { return FLASH_SIZE; }
+		virtual unsigned int size() { return m_flash.size(); }
 		virtual int get_data(size_t idx) { return m_flash.data[idx]; }
 		virtual void set_data(size_t idx, int value) { m_flash.data[idx] = value; }
 	};
