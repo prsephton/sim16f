@@ -158,7 +158,9 @@ class SinglePortA_Analog_RA4: public BasicPortA {
   public:
 	SinglePortA_Analog_RA4(Terminal &a_Pin, const std::string &a_name);
 	~SinglePortA_Analog_RA4();
+
 	Connection &TMR0();
+	Connection &Comparator_Out() { return m_comparator_out; }
 
 };
 

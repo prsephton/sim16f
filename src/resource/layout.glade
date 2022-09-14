@@ -14566,7 +14566,7 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkDrawingArea">
+                  <object class="GtkDrawingArea" id="dwg_Comparators">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                   </object>

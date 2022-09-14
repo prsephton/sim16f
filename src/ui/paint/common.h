@@ -429,6 +429,71 @@ namespace app {
 			Symbol(x, y, rotation), m_inverted(inverted) {}
 	};
 
+
+	class OpAmpSymbol: public Symbol {
+		bool m_plus_on_top;
+
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			int w = 80;
+			int y1 = -w/2 + w / 4;
+			int y2 = -w/2 + w * 3/4;
+			cr->save();
+			cr->translate(m_x, m_y);
+			cr->rotate(m_rotation);
+			bounding_rect(cr, Rect(0, -w/2, w, w));
+
+			hotspot(cr, 0, Point(0, y1));
+			hotspot(cr, 1, Point(0, y2));
+			hotspot(cr, 2, Point(w, 0));
+
+			cr->set_line_width(1.2);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+			cr->move_to(0, -w/2); cr->line_to(0, w/2);
+			cr->line_to(w, 0); cr->close_path();
+			cr->stroke();
+			cr->select_font_face("monospace", Cairo::FONT_SLANT_NORMAL, Cairo::FONT_WEIGHT_NORMAL);
+			cr->move_to(4, y1 + 4);
+			cr->text_path(m_plus_on_top?"+":"-");
+			cr->move_to(4, y2 + 4);
+			cr->text_path(m_plus_on_top?"-":"+");
+
+			cr->fill_preserve(); cr->stroke();
+
+			cr->move_to(-3, y1);
+			cr->line_to(0, y1);
+			cr->move_to(-3, y2);
+			cr->line_to(0, y2);
+			cr->stroke();
+
+			cr->restore();
+		}
+
+	public:
+		virtual WHATS_AT location(Point p) {
+			if (hotspot(0).close_to(p))
+				return WHATS_AT(this, WHATS_AT::INPUT, 0);
+			if (hotspot(1).close_to(p))
+				return WHATS_AT(this, WHATS_AT::INPUT, 1);
+			if (hotspot(2).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0);
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			if (what.match((void *)this, WHATS_AT::INPUT, 0))
+				return &hotspot(0);
+			if (what.match((void *)this, WHATS_AT::INPUT, 1))
+				return &hotspot(1);
+			if (what.match((void *)this, WHATS_AT::OUTPUT, 0))
+				return &hotspot(2);
+			return NULL;
+		}
+
+		OpAmpSymbol(double x=0, double y=0, double rotation=0, bool plus_on_top=false):
+			Symbol(x, y, rotation), m_plus_on_top(plus_on_top){}
+
+	};
+
 	class AndSymbol: public Symbol {
 		bool m_inverted;
 		int  m_inputs;
