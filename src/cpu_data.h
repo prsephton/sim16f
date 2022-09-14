@@ -188,7 +188,7 @@ class CPU_DATA {
 		if (reg == Registers.end()) {
 			sram.write(idx, v, false);
 		} else {
-			reg->second->write(v);
+			reg->second->write(sram, v);
 		}
 	}
 
@@ -198,7 +198,7 @@ class CPU_DATA {
 		if (reg == Registers.end()) {
 			return sram.read(idx);
 		} else {
-			return reg->second->read();
+			return reg->second->read(sram);
 		}
 	}
 

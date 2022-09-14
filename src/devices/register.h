@@ -56,7 +56,7 @@ class Register : public Device {
 		return false;
 	}
 
-	virtual const BYTE read() {         // default read for registers
+	virtual const BYTE read(const SRAM &a_sram) {         // default read for registers
 		busy(true);
 		eq.queue_event(new DeviceEvent<Register>(*this, name()+".read", {m_value, 0, 0}));
 		eq.process_events();             // perform the device read, update m_value
@@ -67,7 +67,7 @@ class Register : public Device {
 		return m_value;
 	}
 
-	virtual void write(const unsigned char value) {  // default write
+	virtual void write(SRAM &a_sram, const BYTE value) {  // default write
 		set_value(value, m_value);
 	}
 };

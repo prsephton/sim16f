@@ -33,7 +33,7 @@ void SRAM::reset() {
 }
 
 
-SRAM::SRAM() {
+SRAM::SRAM() : RAM_BANKS(4), BANK_SIZE(0x80) {
 	WORD all_banks[] = {INDF, PCL, STATUS, FSR, PCLATH, INTCON};
 	WORD even_banks[] = {TMR0, PORTB};
 	WORD odd_banks[] = {OPTION, TRISB};

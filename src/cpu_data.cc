@@ -23,11 +23,16 @@ class INDF: public Register {
 	}
 
 	virtual const BYTE read(const SRAM &a_sram) {
-		return(a_sram.read(indirect_address(a_sram)), true);
+		WORD addr = indirect_address(a_sram);
+		BYTE data = a_sram.read(addr, true);
+//		std::cout << "Read address [" << std::hex << (int)addr << "] = " << (int)data << std::endl;
+		return data;
 	}
 
-	virtual void write(SRAM &a_sram, const char value) {
-		a_sram.write(indirect_address(a_sram), value, true);
+	virtual void write(SRAM &a_sram, const BYTE value) {
+		WORD addr = indirect_address(a_sram);
+//		std::cout << "Write address [" << std::hex << (int)addr << "] = " << (int)value << std::endl;
+		a_sram.write(addr, value, true);
 	}
 };
 
@@ -179,7 +184,7 @@ void CPU_DATA::portB_changed(PORTB *p, const std::string &name, const std::vecto
 //		std::cout << "INTCON::INTF" << std::endl;
 		auto INTCON = Registers["INTCON"];
 		BYTE idata = INTCON->get_value();
-		INTCON->write(idata | Flags::INTCON::INTF);
+		INTCON->write(sram, idata | Flags::INTCON::INTF);
 	}
 }
 
@@ -188,7 +193,7 @@ void CPU_DATA::timer0_changed(Timer0 *t, const std::string &name, const std::vec
 	if (name == "Overflow") {
 		auto INTCON = Registers["INTCON"];
 		BYTE idata = INTCON->get_value();
-		INTCON->write(idata | Flags::INTCON::T0IF);
+		INTCON->write(sram, idata | Flags::INTCON::T0IF);
 	} else if (name == "Value") {
 		auto TMR0 = Registers["TMR0"];
 		TMR0->set_value(data[0], data[0]);   // update in memory, but don't trigger a change.
@@ -200,7 +205,7 @@ void CPU_DATA::timer0_changed(Timer0 *t, const std::string &name, const std::vec
 void CPU_DATA::comparator_changed(Comparator *c, const std::string &name, const std::vector<BYTE> &data) {
 	auto r = Registers.find("CMCON");
 	if (r != Registers.end())    // update CMCON register from comparator
-		r->second->write(data[Comparator::DVALUE::NEW]);   // this signal event from comparator module
+		r->second->write(sram, data[Comparator::DVALUE::NEW]);   // this signal event from comparator module
 }
 
 

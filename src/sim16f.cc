@@ -101,7 +101,10 @@ int main(int argc, char *argv[]) {
 	try {
 		if (cmdline.cmdOptionExists("-m")) {
 			if (cmdline.getCmdOption("-m") == "?") {
-
+				std::cout << "Available CPU models:\n";
+				std::cout << "    pic16f627\n";
+				std::cout << "    pic16f628\n";
+				std::cout << "    pic16f648\n";
 			} else
 				cpu.model(cmdline.getCmdOption("-m"));
 		} else
