@@ -53,13 +53,8 @@ class STATUS: public Register {
 	virtual void write(SRAM &a_sram, const BYTE value) {  // cannot overwrite some fields,
 		BYTE sts = a_sram.status();
 		BYTE mask = Flags::STATUS::TO | Flags::STATUS::PD;  // read only bits
-		BYTE nvalue = (value & (!mask)) | (sts & mask);
-
-		BYTE changed = sts ^ nvalue; // all changing bits.
-		if (changed) {
-			eq.queue_event(new DeviceEvent<Register>(*this, "STATUS", {sts, changed, nvalue}));
-		}
-		a_sram.write(index(), value);
+		BYTE nvalue = (value & (~mask)) | (sts & mask);
+		set_value(nvalue, sts);
 	}
 };
 
@@ -77,11 +72,7 @@ class OPTION: public Register {
 
 	virtual void write(SRAM &a_sram, const BYTE value) {
 		BYTE options = a_sram.read(index());
-		BYTE changed = options ^ value; // all changing bits.
-		if (changed)
-			eq.queue_event(new DeviceEvent<Register>(*this, "OPTION", {options, changed, value}));
-
-		a_sram.write(index(), value);
+		set_value(value, options);
 	}
 };
 
@@ -161,7 +152,7 @@ void CPU_DATA::register_changed(Register *r, const std::string &name, const std:
 			if (r->index())
 				sram.write(r->index(), data[Register::DVALUE::NEW], false);
 			else {
-				BYTE address = sram.read(0, false);    // indirect
+				BYTE address = sram.read(SRAM::FSR, false);    // indirect
 				sram.write(address, data[Register::DVALUE::NEW], true);
 			}
 		} else {         // a read operation
@@ -169,7 +160,7 @@ void CPU_DATA::register_changed(Register *r, const std::string &name, const std:
 			if (r->index()) {
 				sdata = sram.read(r->index(), false);
 			} else {
-				BYTE address = sram.read(0, false);    // indirect
+				BYTE address = sram.read(SRAM::FSR, false);    // indirect
 				sdata = sram.read(address, true);
 			}
 			r->set_value(sdata, r->get_value());
