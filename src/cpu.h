@@ -129,13 +129,13 @@ class CPU {
 		data.sram.reset();
 		interrupt_pending = false;
 
-		data.Registers["STATUS"]-> write(data.sram, 0b00011000);
-		data.Registers["OPTION"]-> write(data.sram, 0b11111111);
-		data.Registers["TRISA"] -> write(data.sram, 0b11111111);
-		data.Registers["TRISB"] -> write(data.sram, 0b11111111);
-		data.Registers["PCON"]  -> write(data.sram, 0b00001000);
-		data.Registers["PR2"]   -> write(data.sram, 0b11111111);
-		data.Registers["TXSTA"] -> write(data.sram, 0b00000010);
+		data.sram.write(SRAM::STATUS, 0b00011000, false);
+		data.sram.write(SRAM::OPTION, 0b11111111, false);
+		data.sram.write(SRAM::TRISA,  0b11111111, false);
+		data.sram.write(SRAM::TRISB,  0b11111111, false);
+		data.sram.write(SRAM::PCON,   0b00001000, false);
+		data.sram.write(SRAM::PR2,    0b11111111, false);
+		data.sram.write(SRAM::TXSTA,  0b00000010, false);
 
 		nsteps = 2;        // fetch & execute the first instruction
 		data.clock.start();
