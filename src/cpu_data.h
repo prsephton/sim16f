@@ -140,6 +140,7 @@ class CPU_DATA {
 
 	std::queue<ControlEvent> control;
 	DeviceEventQueue device_events;
+	unsigned long clock_delay_us = 1000000;
 
 	void configure(const std::string &a_configuration) {
 		if (a_configuration.length() >= 2) {  // set configuration word
