@@ -2,6 +2,7 @@
 #include <gtkmm.h>
 #include <map>
 #include "../cpu_data.h"
+#include "dispatch.h"
 
 class Component: public Glib::ObjectBase {
   public:
@@ -34,4 +35,13 @@ class Sim16F : public Gtk::Window
 	CPU_DATA *m_cpu;
 };
 
-void run_application(CPU_DATA &cpu);
+
+struct Application {
+	Sim16F* pWindow = nullptr;
+	Glib::RefPtr<Gtk::Application> app;
+
+	Application();
+	bool create_window();
+	void run(CPU_DATA &cpu);
+};
+

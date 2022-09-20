@@ -43,27 +43,27 @@ Sim16F::~Sim16F() {
 		delete p->second;
 }
 
-
-void run_application(CPU_DATA &cpu) {
-	bool show_icon = false;
-	Sim16F* pWindow = nullptr;
-
+Application::Application() {
 	Glib::init();
-	auto builder = Gtk::Builder::create();
+	app = Gtk::Application::create("org.another.sim16fcc.base");
+}
 
-	auto app = Gtk::Application::create("org.another.sim16fcc.base");
+bool Application::create_window() {
+	bool show_icon = false;
+
+	auto builder = Gtk::Builder::create();
 
 	try {
 		builder->add_from_file("src/resource/layout.glade");
 	} catch(const Glib::FileError& ex)	{
-	    std::cerr << "FileError: " << ex.what() << std::endl;
-	    return;
+		std::cerr << "FileError: " << ex.what() << std::endl;
+		return false;
 	} catch(const Glib::MarkupError& ex) {
-	    std::cerr << "MarkupError: " << ex.what() << std::endl;
-	    return;
+		std::cerr << "MarkupError: " << ex.what() << std::endl;
+		return false;
 	} catch(const Gtk::BuilderError& ex) {
-	    std::cerr << "BuilderError: " << ex.what() << std::endl;
-	    return;
+		std::cerr << "BuilderError: " << ex.what() << std::endl;
+		return false;
 	}
 
 	if (show_icon) {
@@ -72,15 +72,20 @@ void run_application(CPU_DATA &cpu) {
 		// builder->get_widget_derived("Window", pWindow, is_glad);
 	} else
 		builder->get_widget_derived("sim16f_main", pWindow);
+	Dispatcher("recalculate");   // create the 'recalculate' dispatcher
+	return true;
+}
+
+void Application::run(CPU_DATA &cpu) {
 	if(pWindow) {
-	    //Start:
+		//Start:
 		try {
 			pWindow->init_cpu(cpu);
 			app->run(*pWindow);
 		} catch (std::string &error) {
 			std::cout << "Program terminated with exception: " << error << "\n";
 		}
+		LockUI lock;
+		delete pWindow;
 	}
-	delete pWindow;
-
 }
