@@ -61,7 +61,7 @@ class Register : public Device {
 		eq.queue_event(new DeviceEvent<Register>(*this, name()+".read", {m_value, 0, 0}));
 		eq.process_events();             // perform the device read, update m_value
 		while (busy()) {
-			sleep_for_us(100);
+			sleep_for_us(10);
 			eq.process_events();         // perform the device read, update m_value
 		}
 		return m_value;
