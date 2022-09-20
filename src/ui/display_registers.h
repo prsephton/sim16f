@@ -79,7 +79,7 @@ namespace app {
 				update_register(change.ofs, change.value);
 				m_changes.pop();
 			} else {
-				sleep_for_us(1000);
+				sleep_for_us(100);
 			}
 			return !m_exiting;
 		}
