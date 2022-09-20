@@ -1420,6 +1420,11 @@ namespace app {
 			m_area->queue_draw_area(x, y, width, height);
 		}
 
+		void clip(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->rectangle(0, 0, width, height);
+			cr->clip();
+		}
+
 		BlockDiagram(double x, double y, double width, double height, const std::string &a_name, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			GenericDiagram(x, y, a_area), x(x), y(y), width(width), height(height)
 		{
