@@ -3,7 +3,9 @@
 #include <cstdio>
 #include <cstring>
 #include <sys/stat.h>
+#include <sstream>
 
+std::mutex LockUI::mtx;
 
 const std::string int_to_string(int i)  {
 	char buf[32];
@@ -34,6 +36,12 @@ bool is_hex(const std::string &in) {
 		if (!std::isdigit(c) && strchr("ABCDEF", std::toupper(c))==NULL) return false;
 	}
 	return true;
+}
+
+int as_int(const std::string &a_val) {
+	int i;
+	std::stringstream(a_val) >> i;
+	return i;
 }
 
 bool FileExists(const std::string &s)
