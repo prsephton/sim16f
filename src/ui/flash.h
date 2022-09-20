@@ -40,6 +40,7 @@ namespace app {
 		Glib::RefPtr<Gtk::Label> m_bank_2;
 		Glib::RefPtr<Gtk::Label> m_bank_3;
 		Glib::RefPtr<Gtk::Label> m_bank_4;
+		Glib::RefPtr<Gtk::Label> m_clock_speed;
 
 		DataGrid *grid;
 		std::queue<CpuEvent> m_cpu_events;
@@ -88,6 +89,8 @@ namespace app {
 			m_bank_2 = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_refGlade->get_object("flash_bank_2"));
 			m_bank_3 = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_refGlade->get_object("flash_bank_3"));
 			m_bank_4 = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_refGlade->get_object("flash_bank_4"));
+
+			m_clock_speed = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_refGlade->get_object("lb_clock_speed"));
 
 			set_toolbar_style();
 		}
@@ -225,8 +228,11 @@ namespace app {
 
 		bool process_queue(){
 			if (!m_cpu_events.empty()) {
-				CpuEvent e = m_cpu_events.front();
-				m_cpu_events.pop();
+				CpuEvent e;
+				while (!m_cpu_events.empty()) {
+					e = m_cpu_events.front();
+					m_cpu_events.pop();
+				}
 				if (m_active_pc >= 0) {
 					apply_highlight(e, m_active_pc, false);
 					grid->position_for(m_active_pc, false);
@@ -237,6 +243,11 @@ namespace app {
 				m_pc->set_text(int_to_hex(e.PC, "", "h"));
 				m_sp->set_text(int_to_hex(e.SP, "", "h"));
 				m_w->set_text(int_to_hex(e.W, "", "h"));
+				double l_hz = 500000/m_cpu.clock_delay_us;
+				if (l_hz > 1000)
+					m_clock_speed->set_text(int_to_string(l_hz/1000)+" KHz");
+				else
+					m_clock_speed->set_text(int_to_string(l_hz)+" Hz");
 
 				BYTE status = m_cpu.sram.status();
 
@@ -249,9 +260,8 @@ namespace app {
 				m_bank_2->set_attributes((bank==1)?m_selected:m_normal);
 				m_bank_3->set_attributes((bank==2)?m_selected:m_normal);
 				m_bank_4->set_attributes((bank==3)?m_selected:m_normal);
-
 			} else {
-				sleep_for_us(1000);  // idle, nothing to do
+				sleep_for_us(100);  // idle, nothing to do
 			}
 			return !m_exiting;
 		}
