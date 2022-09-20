@@ -9,6 +9,7 @@
 #include <iomanip>
 #include "../devices/flags.h"
 #include "../cpu_data.h"
+#include "../utils/utility.h"
 #include "fileselection.h"
 
 namespace app {
@@ -52,6 +53,7 @@ namespace app {
 	  protected:
 		std::map<std::string, BitConfig *>m_bits;
 		Glib::RefPtr<Gtk::ComboBoxText> m_fosc;
+		Glib::RefPtr<Gtk::ComboBoxText> m_hz;
 		Glib::RefPtr<Gtk::Button> m_save_hex;
 		Glib::RefPtr<Gtk::Button> m_load_hex;
 		Glib::RefPtr<Gtk::Button> m_load_assembler;
@@ -95,6 +97,11 @@ namespace app {
 				fosc_code = (1 << 4) | (fosc_code & 0b11);
 			}
 			m_cpu.Config = (m_cpu.Config & (~0b10011)) | fosc_code;
+		}
+
+		void on_hz_changed() {
+			WORD hz = as_int(m_hz->get_active_id());
+			m_cpu.clock_delay_us = 1000000 / (2 * hz);
 		}
 
 		void on_save_hex_clicked() {
@@ -151,6 +158,9 @@ namespace app {
 			m_fosc->signal_changed().connect(sigc::mem_fun(*this, &Config::on_fosc_changed));
 			WORD fosc_code = 7 - (((m_cpu.Config & 0b10000) >> 2) | (m_cpu.Config & 0b011));
 			m_fosc->set_active(fosc_code);
+
+			m_hz = Glib::RefPtr<Gtk::ComboBoxText>::cast_dynamic(m_refGlade->get_object("config_hz"));
+			m_hz->signal_changed().connect(sigc::mem_fun(*this, &Config::on_hz_changed));
 
 			m_save_hex = Glib::RefPtr<Gtk::Button>::cast_dynamic(m_refGlade->get_object("save_hex"));
 			m_load_hex = Glib::RefPtr<Gtk::Button>::cast_dynamic(m_refGlade->get_object("load_hex"));
