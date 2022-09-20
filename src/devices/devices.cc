@@ -116,7 +116,6 @@
 				std::cout << ", C2OUT=" << ((cmcon & Flags::CMCON::C2OUT)?"true":"false") << std::endl;
 			}
 			eq.queue_event(new DeviceEvent<Comparator>(*this, "Comparator Change", {cmcon, old_cmcon, (BYTE)(old_cmcon ^ cmcon)}));
-			eq.process_events();
 		}
 	}
 
@@ -272,13 +271,4 @@ void Flash::load(const std::string &a_file) {
 		throw(std::string("Cannot read flash data from file: ") + a_file);
 }
 
-
-//_______________________________________________________________________________________________
-//  Event queue static definitions
-bool DeviceEventQueue::debug = false;
-std::mutex DeviceEventQueue::mtx;
-std::queue< SmartPtr<QueueableEvent> >DeviceEventQueue::events;
-
-template <class Clock> class
-	DeviceEvent<Clock>::registry  DeviceEvent<Clock>::subscribers;
 
