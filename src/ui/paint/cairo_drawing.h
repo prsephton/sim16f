@@ -8,6 +8,7 @@
 #include <cmath>
 #include <limits>
 #include "../application.h"
+#include "../dispatch.h"
 
 namespace app {
 
@@ -321,6 +322,7 @@ namespace app {
 		}
 
 		bool button_press_event(GdkEventButton* button_event) {
+			LockUI mtx;
 			for (auto &dwg : m_drawings) {
 				if (!dwg->interactive()) continue;
 
@@ -330,10 +332,12 @@ namespace app {
 				}
 			}
 			while (m_actions.size() > 1) m_actions.pop();  // retain only the last action
+			mtx.release();
 			return true;  // Highlander: stop propagating this event
 		}
 
 		bool button_release_event(GdkEventButton* button_event) {
+			LockUI mtx;
 			std::stack<Action> l_term;
 			if (m_actions.size()) {
 				for (auto &dwg : m_drawings) {
@@ -360,11 +364,13 @@ namespace app {
 				}
 				while (m_actions.size()) m_actions.pop();  // clear all actions
 			}
+			mtx.release();
 			return true;  // Highlander: stop propagating this event
 		}
 
 		bool motion_event(GdkEventMotion* motion_event) {
 //			std::cout << "motion x=" << motion_event->x << " y=" << motion_event->y << ";" << std::endl;
+			LockUI mtx;
 
 			std::stack<WHATS_AT> locations;
 			Glib::RefPtr<Gdk::Window> win = Glib::wrap(motion_event->window, true);
@@ -410,6 +416,7 @@ namespace app {
 			} else {
 				win->set_cursor(m_cursor_arrow);
 			}
+			mtx.release();
 			return true;   // there can be only one!
 		}
 
@@ -436,6 +443,14 @@ namespace app {
 
 		void add_drawing(CairoDrawingBase *drawing) {
 			m_drawings.push_back(drawing);
+		}
+
+		void remove_drawing(CairoDrawingBase *drawing) {
+			for (size_t n=0; n < m_drawings.size(); ++n)
+				if (m_drawings[n] == drawing) {
+					m_drawings.erase(m_drawings.begin() + n);
+					return;
+				}
 		}
 
 		Interaction(Glib::RefPtr<Gtk::DrawingArea> a_area): m_area(a_area) {
@@ -469,13 +484,13 @@ namespace app {
 	  public:
 		Interaction_Factory() {}
 
-		SmartPtr<Interaction> produce(Glib::RefPtr<Gtk::DrawingArea> a_area) {
+		Interaction *produce(Glib::RefPtr<Gtk::DrawingArea> a_area) {
 			auto i = m_interactions.find(a_area.operator->());
 			if (i == m_interactions.end()) {
 				m_interactions[a_area.operator->()] = new Interaction(a_area);
 				i = m_interactions.find(a_area.operator->());
 			}
-			return i->second;
+			return i->second.operator ->();
 		}
 	};
 
@@ -485,7 +500,7 @@ namespace app {
 	  protected:
 		Interaction_Factory m_interactions;                        // a factory for managing interactions
 		std::map<std::string, SmartPtr<Component> > m_components;  // a registry for components added to the diagram
-
+		sigc::connection m_on_draw;
 
 		// attempt to slot output from source into input at target
 		// An input "slot" can only have one source at a time.  Sources may be used any number of times.
@@ -494,6 +509,8 @@ namespace app {
 		};
 
 		bool draw_content(const Cairo::RefPtr<Cairo::Context>& cr) {
+			LockUI mtx;
+//			std::cout << "dwg acquired lock" << std::endl;
 			m_dev_origin = Point(0,0);
 			cr->save();
 			cr->user_to_device(m_dev_origin.x, m_dev_origin.y);
@@ -501,6 +518,8 @@ namespace app {
 			cr->scale(l_scale, l_scale);
 			bool ok = on_draw(cr);
 			cr->restore();
+//			std::cout << "dwg releasing lock" << std::endl;
+			mtx.release();
 			return ok;
 		}
 
@@ -598,7 +617,6 @@ namespace app {
 		static void indeterminate(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->set_source_rgba(0.2, 0.5, 0.75, 1.0);
 		}
-
 		static void draw_indicator(const Cairo::RefPtr<Cairo::Context>& cr, bool ind) {
 			if (ind) { orange(cr); } else { gray(cr); }
 			cr->save();
@@ -609,10 +627,16 @@ namespace app {
 			cr->restore();
 		}
 
+		virtual void recalculate() {}
+
 		CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>area, const Point &a_pos = Point(0,0)): CairoDrawingBase(area, a_pos) {
-			m_area->signal_draw().connect(sigc::mem_fun(*this, &CairoDrawing::draw_content));
+			m_on_draw = m_area->signal_draw().connect(sigc::mem_fun(*this, &CairoDrawing::draw_content));
+			Dispatcher().dispatcher("recalculate").connect(sigc::mem_fun(*this, &CairoDrawing::recalculate));
 			m_interactions.produce(area)->add_drawing(this);         // register this CairoDRawing area with interactions
 		}
-		virtual ~CairoDrawing() {}
+		virtual ~CairoDrawing() {
+			m_on_draw.disconnect();
+			m_interactions.produce(m_area)->remove_drawing(this);         // deregister this CairoDRawing area with interactions
+		}
 	};
 }
