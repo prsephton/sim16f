@@ -11,5 +11,6 @@ struct Params {
 	short bank_size;
 	short pin_count;
 	short stack_size;
+
 };
 
