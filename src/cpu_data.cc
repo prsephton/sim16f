@@ -25,6 +25,7 @@ class INDF: public Register {
 	virtual const BYTE read(const SRAM &a_sram) {
 		WORD addr = indirect_address(a_sram);
 		BYTE data = a_sram.read(addr, true);
+		set_value(data, data);
 //		std::cout << "Read address [" << std::hex << (int)addr << "] = " << (int)data << std::endl;
 		return data;
 	}
@@ -32,6 +33,7 @@ class INDF: public Register {
 	virtual void write(SRAM &a_sram, const BYTE value) {
 		WORD addr = indirect_address(a_sram);
 //		std::cout << "Write address [" << std::hex << (int)addr << "] = " << (int)value << std::endl;
+		set_value(value);
 		a_sram.write(addr, value, true);
 	}
 };
