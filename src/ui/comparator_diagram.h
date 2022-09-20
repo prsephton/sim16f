@@ -9,6 +9,7 @@
 #include "paint/common.h"
 #include "paint/diagrams.h"
 #include "../utils/smart_ptr.h"
+#include "dispatch.h"
 
 namespace app {
 
@@ -240,13 +241,17 @@ namespace app {
 		}
 
 
-
 	  public:
-		void process_queue(){
-			sleep_for_us(100);
+
+		virtual void recalculate() {  // this is done from within the application thread
+			draw_c1_input(Point(300,150));
+			draw_c2_input(Point(300,270));
+			m_area->queue_draw();
+
 		}
 
 		void on_comparator_change(Comparator *c, const std::string &name, const std::vector<BYTE>&data) {
+
 			vin[0].set_value(c->AN0(), false);
 			vin[1].set_value(c->AN1(), false);
 			vin[2].set_value(c->AN2(), false);
@@ -258,9 +263,7 @@ namespace app {
 			cm += (mode & Flags::CMCON::CM1)?"1 ":"0 ";
 			cm += (mode & Flags::CMCON::CM0)?"1 ":"0 ";
 
-			draw_c1_input(Point(300,150));
-			draw_c2_input(Point(300,270));
-			m_area->queue_draw();
+			Dispatcher().dispatcher("recalculate").emit();
 		}
 
 		ComparatorsDiagram(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
@@ -284,24 +287,21 @@ namespace app {
 			mode = 0;
 			cm = "0 0 0";
 
-			draw_c1_input(Point(300,150));
-			draw_c2_input(Point(300,270));
+			Dispatcher().dispatcher("recalculate").emit();
 		}
 
 		~ComparatorsDiagram() {
+			DeviceEvent<Comparator>::unsubscribe<ComparatorsDiagram>(this, &ComparatorsDiagram::on_comparator_change);
 		}
 
 	};
 
 
 	class Comparators: public Component  {
+		char a[5];
 		ComparatorsDiagram m_diagram;
+		char b[5];
 		bool m_exiting;
-
-		bool process_queue(){
-			m_diagram.process_queue();
-			return !m_exiting;
-		}
 
 		virtual void exiting(){
 			m_exiting = true;
@@ -310,9 +310,7 @@ namespace app {
 	public:
 		Comparators(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade): Component(),
 		  m_diagram(a_cpu, a_refGlade), m_exiting(false) {
-			Glib::signal_idle().connect( sigc::mem_fun(*this, &Comparators::process_queue) );
 		};
-
 	};
 
 }				// namespace app
