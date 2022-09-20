@@ -49,7 +49,6 @@ class CPU {
 	bool interrupt_pending;
 
 	std::queue<std::string> instruction_cycles;
-	unsigned long clock_delay_us;
 	std::string disassembled;
 
 	void fetch() {
@@ -185,10 +184,10 @@ class CPU {
 					cycle();
 				}
 				instruction_cycles.pop();
-				if (not instruction_cycles.empty()) {  // cycling too fast- we will need to slow the clock speed down
+				if (instruction_cycles.size() > 2) {  // cycling too fast- we will need to slow the clock speed down
 					std::cout << "Cannot process instructions fast enough: Slowing down clock" << std::endl;
-					clock_delay_us += instruction_cycles.size() * 10;   // just add a small delay per cycle
-					std::cout << "Clock frequency is now: " << 1/clock_delay_us << " MHz" << std::endl;
+					data.clock_delay_us += instruction_cycles.size() * 10;   // just add a small delay per cycle
+					std::cout << "OSC frequency is now: " << 1000000.0/(2*data.clock_delay_us) << " Hz" << std::endl;
 				}
 				return true;
 			} else if (data.device_events.size()) {
@@ -261,8 +260,6 @@ class CPU {
 		if (name == "oscillator") {     // positive edge.  4 of these per cycle.
 		} else if (name == "cycle") {   // an instruction cycle.
 			if (!paused or nsteps) {
-//				if (cycles > 1)
-//					instruction_cycles.push(name);
 				if (interrupt_pending) {
 					instruction_cycles.push("INTERRUPT");
 					interrupt_pending = false;
@@ -270,16 +267,14 @@ class CPU {
 					instruction_cycles.push(name);
 				}
 			}
-//		} else {
-//			std::cout << name << ":" << std::endl;
 		}
 	}
 
 	void run_clock(unsigned long delay_us, bool a_debug=false) {  // run the clock
-		clock_delay_us = delay_us;
+		data.clock_delay_us = delay_us;
 		debug = a_debug;
 		while (running()) {
-			sleep_for_us(clock_delay_us);
+			sleep_for_us(data.clock_delay_us);
 			toggle_clock();
 		}
 	}
