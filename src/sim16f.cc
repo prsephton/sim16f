@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
 	CPU &cpu = params.cpu;
 
 	std::string outfile = "-";
-	unsigned long frequency = 8;
+	unsigned long frequency = 4;  // (hertz)
 
 	CommandLine cmdline(argc, argv);
 	if (cmdline.cmdOptionExists("-h") || argc==1) {
@@ -153,12 +153,10 @@ int main(int argc, char *argv[]) {
 			if (fn.length()) cpu.dump_hex(fn);
 		}
 
-
 		if (cmdline.cmdOptionExists("-i") ) {
 			if (cmdline.cmdOptionExists("-r") || cmdline.cmdOptionExists("-g")) {
 				pthread_t machine, clock;
-				unsigned long clock_speed_hz = frequency;
-				params.delay_us = 1000000 / clock_speed_hz;
+				params.delay_us = 1000000 / (frequency * 2);
 				params.debug = cmdline.cmdOptionExists("-g");
 				pthread_create(&machine, 0, run_machine, &params);
 				pthread_create(&clock, 0, run_clock, &params);
@@ -173,14 +171,15 @@ int main(int argc, char *argv[]) {
 		} else {
 			cpu.load_hex("test.hex");
 			pthread_t machine, clock;
-			unsigned long clock_speed_hz = frequency;
-			params.delay_us = 1000000 / clock_speed_hz;
+			params.delay_us = 1000000 / (frequency * 2);
 			params.debug = true;
+
 
 			pthread_create(&machine, 0, run_machine, &params);
 			pthread_create(&clock, 0, run_clock, &params);
-
-			run_application(cpu.cpu_data());
+			Application app;
+			if (app.create_window())
+				app.run(cpu.cpu_data());
 			cpu.stop();
 			pthread_join(machine, NULL);
 			pthread_join(clock, NULL);
