@@ -37,7 +37,7 @@ template < class T > class SmartPtr
      }
     ~SmartPtr() {
     	if(reference && reference->Release() == 0) {
-    		delete pData; delete reference;
+    		delete pData; delete reference; reference = NULL;
         }
     }
 
