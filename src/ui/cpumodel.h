@@ -315,6 +315,8 @@ namespace app {
 			const int STEP = 12;
 			const int LEFT = 60;
 
+			cr->save();
+			clip(cr);  // set the clipping rectangle
 			cr->move_to(LEFT, BASE);
 			cr->text_path("| Q1 | Q2 | Q3 | Q4 ");
 			cr->set_line_width(0.5);
@@ -362,6 +364,7 @@ namespace app {
 				cr->stroke();
 				cr->restore();
 			}
+			cr->restore();
 			redraw();
 		}
 
@@ -547,7 +550,10 @@ namespace app {
 			cr->move_to(400, 40);
 			cr->scale(2.0, 2.0);
 			cr->set_line_width(0.1);
-			cr->text_path("PIC16f628");
+			std::string label(m_cpu.params.name);
+			unsigned long Hz = 500000/m_cpu.clock_delay_us;
+			label = label + " [OSC=" + int_to_string(Hz) + " Hz]";
+			cr->text_path(label);
 			cr->fill_preserve(); cr->stroke();
 			cr->restore();
 			return false;
@@ -555,6 +561,8 @@ namespace app {
 
 		void on_status_change(const CpuEvent &e) {
 			// CpuEvent(data.execPC, data.SP, data.W, disassembled);
+//			LockUI mtx;
+
 			std::string no_file("CALL;GOTO;RETURN;SLEEP;RETFIE;CLRWDT;MOVLW;RETLW;ADDLW;SUBLW;XORLW;IORLW;ANDLW");
 
 			m_assembly = e.disassembly;
@@ -562,13 +570,13 @@ namespace app {
 			m_idx = e.OPCODE & 0x7f;
 			m_file = (no_file.find(m_assembly.substr(0,m_assembly.find("\t"))) == std::string::npos);
 			m_area->queue_draw();
+//			mtx.release();
 		}
 
 		void clock(const std::string &name) {
 			ClockDiagram &c = dynamic_cast<ClockDiagram &>(*m_components["Clock"]);
 			c.process(name);
 		}
-
 
 		virtual ~CPUDrawing() {
 //			CpuEvent::unsubscribe((void *)this, &CPUDrawing::status_monitor);
@@ -706,10 +714,14 @@ namespace app {
 		CPU_DATA &m_cpu;
 		Glib::RefPtr<Gtk::Builder> m_refGlade;
 		SmartPtr<CPUDrawing> cpu_drawing;
+		bool m_exiting = false;
 	  public:
 
+		virtual void exiting(){ m_exiting = true; }
+
 		void clock_event(Clock *device, const std::string &name, const std::vector<BYTE> &data){
-			cpu_drawing->clock(name);
+			if (!m_exiting)
+				cpu_drawing->clock(name);
 		}
 
 		virtual ~CPUModel() {
