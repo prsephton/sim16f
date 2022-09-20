@@ -1,9 +1,16 @@
 #include "device_base.h"
 #include "../utils/utility.h"
 
+//_______________________________________________________________________________________________
+//  Event queue static definitions
+bool DeviceEventQueue::debug = false;
+std::mutex DeviceEventQueue::mtx;
+std::queue< SmartPtr<QueueableEvent> >DeviceEventQueue::events;
 
-template <class Wire> class
-	DeviceEvent<Wire>::registry  DeviceEvent<Wire>::subscribers;
+LockUI DeviceEventQueue::m_ui_lock(false);
+
+template <class T> class
+	DeviceEvent<T>::registry  DeviceEvent<T>::subscribers;
 
 //___________________________________________________________________________________
 // The hardware architecture uses several sequential logic components.  It would be

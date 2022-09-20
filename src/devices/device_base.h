@@ -27,6 +27,7 @@
 #include <chrono>
 #include <thread>
 #include "../utils/smart_ptr.h"
+#include "../utils/utility.h"
 #include "constants.h"
 
 //__________________________________________________________________________________________________
@@ -84,6 +85,7 @@ class QueueableEvent {
 class DeviceEventQueue {
 	static std::queue< SmartPtr<QueueableEvent> >events;
 	static std::mutex mtx;
+	static LockUI m_ui_lock;
 
   public:
 	static bool debug;
@@ -125,7 +127,11 @@ class DeviceEventQueue {
 			mtx.lock();
 			auto event = events.front(); events.pop();
 			mtx.unlock();
+			m_ui_lock.acquire();
+//			std::cout << "dev acquired lock" << std::endl;
 			event->fire_event(debug);
+//			std::cout << "dev releasing lock" << std::endl;
+			m_ui_lock.release();
 			return event;
 		}
 	}
