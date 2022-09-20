@@ -1684,6 +1684,53 @@
                       </packing>
                     </child>
                     <child>
+                      <object class="GtkBox" id="box8">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <child>
+                          <object class="GtkLabel" id="label2">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="label" translatable="yes">Oscillator Speed:  </property>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkComboBoxText" id="config_hz">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="active_id">4</property>
+                            <items>
+                              <item id="1" translatable="yes">1Hz</item>
+                              <item id="2" translatable="yes">2Hz</item>
+                              <item id="4" translatable="yes">4Hz</item>
+                              <item id="10" translatable="yes">10Hz</item>
+                              <item id="20" translatable="yes">20Hz</item>
+                              <item id="40" translatable="yes">40Hz</item>
+                              <item id="100" translatable="yes">100Hz</item>
+                              <item id="200" translatable="yes">200Hz</item>
+                              <item id="500" translatable="yes">500Hz</item>
+                              <item id="1000" translatable="yes">1KHz</item>
+                            </items>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">1</property>
+                          </packing>
+                        </child>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">9</property>
+                      </packing>
+                    </child>
+                    <child>
                       <object class="GtkBox" id="box36">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
@@ -1716,8 +1763,8 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="load_assembler">
-                            <property name="label" translatable="yes">Load Assembler</property>
+                          <object class="GtkButton" id="save_assembler">
+                            <property name="label" translatable="yes">Save Assembler</property>
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
                             <property name="receives_default">True</property>
@@ -1731,6 +1778,21 @@
                           </packing>
                         </child>
                         <child>
+                          <object class="GtkButton" id="load_assembler">
+                            <property name="label" translatable="yes">Load Assembler</property>
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="receives_default">True</property>
+                            <property name="xalign">0.55000001192092896</property>
+                            <property name="yalign">0.47999998927116394</property>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">3</property>
+                          </packing>
+                        </child>
+                        <child>
                           <object class="GtkLabel" id="label296">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
@@ -1738,14 +1800,14 @@
                           <packing>
                             <property name="expand">True</property>
                             <property name="fill">True</property>
-                            <property name="position">3</property>
+                            <property name="position">4</property>
                           </packing>
                         </child>
                       </object>
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">True</property>
-                        <property name="position">9</property>
+                        <property name="position">10</property>
                       </packing>
                     </child>
                     <child>
@@ -14566,7 +14628,7 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkDrawingArea">
+                  <object class="GtkDrawingArea" id="dwg_Comparators">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                   </object>
