@@ -48,7 +48,7 @@ void BasicPort::complete_read() {
 				d = d & (~port_mask);
 
 			r->debug(debug());
-			r->set_value(d, o);
+			r->set_value(d, d);  // set data a bit at a time but don't trigger changed events
 			if (debug()) std::cout << "<------ " << Pin.name() << ": " << r->name() << " complete: signal = " << (signal?"high":"low") << " [" << std::bitset<8>( (int)d) << "]" << std::endl;
 			if (rdPort.signal()) rdPort.set_value(Vss, true);
 			if (rdTris.signal()) rdTris.set_value(Vss, true);
@@ -58,20 +58,21 @@ void BasicPort::complete_read() {
 				std::cout << "======================================================";
 				std::cout << std::endl;
 			}
-			queue_change();
+			if (o != d) queue_change();
 		}
 	}
 }
 
 void BasicPort::process_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data)  {}
 void BasicPort::on_clock_change(Clock *c, const std::string &name, const std::vector<BYTE> &data) {
-	if (debug() && name[0]=='Q') std::cout << this->name() << ": Clock signal: [" << name << "]" << std::endl;
+//	if (debug() && name[0]=='Q') std::cout << this->name() << ": Clock signal: [" << name << "]" << std::endl;
 	if      (name == "Q2") {     // read happens at the start of an instruction cycle
 		complete_read();
 	} else if (name == "Q3") {         // read happens at the start of an instruction cycle
 		if (pending.size()) {
 			Register *r =  pending.front(); pending.pop();
 			r->busy(false);
+			r->trigger_change(r->get_value(), 0, 0);
 		}
 	} else if (name == "Q4") {
 		if (Port.signal()) {               // write only happens at the end of the clock cycle
@@ -141,6 +142,7 @@ void BasicPort::on_register_change(Register *r, const std::string &name, const s
 //				std::cout << this->name() << ":" << Pin.name() << " is " << (Pin.impeded()?"":" not ") << "impeded" << std::endl;
 		}
 	} else if (input_registers.find(name) != input_registers.end()) {
+//		if (std::string("RB0,RB1,RB2,RB3,RB4,RB5,RB6,RB7").find(this->name())!=std::string::npos) debug(true);
 		if ((porta_select && name == "PORTA.read") || (!porta_select && name == "PORTB.read")) {
 			if (debug()) {
 				std::cout << "======================================================";
@@ -149,7 +151,7 @@ void BasicPort::on_register_change(Register *r, const std::string &name, const s
 				std::cout << std::endl;
 			}
 			Data.set_value(Vss, true);      // data is an input
-			rdPort.set_value(Vdd, true);    // set the value of tristate 2 high.
+			rdPort.set_value(Vdd, true);    // set the gate of tristate 2 high.
 			pending.push(r);
 		} else if ((porta_select && name == "TRISA.read") || (!porta_select && name == "TRISB.read")) {
 			if (debug()) {
@@ -159,7 +161,7 @@ void BasicPort::on_register_change(Register *r, const std::string &name, const s
 				std::cout << std::endl;
 			}
 			Data.set_value(Vss, true);  // data is an input
-			rdTris.set_value(Vdd, true);   // set the value of tristate 3 high.
+			rdTris.set_value(Vdd, true);   // set the gate of tristate 3 high.
 			pending.push(r);
 		}
 	}
@@ -564,11 +566,11 @@ Connection &SinglePortA_Analog_RA4::TMR0() {
 
 				if (name == "PORTA.read") {
 					Data.set_value(Vss, true);  // data is an input
-					rdPort.set_value(Vdd, true);    // set the value of tristate 2 high.
+					rdPort.set_value(Vdd, true);    // set the gate of tristate 2 high.
 					getval = true;
 				} else if (name == "TRISA.read") {
 					Data.set_value(Vss, true);  // data is an input
-					rdTris.set_value(Vdd, true);   // set the value of tristate 3 high.
+					rdTris.set_value(Vdd, true);   // set the gate of tristate 3 high.
 					getval = true;
 				}
 				if (getval) {
@@ -576,11 +578,12 @@ Connection &SinglePortA_Analog_RA4::TMR0() {
 					eq.process_events();
 					bool signal = Data.signal();
 					BYTE d = r->get_value();
+					BYTE o = d;
 					if (signal)
 						d = d | 0b00100000;
 					else
 						d = d & 0b11011111;
-					r->set_value(d, d);
+					r->set_value(d, o);
 					if (rdPort.signal()) rdPort.set_value(Vss, true);
 					if (rdTris.signal()) rdTris.set_value(Vss, true);
 				}
@@ -894,6 +897,7 @@ PortB_RB1::PortB_RB1(Terminal &a_Pin, const std::string &a_name):
 	Latch &TrisLatch = dynamic_cast<Latch &>(*c["Tris Latch"]);
 	Tristate &TS1 = dynamic_cast<Tristate &>(*c["Tristate1"]);
 	AndGate &PU_en = dynamic_cast<AndGate &>(*c["RBPU_NAND"]);
+
 	PU_en.inputs({&iRBPU(), &TrisLatch.Q(), &m_iSPEN});
 
 	Schmitt *trigger = new Schmitt(PinOut(), true, false);
