@@ -14,3 +14,4 @@ run_tests
 *.data
 *.exp
 *.cproject
+/sim16f.cfg
