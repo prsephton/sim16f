@@ -410,10 +410,12 @@ void test_assembler_parse_args() {
 
 	parse_args(" 1, \"2\", 3, \"An argument with Spaces\" ", args);
 
-	assert(args.size() == 4);
-	assert(args.front()=="1"); args.pop();
-	assert(args.front()=="2"); args.pop();
-	assert(args.front()=="3"); args.pop();
+	assert(args.size() == 6);
+	assert(args.front()=="1");  args.pop();
+	assert(args.front()=="\""); args.pop();
+	assert(args.front()=="2");  args.pop();
+	assert(args.front()=="3");  args.pop();
+	assert(args.front()=="\""); args.pop();
 	assert(args.front()=="An argument with Spaces"); args.pop();
 
 	std::cout << "Argument parsing tests all ok" << std::endl;
