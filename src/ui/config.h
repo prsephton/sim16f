@@ -10,6 +10,7 @@
 #include "../devices/flags.h"
 #include "../cpu_data.h"
 #include "../utils/utility.h"
+#include "../utils/file_config.h"
 #include "fileselection.h"
 
 namespace app {
@@ -17,7 +18,7 @@ namespace app {
 	class Config: public Component {
 		CPU_DATA &m_cpu;
 		Glib::RefPtr<Gtk::Builder> m_refGlade;
-
+		FileConfig cfg;
 
 		class BitConfig: public Gtk::CheckButton {
 		  private:
@@ -57,6 +58,7 @@ namespace app {
 		Glib::RefPtr<Gtk::Button> m_save_hex;
 		Glib::RefPtr<Gtk::Button> m_load_hex;
 		Glib::RefPtr<Gtk::Button> m_load_assembler;
+		Glib::RefPtr<Gtk::Button> m_save_assembler;
 		FileSelection *m_file_chooser;
 		std::string m_filename;
 
@@ -91,6 +93,10 @@ namespace app {
 			return a_filename;
 		}
 
+		const std::string drop_ext(const std::string &a_filename) {
+			return a_filename.substr(0, a_filename.find("."));
+		}
+
 		void on_fosc_changed() {
 			WORD fosc_code = 7 - m_fosc->get_active_row_number();
 			if (fosc_code & 0b100) {
@@ -100,15 +106,20 @@ namespace app {
 		}
 
 		void on_hz_changed() {
+			cfg.set_text("hz_choice", m_hz->get_active_id()); cfg.flush();
 			WORD hz = as_int(m_hz->get_active_id());
 			m_cpu.clock_delay_us = 1000000 / (2 * hz);
+			cfg.set_float("frequency", hz); cfg.flush();
 		}
 
 		void on_save_hex_clicked() {
-			std::string l_filename = m_file_chooser->save_hex_file(m_filename);
+
+			std::string l_filename = m_file_chooser->save_hex_file(drop_ext(m_filename)+".hex");
 			if (l_filename.length() and dump_hex(l_filename, m_cpu)) {
 				std::cout << "Hex file " << l_filename << " successfully saved" << std::endl;
 				set_title(base_name(l_filename));
+				m_filename = l_filename;
+				cfg.set_text("filename", l_filename); cfg.flush();
 			}
 		}
 
@@ -116,13 +127,26 @@ namespace app {
 			std::string l_filename = m_file_chooser->load_hex_file();
 			try {
 				if (l_filename.length() and load_hex(l_filename, m_cpu)) {
-					std::cout << "Hex file " << l_filename << " successfully laoded" << std::endl;
+					std::cout << "Hex file " << l_filename << " successfully loaded" << std::endl;
 					m_cpu.control.push(ControlEvent("reset"));
 					set_title(base_name(l_filename));
+					m_filename = l_filename;
+					cfg.set_text("filename", l_filename); cfg.flush();
 					configure_bits();
 				}
 			} catch(const std::string &err) {
 				std::cout << "An error occurred while loading " << l_filename << ": " << err << std::endl;
+			}
+		}
+
+		void on_save_assembler_clicked() {
+			std::string l_filename = m_file_chooser->save_asm_file(drop_ext(m_filename)+".a");
+			InstructionSet instructions;
+			if (l_filename.length() and disassemble(l_filename, m_cpu, instructions)) {
+				std::cout << "Assembler file " << l_filename << " successfully saved" << std::endl;
+				set_title(base_name(l_filename));
+				cfg.set_text("filename", l_filename); cfg.flush();
+				m_filename = l_filename;
 			}
 		}
 
@@ -131,15 +155,46 @@ namespace app {
 			InstructionSet instructions;
 			try {
 				if (l_filename.length() and assemble(l_filename, m_cpu, instructions)) {
-					std::cout << "Assembler file " << l_filename << " successfully laoded" << std::endl;
+					std::cout << "Assembler file " << l_filename << " successfully loaded" << std::endl;
 					m_cpu.control.push(ControlEvent("reset"));
 					set_title(base_name(l_filename));
+					m_filename = l_filename;
+					cfg.set_text("filename", l_filename); cfg.flush();
 					configure_bits();
 				}
 			} catch(const std::string &err) {
 				std::cout << "An error occurred while assembling " << l_filename << ": " << err << std::endl;
 			}
 		}
+
+		void apply_config() {
+			if (not cfg.exists("cpu_model")) cfg.set_text("cpu_model", "pic16f628");
+			if (not cfg.exists("filename"))  cfg.set_text("filename", "test.hex");
+			if (not cfg.exists("frequency")) cfg.set_float("frequency", 4);
+			if (not cfg.exists("hz_choice")) cfg.set_text("hz_choice", "4");
+
+			m_filename = cfg.get_text("filename");
+			set_title(base_name(m_filename));
+			if (m_filename.find(".hex") != std::string::npos) {
+				try {
+					if (load_hex(m_filename, m_cpu))
+						std::cout << "Hex file " << m_filename << " successfully loaded" << std::endl;
+				} catch (std::string &e) {
+					std::cout << "Error loading hex file [" << e << "]" << std::endl;
+				}
+			} else if (m_filename.find(".a") != std::string::npos) {
+				InstructionSet instructions;
+				try {
+					if (disassemble(m_filename, m_cpu, instructions))
+						std::cout << "File " << m_filename << " successfully assembled" << std::endl;
+				} catch (std::string &e) {
+					std::cout << "Error loading assembly file [" << e << "]" << std::endl;
+				}
+			}
+			m_hz->set_active_id(cfg.get_text("hz_choice"));
+			WORD hz = cfg.get_float("frequency");
+			m_cpu.clock_delay_us = 500000.0 / hz;
+		};
 
 	  public:
 		void refresh() {
@@ -151,7 +206,7 @@ namespace app {
 		}
 
 		Config(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
-			m_cpu(a_cpu), m_refGlade(a_refGlade) {
+			m_cpu(a_cpu), m_refGlade(a_refGlade), cfg("sim16f.cfg") {
 			configure_bits();
 
 			m_fosc = Glib::RefPtr<Gtk::ComboBoxText>::cast_dynamic(m_refGlade->get_object("config_fosc"));
@@ -165,14 +220,15 @@ namespace app {
 			m_save_hex = Glib::RefPtr<Gtk::Button>::cast_dynamic(m_refGlade->get_object("save_hex"));
 			m_load_hex = Glib::RefPtr<Gtk::Button>::cast_dynamic(m_refGlade->get_object("load_hex"));
 			m_load_assembler = Glib::RefPtr<Gtk::Button>::cast_dynamic(m_refGlade->get_object("load_assembler"));
+			m_save_assembler = Glib::RefPtr<Gtk::Button>::cast_dynamic(m_refGlade->get_object("save_assembler"));
 
 			m_save_hex->signal_clicked().connect(sigc::mem_fun(*this, &Config::on_save_hex_clicked));
 			m_load_hex->signal_clicked().connect(sigc::mem_fun(*this, &Config::on_load_hex_clicked));
 			m_load_assembler->signal_clicked().connect(sigc::mem_fun(*this, &Config::on_load_assembler_clicked));
+			m_save_assembler->signal_clicked().connect(sigc::mem_fun(*this, &Config::on_save_assembler_clicked));
 
 			m_refGlade->get_widget_derived("file_chooser", m_file_chooser);
-			m_filename = "test.hex";
-			set_title(m_filename);
+			apply_config();
 		}
 	};
 
