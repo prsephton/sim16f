@@ -179,6 +179,7 @@ namespace app {
 				try {
 					if (load_hex(m_filename, m_cpu))
 						std::cout << "Hex file " << m_filename << " successfully loaded" << std::endl;
+					m_cpu.control.push(ControlEvent("reset"));
 				} catch (std::string &e) {
 					std::cout << "Error loading hex file [" << e << "]" << std::endl;
 				}
@@ -187,6 +188,7 @@ namespace app {
 				try {
 					if (disassemble(m_filename, m_cpu, instructions))
 						std::cout << "File " << m_filename << " successfully assembled" << std::endl;
+					m_cpu.control.push(ControlEvent("reset"));
 				} catch (std::string &e) {
 					std::cout << "Error loading assembly file [" << e << "]" << std::endl;
 				}
