@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
 			} catch (std::string &err) {
 				std::cout << "error in assembly: " << err << "\n";
 			}
-			params.filename = fn.substr(fn.find("."))+".hex";
+			params.filename = fn;
 		}
 		if (cmdline.cmdOptionExists("-c")) {
 			cpu.configure(cmdline.getCmdOption("-c"));
