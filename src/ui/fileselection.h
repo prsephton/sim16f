@@ -34,6 +34,7 @@ namespace app {
 		}
 
 		std::string save_file(const std::string &a_filename) {
+			set_action(Gtk::FILE_CHOOSER_ACTION_SAVE);
 			set_filename(a_filename);
 			set_title("Please select a destination file name");
  			m_filename->set_can_focus(true);
@@ -43,6 +44,7 @@ namespace app {
 		}
 
 		std::string load_file() {
+			set_action(Gtk::FILE_CHOOSER_ACTION_OPEN);
  			set_title("Please select a file to load");
  			m_filename->set_can_focus(false);
 			int response = run();
