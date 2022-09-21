@@ -104,7 +104,7 @@ template <class T> class
 	}
 
 	void Connection::R(float a_R) {  // set internal resistanve
-		conductance(1/a_R);
+		conductance(a_R>0?1/a_R:1/max_R);
 	}
 
 	float Connection::conductance() const {  // internal resistanve
@@ -112,7 +112,7 @@ template <class T> class
 	}
 
 	float Connection::R() const {  // internal resistanve
-		return 1/m_conductance;
+		return m_conductance>0?1/m_conductance:max_R;
 	}
 
 	float Connection::I() const {  // maximum current given V & R
@@ -333,10 +333,16 @@ template <class T> class
 
 //___________________________________________________________________________________
 //  Generic gate,
-	void Gate::recalc() {}
+	void Gate::recalc() {
+		std::vector<Connection *> &in = inputs();
+		if (!in.size()) return;
+		bool sig = in[0]->signal();
+		rd().set_value((inverted() ^ sig) * Vdd, false);
+	}
+
 	void Gate::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
 		if (debug()) {
-			std::cout << "AndGate " << this->name() << " received event " << name << std::endl;
+			std::cout << "Gate " << this->name() << " received event " << name << std::endl;
 		}
 		recalc();
 	}
@@ -347,6 +353,7 @@ template <class T> class
 			DeviceEvent<Connection>::subscribe<Gate>(this, &Gate::on_change, m_in[n]);
 		recalc();
 	}
+
 	Gate::~Gate() {
 		for (size_t n = 0; n < m_in.size(); ++n)
 			DeviceEvent<Connection>::unsubscribe<Gate>(this, &Gate::on_change, m_in[n]);
