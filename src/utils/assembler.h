@@ -18,7 +18,7 @@ class Disasm {
 
 void disassemble(CPU_DATA &cpu, InstructionSet &instructions, std::vector<Disasm> &listing);
 void disassemble(CPU_DATA &cpu, InstructionSet &instructions);
-void disassemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &instructions);
+bool disassemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &instructions);
 
 #ifdef TESTING
 

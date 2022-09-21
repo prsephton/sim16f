@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstring>
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <queue>
 
@@ -367,13 +368,28 @@ void disassemble(CPU_DATA &cpu, InstructionSet &instructions) {
 		WORD opcode = cpu.flash.data[pc];
 		SmartPtr<Instruction> op = instructions.find(opcode);
 
-		std::cout <<  std::setfill('0') << std::hex << std::setw(4) << pc << ":\t" << op->disasm(opcode, cpu) << "\n";
+		std::cout <<  std::setfill('0') << std::hex << std::setw(4) << pc << ":\t" << op->disasm(opcode, cpu) << std::endl;
 	}
 }
 
-void disassemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &instructions) {
-	load_hex(a_filename, cpu);
-	disassemble(cpu, instructions);
+bool disassemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &instructions) {
+	size_t limit = cpu.flash.size();
+	while (limit>0 && cpu.flash.data[limit-1]==0) --limit;
+	try {
+		std::ofstream f(a_filename);
+		for (size_t pc=0; pc < limit; ++pc) {
+			WORD opcode = cpu.flash.data[pc];
+			SmartPtr<Instruction> op = instructions.find(opcode);
+
+			f <<  std::setfill('0') << std::hex << std::setw(4) << pc << ":\t" << op->disasm(opcode, cpu) << std::endl;
+		}
+		f.close();
+	} catch(...) {
+		std::exception_ptr p = std::current_exception();
+		std::clog <<(p ? p.__cxa_exception_type()->name() : "null") << std::endl;
+		return false;
+	}
+	return true;
 }
 
 #ifdef TESTING
