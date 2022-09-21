@@ -13,6 +13,7 @@ namespace Tests {
 		SRAM sram;
 		Comparator cmp0;
 		ClockCycler clock;
+		DeviceEventQueue eq;
 		std::vector<Terminal>  pin;
 		SinglePortA_Analog     ra0;
 		SinglePortA_Analog     ra1;

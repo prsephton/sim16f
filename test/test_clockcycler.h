@@ -40,6 +40,7 @@ namespace Tests {
 
 	class ClockedRegister: public Register {    // we use ClockedRegister for testing since there is no clock thread
 		ClockCycler clock;
+		DeviceEventQueue eq;
 
 	  public:
 		void do_cycle() { clock.cycle(); }
@@ -48,12 +49,14 @@ namespace Tests {
 		virtual const BYTE read(SRAM &a_sram) {
 			Register::read(a_sram);
 			clock.cycle();
+			eq.process_events();
 			return a_sram.read(index());
 		}
 
 		virtual void write(SRAM &a_sram, const unsigned char value) {
 			Register::write(a_sram, value);
 			clock.cycle();
+			eq.process_events();
 		}
 
 		ClockedRegister(const WORD a_idx, const std::string &a_name, const std::string &a_doc = ""):

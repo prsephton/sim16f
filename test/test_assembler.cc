@@ -12,6 +12,7 @@ namespace Tests {
 		test_assembler_parse_args();
 		CPU_DATA cpu;
 		InstructionSet instructions;
+		cpu.set_params(Params{"PIC16f628a", 2048, 128, 4, 0x80, 18, 8});
 
 		FILE *f = fopen("assembler_test.a", "w+");
 		fputs("\tradix hex\n", f);
@@ -33,6 +34,7 @@ namespace Tests {
 		assert(cpu.Config == 0x3ff1);
 		std::vector<Disasm> listing;
 		disassemble(cpu, instructions, listing);
+		assert(listing.size() == 7);
 		assert(listing[0].opcode == 0x3000);
 		assert(listing[1].opcode == 0x1683);
 		assert(listing[2].opcode == 0x86);

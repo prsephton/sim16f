@@ -316,9 +316,12 @@ namespace Tests {
 
 		c.set_value(3, false);
 		assert(!b.rd().impeded());
-		assert(b.rd().rd() == 3);
+		assert(b.rd().rd() == 5);
 		std::cout << "... or reads and reproduces an output signal, as a separate output connection" << std::endl;
 
+		c.set_value(0, false);
+		assert(!b.rd().impeded());
+		assert(b.rd().rd() == 0);
 	}
 
 	void test_inverter() {

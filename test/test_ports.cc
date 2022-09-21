@@ -12,11 +12,14 @@ namespace Tests {
 
 		void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
 			if (debug()) std::cout << "Register::" << name << " <- " << std::bitset<8>(data[Register::DVALUE::NEW]) << std::endl;
-			r->write(sram, data[Register::DVALUE::NEW]);
+			sram.write(r->index(), data[Register::DVALUE::NEW]);
 		}
 
 	  public:
 		Machine(SRAM &a_sram): Device(), sram(a_sram) {
+			sram.init_params(4, 0x80);
+			sram.write(SRAM::STATUS, 0);
+			sram.write(SRAM::OPTION, 0);
 			DeviceEvent<Register>::subscribe<Machine>(this, &Machine::register_changed);
 		}
 		~Machine() {
@@ -89,8 +92,8 @@ namespace Tests {
 
 		// Set the pin to Vdd, read the register and check that the port reflects the pin value
 
-	//	ra0.debug(true);
-	//	PinWire.debug(true);
+		//	ra0.debug(true);
+		//	PinWire.debug(true);
 
 		pin.set_value(pin.Vdd, false);
 		PORTA.read(sram);   // read all the pin values
@@ -528,6 +531,7 @@ namespace Tests {
 		pin.set_value(pin.Vdd, false);
 		cfg1.write(sram, 0); // clear the MCLRE bit
 		clock.cycle();
+		ra5.debug(true);
 		PORTA.read(sram);   // read all the pin values
 
 	// With MCLRE low, we enable trigger2, and we read RA5::Pin into PORTA
@@ -638,18 +642,18 @@ namespace Tests {
 
 	// I/O tests done
 
-		TRISA.write(sram, TRISA.read(sram) &  (~Flags::TRISA::TRISA6));  // TrisA[RA0] flag should now be zero for output
 		cfg1.write(sram, Flags::CONFIG::FOSC0 | Flags::CONFIG::FOSC1 | Flags::CONFIG::FOSC2);  // mode 111
 		clock.cycle();
+		TRISA.write(sram, TRISA.read(sram) &  (~Flags::TRISA::TRISA6));  // TrisA[RA0] flag should now be zero for output
 
 	// test clock out
-		assert(pin.signal());
-		clock.q();
-		clock.q();
 		assert(!pin.signal());
 		clock.q();
 		clock.q();
 		assert(pin.signal());
+		clock.q();
+		clock.q();
+		assert(!pin.signal());
 
 	// Can't really test external oscillator yet
 		std::cout << "PORTA::RA6: all tests concluded successfully" << std::endl;
@@ -828,7 +832,6 @@ namespace Tests {
 		Wire &PinWire = dynamic_cast<Wire &>(*c["Pin Wire"]);
 		Tristate &ts1 = dynamic_cast<Tristate&>(*c["Tristate1"]);
 		Latch &SR1 = dynamic_cast<Latch &>(*c["SR1"]);
-
 
 		ClockedRegister PORTB(SRAM::PORTB, "PORTB");
 		ClockedRegister TRISB(SRAM::TRISB, "TRISB");
