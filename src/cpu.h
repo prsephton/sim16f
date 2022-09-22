@@ -136,6 +136,8 @@ class CPU {
 		data.sram.write(SRAM::PR2,    0b11111111, false);
 		data.sram.write(SRAM::TXSTA,  0b00000010, false);
 
+		data.reset_registers();
+
 		nsteps = 2;        // fetch & execute the first instruction
 		data.clock.start();
 	}
@@ -174,6 +176,7 @@ class CPU {
 
 	CPU_DATA &cpu_data() { return data; }
 
+	// This is the main machine thread.  It executes CPU cycles and handles device or control events.
 	bool process_queue() {
 		try {
 			if (not instruction_cycles.empty()) {
@@ -252,11 +255,11 @@ class CPU {
 			interrupt_pending = true;
 	}
 
+	//   This is called from within the clock thread.  If we process instructions directly
+	// from this thread, then there will be a conflict between instruction processing
+	// and device events.  So here we need to place the clock event on a queue and
+	// cycle instructions as clock events appear.
 	void clock_event(Clock *device, const std::string &name, const std::vector<BYTE> &data){
-		//   This is called from within the clock thread.  If we process instructions directly
-		// from this thread, then there will be a conflict between instruction processing
-		// and device events.  So here we need to place the clock event on a queue and
-		// cycle instructions as clock events appear.
 		if (name == "oscillator") {     // positive edge.  4 of these per cycle.
 		} else if (name == "cycle") {   // an instruction cycle.
 			if (!paused or nsteps) {
@@ -270,6 +273,7 @@ class CPU {
 		}
 	}
 
+	// Clock thread is independent of machine thread and UI thread
 	void run_clock(unsigned long delay_us, bool a_debug=false) {  // run the clock
 		data.clock_delay_us = delay_us;
 		debug = a_debug;
@@ -285,19 +289,7 @@ class CPU {
 	}
 
 	void model(const std::string &a_model) {
-		auto PIC16f627a = Params{"PIC16f627a", 1024, 128, 4, 0x80, 18, 8};
-		auto PIC16f628a = Params{"PIC16f628a", 2048, 128, 4, 0x80, 18, 8};
-		auto PIC16f648a = Params{"PIC16f648a", 4096, 256, 4, 0x80, 18, 8};
-
-		if (a_model.find("16f627") != std::string::npos) {
-			data.set_params(PIC16f627a);
-		} else  if (a_model.find("16f628") != std::string::npos) {
-			data.set_params(PIC16f628a);
-		} else  if (a_model.find("16f648") != std::string::npos) {
-			data.set_params(PIC16f648a);
-		} else {
-			throw(std::string("Invalid processor choice: "+a_model));
-		}
+		data.model(a_model);
 	}
 
 	CPU(): active(true), debug(true), paused(true), skip(false), cycles(0), nsteps(0) {
@@ -305,7 +297,7 @@ class CPU {
 		DeviceEvent<Clock>::subscribe<CPU>(this, &CPU::clock_event);
 		DeviceEvent<Register>::subscribe<CPU>(this, &CPU::register_event);
 
-		if (debug) {
+		if (debug) {   // Execution tracer
 			CpuEvent::subscribe((void *)this, &CPU::show_status);
 		}
 		reset();

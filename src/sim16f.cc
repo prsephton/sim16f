@@ -21,6 +21,7 @@ void *run_machine(void *a_params) {
 		while (cpu.running()) {
 			try {
 				if (not cpu.process_queue())
+//					std::this_thread::yield();
 					sleep_for_us(100);
 			} catch (std::string &error) {
 				std::cerr << error << "\n";
@@ -169,7 +170,6 @@ int main(int argc, char *argv[]) {
 				std::cout << "Application terminating" << std::endl;
 			}
 		} else {
-			cpu.load_hex("test.hex");
 			pthread_t machine, clock;
 			params.delay_us = 1000000 / (frequency * 2);
 			params.debug = true;
