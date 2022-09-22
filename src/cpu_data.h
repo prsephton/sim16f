@@ -162,6 +162,7 @@ class CPU_DATA {
 		stack[SP] = value;
 	}
 
+	// Event handlers to update machine state, including SRAM
 	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data);
 	void comparator_changed(Comparator *c, const std::string &name, const std::vector<BYTE> &data);
 	void timer0_changed(Timer0 *t, const std::string &name, const std::vector<BYTE> &data);
@@ -200,6 +201,28 @@ class CPU_DATA {
 			return sram.read(idx);
 		} else {
 			return reg->second->read(sram);
+		}
+	}
+
+	void reset_registers() {
+		for (auto reg: Registers) {
+			reg.second->reset(sram);
+		}
+	}
+
+	void model(const std::string &a_model) {
+		auto PIC16f627a = Params{"PIC16f627a", 1024, 128, 4, 0x80, 18, 8};
+		auto PIC16f628a = Params{"PIC16f628a", 2048, 128, 4, 0x80, 18, 8};
+		auto PIC16f648a = Params{"PIC16f648a", 4096, 256, 4, 0x80, 18, 8};
+
+		if (a_model.find("16f627") != std::string::npos) {
+			set_params(PIC16f627a);
+		} else  if (a_model.find("16f628") != std::string::npos) {
+			set_params(PIC16f628a);
+		} else  if (a_model.find("16f648") != std::string::npos) {
+			set_params(PIC16f648a);
+		} else {
+			throw(std::string("Invalid processor choice: "+a_model));
 		}
 	}
 
