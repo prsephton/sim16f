@@ -35,7 +35,6 @@ class Register : public Device {
 
 	void trigger_change(BYTE a_new, BYTE a_old, BYTE a_changed) {
 		eq.queue_event(new DeviceEvent<Register>(*this, name(), {a_old, a_changed, a_new}));
-//		eq.process_events();
 	}
 
 	BYTE get_value() {
@@ -54,6 +53,10 @@ class Register : public Device {
 			return true;
 		}
 		return false;
+	}
+
+	void reset(const SRAM &a_sram) {     // refresh m_value from sram
+		m_value = a_sram.read(m_idx);
 	}
 
 	virtual const BYTE read(const SRAM &a_sram) {         // default read for registers
