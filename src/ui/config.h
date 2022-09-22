@@ -102,7 +102,7 @@ namespace app {
 			if (fosc_code & 0b100) {
 				fosc_code = (1 << 4) | (fosc_code & 0b11);
 			}
-			m_cpu.Config = (m_cpu.Config & (~0b10011)) | fosc_code;
+			m_cpu.configure((m_cpu.Config & (~0b10011)) | fosc_code);
 		}
 
 		void on_hz_changed() {
@@ -132,7 +132,7 @@ namespace app {
 					set_title(base_name(l_filename));
 					m_filename = l_filename;
 					cfg.set_text("filename", l_filename); cfg.flush();
-					configure_bits();
+					refresh();
 				}
 			} catch(const std::string &err) {
 				std::cout << "An error occurred while loading " << l_filename << ": " << err << std::endl;
@@ -160,7 +160,7 @@ namespace app {
 					set_title(base_name(l_filename));
 					m_filename = l_filename;
 					cfg.set_text("filename", l_filename); cfg.flush();
-					configure_bits();
+					refresh();
 				}
 			} catch(const std::string &err) {
 				std::cout << "An error occurred while assembling " << l_filename << ": " << err << std::endl;
@@ -179,6 +179,7 @@ namespace app {
 				try {
 					if (load_hex(m_filename, m_cpu))
 						std::cout << "Hex file " << m_filename << " successfully loaded" << std::endl;
+					refresh();
 					m_cpu.control.push(ControlEvent("reset"));
 				} catch (std::string &e) {
 					std::cout << "Error loading hex file [" << e << "]" << std::endl;
@@ -188,6 +189,7 @@ namespace app {
 				try {
 					if (assemble(m_filename, m_cpu, instructions))
 						std::cout << "File " << m_filename << " successfully assembled" << std::endl;
+					refresh();
 					m_cpu.control.push(ControlEvent("reset"));
 				} catch (std::string &e) {
 					std::cout << "Error loading assembly file [" << e << "]" << std::endl;

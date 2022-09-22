@@ -257,7 +257,7 @@ bool assemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &inst
 							variables[label] = address;
 						}
 					} else if (mnemonic == "CONFIG" || mnemonic == "__CONFIG") {
-						cpu.Config = as_number(address, radix, std::string("Invalid CONFIG directive: [")+address+"] @"+int_to_hex(PC));
+						cpu.configure(as_number(address, radix, std::string("Invalid CONFIG directive: [")+address+"] @"+int_to_hex(PC)));
 					} else if (mnemonic == "RADIX") {
 						if (is_decimal(address))
 							radix = as_number(address, 10, std::string("Invalid RADIX directive: [")+address+"] @"+int_to_hex(PC));
@@ -377,6 +377,8 @@ bool disassemble(const std::string &a_filename, CPU_DATA &cpu, InstructionSet &i
 	while (limit>0 && cpu.flash.data[limit-1]==0) --limit;
 	try {
 		std::ofstream f(a_filename);
+		f << "\tCONFIG\t0x" << std::hex << (int)cpu.Config << std::endl;
+		f << "\tORG\t0" << std::endl;
 		for (size_t pc=0; pc < limit; ++pc) {
 			WORD opcode = cpu.flash.data[pc];
 			SmartPtr<Instruction> op = instructions.find(opcode);

@@ -144,11 +144,15 @@ class CPU_DATA {
 
 	void configure(const std::string &a_configuration) {
 		if (a_configuration.length() >= 2) {  // set configuration word
-			Config = *(WORD *)a_configuration.c_str();
-			cfg1.write(sram, a_configuration.c_str()[0]);  // registers allow device config
-			cfg2.write(sram, a_configuration.c_str()[1]);
-			std::cout << "config loaded: " << std::hex << Config << "\n";
+			configure(*(WORD *)a_configuration.c_str());
 		}
+	}
+
+	void configure(WORD a_config) {
+		Config = a_config;
+		cfg1.write(sram, Config & 0xff);  // registers allow device config
+		cfg2.write(sram, Config >> 8);
+		std::cout << "config loaded: " << std::hex << Config << "\n";
 	}
 
 	const std::string configuration() {  // return config word as a string
