@@ -186,7 +186,7 @@ namespace app {
 			} else if (m_filename.find(".a") != std::string::npos) {
 				InstructionSet instructions;
 				try {
-					if (disassemble(m_filename, m_cpu, instructions))
+					if (assemble(m_filename, m_cpu, instructions))
 						std::cout << "File " << m_filename << " successfully assembled" << std::endl;
 					m_cpu.control.push(ControlEvent("reset"));
 				} catch (std::string &e) {
