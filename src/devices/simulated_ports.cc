@@ -77,6 +77,7 @@ void BasicPort::on_clock_change(Clock *c, const std::string &name, const std::ve
 	} else if (name == "Q4") {
 		if (Port.signal()) {               // write only happens at the end of the clock cycle
 			Port.set_value(Vss, true);     // The value on PortA/B changes to what is on the bus as clock goes low
+			Data.set_value(Vss, true);
 			queue_change();
 			if (debug()) {
 				std::cout << "======================================================";
@@ -87,6 +88,7 @@ void BasicPort::on_clock_change(Clock *c, const std::string &name, const std::ve
 		}
 		if (Tris.signal()) {
 			Tris.set_value(Vss, true);     // The value on TrisA/B changes to what is on the bus as clock goes low
+			Data.set_value(Vss, true);
 			queue_change();
 			if (debug()) {
 				std::cout << "======================================================";
