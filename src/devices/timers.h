@@ -40,6 +40,29 @@ class Timer0: public Device {
 };
 
 //___________________________________________________________________________________
+//  NOTE:  Why the difference in approaches between timer0 and timer1?
+//
+//     timer0 implements the logic directly in C++ code, where timer1 implementation
+//     uses component models such as gates, connections and counters to model the logic.
+//
+//     When implementing timer0 output diagram, we realised that to produce a live diagram,
+//     we would have to completely remodel timer0 using components, and decided that for
+//     timer1, it would make sense to use component models directly for both behavior and
+//     display.
+//
+//     This also ensures no discrepancies between the behavioral model and the display.
+//
+//     Port pins are also implemented using component models directly, but having a
+//     slightly different approach to the way we reference components for display
+//     later.  In the case of ports, we store smart pointers to components, and later
+//     access the components we need by using a dynamic_cast.
+//
+//     Implementing the display for timer1 is a lot simpler than the case for ports.
+//
+//     Is there a case for re-implementing timer0?  Perhaps, but there's no benefit other than
+//     esthetics, and a raw logic implementation in C is more efficient than an event driven
+//     component model.
+
 class Timer1: public Device {
 	DeviceEventQueue eq;
 
