@@ -136,6 +136,7 @@ CPU_DATA::CPU_DATA():
 	DeviceEvent<Register>::subscribe<CPU_DATA>(this, &CPU_DATA::register_changed);
 	DeviceEvent<Comparator>::subscribe<CPU_DATA>(this, &CPU_DATA::comparator_changed);
 	DeviceEvent<Timer0>::subscribe<CPU_DATA>(this, &CPU_DATA::timer0_changed);
+	DeviceEvent<Timer1>::subscribe<CPU_DATA>(this, &CPU_DATA::timer1_changed);
 	DeviceEvent<PORTB>::subscribe<CPU_DATA>(this, &CPU_DATA::portB_changed);
 }
 
@@ -143,6 +144,7 @@ CPU_DATA::~CPU_DATA() {
 	DeviceEvent<Register>::unsubscribe<CPU_DATA>(this, &CPU_DATA::register_changed);
 	DeviceEvent<Comparator>::unsubscribe<CPU_DATA>(this, &CPU_DATA::comparator_changed);
 	DeviceEvent<Timer0>::unsubscribe<CPU_DATA>(this, &CPU_DATA::timer0_changed);
+	DeviceEvent<Timer1>::unsubscribe<CPU_DATA>(this, &CPU_DATA::timer1_changed);
 	DeviceEvent<PORTB>::unsubscribe<CPU_DATA>(this, &CPU_DATA::portB_changed);
 }
 
@@ -191,6 +193,21 @@ void CPU_DATA::timer0_changed(Timer0 *t, const std::string &name, const std::vec
 		auto TMR0 = Registers["TMR0"];
 		TMR0->set_value(data[0], data[0]);   // update in memory, but don't trigger a change.
 		sram.write(TMR0->index(), data[0]);  // update the SRAM value separately.
+	}
+}
+
+void CPU_DATA::timer1_changed(Timer1 *t, const std::string &name, const std::vector<BYTE> &data) {
+	if (name == "Overflow") {
+		auto PIR1 = Registers["PIR1"];
+		BYTE idata = PIR1->get_value();
+		PIR1->write(sram, idata | Flags::PIR1::TMR1IF);
+	} else if (name == "Value") {
+		auto TMR1L = Registers["TMR1L"];
+		auto TMR1H = Registers["TMR1H"];
+		TMR1L->set_value(data[0], data[0]);
+		TMR1H->set_value(data[1], data[1]);   // update in memory, but don't trigger a change.
+		sram.write(TMR1L->index(), data[0]);
+		sram.write(TMR1H->index(), data[1]);  // update the SRAM value separately.
 	}
 }
 

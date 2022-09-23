@@ -170,6 +170,7 @@ class CPU_DATA {
 	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data);
 	void comparator_changed(Comparator *c, const std::string &name, const std::vector<BYTE> &data);
 	void timer0_changed(Timer0 *t, const std::string &name, const std::vector<BYTE> &data);
+	void timer1_changed(Timer1 *t, const std::string &name, const std::vector<BYTE> &data);
 	void portB_changed(PORTB *p, const std::string &name, const std::vector<BYTE> &data);
 
 	WORD pop() {
