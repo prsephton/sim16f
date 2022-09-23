@@ -5,9 +5,11 @@
 #include "devices.h"
 #include "../utils/smart_ptr.cc"
 
+template <class T> class
+	DeviceEvent<T>::registry  DeviceEvent<T>::subscribers;
+
 //_______________________________________________________________________________________________
 // Timer 0
-
 	void Timer0::sync_timer() {   // timer increments with every second call
 		++m_counter;
 		if (m_assigned_to_wdt || (m_counter & (1 << m_prescale_rate))) {
@@ -102,9 +104,85 @@
 		m_prescale_rate = 0;
 	};
 
+
+	//_______________________________________________________________________________________________
+	// Timer1
+	void Timer1::register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data) {
+		if (name == "PORTB") {
+			m_rb6.set_value((r->get_value() & 0b0100000)?Vdd:Vss, false);
+			m_rb7.set_value((r->get_value() & 0b1000000)?Vdd:Vss, false);
+		} else if (name == "T1CON") {
+			BYTE d = r->get_value();
+			m_t1oscen.set_value((d & Flags::T1CON::T1OSCEN)?Vdd:Vss, false);
+			m_tmr1cs.set_value((d & Flags::T1CON::TMR1CS)?Vdd:Vss, false);
+			m_t1sync.set_value((d & Flags::T1CON::T1SYNC)?Vdd:Vss, false);
+			m_tmr1on.set_value((d & Flags::T1CON::TMR1ON)?Vdd:Vss, false);
+			m_t1ckps0.set_value((d & Flags::T1CON::T1CKPS0)?Vdd:Vss, false);
+			m_t1ckps1.set_value((d & Flags::T1CON::T1CKPS1)?Vdd:Vss, false);
+		} else if (name == "TMR1L") {
+			m_prescaler.set_value(0);
+			m_tmr1.set_value((m_tmr1.get() & ~0xff) | data[0]);
+		} else if (name == "TMR1H") {
+			m_prescaler.set_value(0);
+			m_tmr1.set_value((m_tmr1.get() & ~0xff00) | ((int)data[0] << 8));
+		}
+	}
+
+	void Timer1::on_clock(Clock *c, const std::string &name, const std::vector<BYTE> &data) {
+		if (name == "CLKOUT") {
+			m_fosc.set_value(data[0] * Vdd, false);
+		}
+	}
+
+	void Timer1::on_tmr1(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
+		if (m_tmr1.overflow()) {  // check overflow
+			eq.queue_event(new DeviceEvent<Timer1>(*this, "Overflow", {}));
+		} else if (m_tmr1on.signal()) {
+			unsigned long val = m_tmr1.get();
+			BYTE LO = (BYTE)(val & 0xff);
+			BYTE HI = (BYTE)((val >> 8) & 0xff);
+			eq.queue_event(new DeviceEvent<Timer1>(*this, "Value", {LO, HI}));
+		}
+	}
+
+	Timer1::Timer1(): Device(),
+		m_t1osc(m_rb7, m_t1oscen, false, true, "T1OSC"),
+		m_osc_wire(m_rb7, m_t1osc.rd()),
+		m_trigger(m_rb6, false, false),
+		m_t1csmux({&m_fosc, &m_trigger.rd()}, {&m_tmr1cs}, "T1CS"),
+		m_prescaler(m_t1csmux.rd(), false, 4),
+		m_scale(m_prescaler.databits(), {&m_t1ckps0, &m_t1ckps1}, "Scale"),
+		m_synch(m_scale.rd(), true, 1, 0, &m_fosc),
+		m_syn_asyn({&m_synch.bit(0), &m_scale.rd()}, {&m_t1sync}, "T1Sync"),
+		m_signal({&m_syn_asyn.rd(), &m_tmr1on}, false, "Timer ON"),
+		m_tmr1(m_signal.rd(), false, 16)
+	{
+		DeviceEvent<Register>::subscribe<Timer1>(this, &Timer1::register_changed);
+		DeviceEvent<Clock>::subscribe<Timer1>(this, &Timer1::on_clock);
+		DeviceEvent<Connection>::subscribe<Timer1>(this, &Timer1::on_tmr1, &m_tmr1.bit(0));
+		m_rb6.name("RB6");
+		m_rb7.name("RB7");
+		m_fosc.name("Fosc/4");
+		m_scale.rd().name("Scale");
+		m_synch.bit(0).name("Sync");
+
+		m_t1oscen.set_value(Vss, false);
+		m_tmr1cs.set_value(Vss, false);
+		m_t1sync.set_value(Vss, false);
+		m_tmr1on.set_value(Vss, false);
+		m_t1ckps0.set_value(Vss, false);
+		m_t1ckps1.set_value(Vss, false);
+
+	}
+
+	Timer1::~Timer1() {
+		DeviceEvent<Register>::unsubscribe<Timer1>(this, &Timer1::register_changed);
+		DeviceEvent<Clock>::unsubscribe<Timer1>(this, &Timer1::on_clock);
+		DeviceEvent<Connection>::unsubscribe<Timer1>(this, &Timer1::on_tmr1, &m_tmr1.bit(0));
+	}
+
 //_______________________________________________________________________________________________
 // Comparator
-
 	void Comparator::queue_change(BYTE old_cmcon) {
 		if (cmcon != old_cmcon) {
 			if (debug()) {
@@ -222,7 +300,6 @@
 	}
 
 
-
 //_______________________________________________________________________________________________
 // EEPROM
 void EEPROM::load(const std::string &a_file) {
@@ -232,6 +309,7 @@ void EEPROM::load(const std::string &a_file) {
 	if (c < 0)
 		throw(std::string("Cannot read EEPROM data from file: ") + a_file);
 }
+
 //_______________________________________________________________________________________________
 // Clock
 void Clock::stop() { stopped=true; phase=0; high=false;}

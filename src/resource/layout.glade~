@@ -1660,14 +1660,14 @@
                             <property name="can_focus">False</property>
                             <property name="active">0</property>
                             <items>
-                              <item translatable="yes">RC0: CLKOUT function on RA6/OSC2/CLKOUT pin</item>
-                              <item translatable="yes">RC1: I/O function on RA6/OSC2/CLKOUT pin</item>
-                              <item translatable="yes">INTOSC0: CLKOUT function on RA6/OSC2/CLKOUT pin</item>
-                              <item translatable="yes">INTOSC1 oscillator: I/O function on RA6/OSC2/CLKOUT</item>
-                              <item translatable="yes">EC: I/O function on RA6/OSC2/CLKOUT pin</item>
-                              <item translatable="yes">HS: High-speed crystal/resonator on RA6/OSC2/CLKOUT</item>
-                              <item translatable="yes">XT: Crystal/resonator on RA6/OSC2/CLKOUT</item>
-                              <item translatable="yes">LP: Low-power crystal on RA6/OSC2/CLKOUT</item>
+                              <item id="0" translatable="yes">RC0: CLKOUT function on RA6/OSC2/CLKOUT pin</item>
+                              <item id="1" translatable="yes">RC1: I/O function on RA6/OSC2/CLKOUT pin</item>
+                              <item id="2" translatable="yes">INTOSC0: CLKOUT function on RA6/OSC2/CLKOUT pin</item>
+                              <item id="3" translatable="yes">INTOSC1 oscillator: I/O function on RA6/OSC2/CLKOUT</item>
+                              <item id="4" translatable="yes">EC: I/O function on RA6/OSC2/CLKOUT pin</item>
+                              <item id="5" translatable="yes">HS: High-speed crystal/resonator on RA6/OSC2/CLKOUT</item>
+                              <item id="6" translatable="yes">XT: Crystal/resonator on RA6/OSC2/CLKOUT</item>
+                              <item id="7" translatable="yes">LP: Low-power crystal on RA6/OSC2/CLKOUT</item>
                             </items>
                           </object>
                           <packing>

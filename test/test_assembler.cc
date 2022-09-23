@@ -1,11 +1,10 @@
+#ifdef TESTING
+
 #include <iostream>
 #include <iomanip>
 #include <cassert>
 #include "run_tests.h"
 #include "../src/utils/assembler.h"
-
-
-#ifdef TESTING
 
 namespace Tests {
 	void test_assembler() {

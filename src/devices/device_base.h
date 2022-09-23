@@ -821,6 +821,7 @@ class Counter: public Device {
 	const Connection &m_in;
 	const Connection *m_clock;   // Synchronous counter
 	bool m_rising;
+	bool m_ripple;
 	bool m_signal;
 	bool m_overflow;
 	std::vector<Connection> m_bits;
@@ -843,6 +844,7 @@ class Counter: public Device {
 
 	void set_name(const std::string &a_name);
 	void set_value(unsigned long a_value);
+	void asynch(bool a_ripple) { m_ripple = a_ripple; }  // first bit follows input
 	bool is_sync() const { return (m_clock != NULL); }
 	bool overflow() const { return m_overflow; }
 	size_t nbits() const { return m_bits.size(); }

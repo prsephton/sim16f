@@ -44,10 +44,12 @@ namespace app {
 			cr->restore();
 		}
 
+		void set_rotation(double a_rotation) { m_rotation = a_rotation; }
+		void set_scale(double a_scale) { m_scale = a_scale; }
+
 		void rotate(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->rotate(m_rotation);
 		}
-
 		void scale(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->scale(m_scale, m_scale);
 		}
@@ -307,6 +309,52 @@ namespace app {
 		VssSymbol(double x=0, double y=0, double rotation=0): Symbol(x, y, rotation) {}
 	};
 
+	class ResistorSymbol: public Symbol {
+	  public:
+
+		virtual WHATS_AT location(Point p) {
+			if (hotspot(0).close_to(p))
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 0);
+			if (hotspot(1).close_to(p))
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 1);
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			if (what.match((void *)this, WHATS_AT::IN_OUT, 0))
+				return &hotspot(0);
+			if (what.match((void *)this, WHATS_AT::IN_OUT, 1))
+				return &hotspot(1);
+			return NULL;
+		}
+
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->save();
+			cr->translate(m_x, m_y);
+			cr->rotate(m_rotation);
+			bounding_rect(cr, Rect(0, -5, 45, 10));
+			hotspot(cr, 0, Point( 0, 0));
+			hotspot(cr, 1, Point(45, 0));
+
+			cr->set_line_width(1.2);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_BUTT);
+			cr->move_to( 0, 0);
+			cr->line_to( 5, 0);
+			cr->line_to(10,-5);
+			cr->line_to(15, 5);
+			cr->line_to(20,-5);
+			cr->line_to(25, 5);
+			cr->line_to(30,-5);
+			cr->line_to(35, 5);
+			cr->line_to(40, 0);
+			cr->line_to(45, 0);
+
+			cr->stroke();
+			cr->restore();
+		}
+		ResistorSymbol(double x=0, double y=0, double rotation=0): Symbol(x, y, rotation) {}
+	};
+
 	class FETSymbol: public Symbol {
 		bool m_nType;
 		bool m_with_vss;
@@ -563,7 +611,7 @@ namespace app {
 
 			cr->restore();
 		}
-		AndSymbol(int a_inputs, double x=0, double y=0, double rotation=0, bool inverted=false):
+		AndSymbol(int a_inputs=2, double x=0, double y=0, double rotation=0, bool inverted=false):
 			Symbol(x, y, rotation), m_inverted(inverted), m_inputs(a_inputs){}
 	};
 
@@ -659,7 +707,7 @@ namespace app {
 			}
 			cr->restore();
 		}
-		OrSymbol(int a_inputs, double x=0, double y=0, double rotation=0, bool inverted=false, bool is_xor=false):
+		OrSymbol(int a_inputs=2, double x=0, double y=0, double rotation=0, bool inverted=false, bool is_xor=false):
 			Symbol(x, y, rotation), m_inverted(inverted), m_xor(is_xor), m_inputs(a_inputs){}
 	};
 
@@ -827,6 +875,7 @@ namespace app {
 	class MuxSymbol: public Symbol  {
 		int m_gates, m_inputs;
 		bool m_forward;
+		int m_flipped = 1;
 	  public:
 
 		virtual WHATS_AT location(Point p) {
@@ -858,7 +907,8 @@ namespace app {
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(m_rotation);
-			cr->set_line_width(1.2);
+			cr->scale(m_scale, m_scale);
+			cr->set_line_width(1.2/m_scale);
 
 			int cw = 5, ch = 14;
 			int width = cw * (m_gates+1);
@@ -868,10 +918,10 @@ namespace app {
 
 			for (int n=1; n<=m_gates; ++n) {
 				double x = width*n/(m_gates+1);
-				double y = x - height0/2;
+				double y = m_flipped * (x - height0/2);
 				hotspot(cr, n-1, Point(x,  y));
 				cr->move_to(x, y);
-				cr->line_to(x, y-3.5);
+				cr->line_to(x, y - m_flipped * (x + 3.5));
 				cr->stroke();
 			}
 			for (int n=1; n<=m_inputs; ++n) {
@@ -904,7 +954,7 @@ namespace app {
 			}
 			cr->restore();
 		}
-
+		void flipped(bool a_flipped) { m_flipped = a_flipped?-1:1; }
 		void draw_forward(bool a_forward){ m_forward = a_forward; }
 		MuxSymbol(double x=0, double y=0, double rotation=0, int gates=1, int inputs=2):
 			Symbol(x, y, rotation), m_gates(gates), m_inputs(inputs), m_forward(true) {}

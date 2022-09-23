@@ -56,18 +56,27 @@ namespace app {
 		};
 
 
-		template <class T> void create_symbol(std::true_type) {
-			m_symbol = T(0, 0, m_rotation, invert, is_xor);
+		template <class T> void create_or_symbol(std::true_type) {
+			m_symbol = T(m_gate.inputs().size(), 0, 0, m_rotation, invert, is_xor);
 		}
+		template <class T> void create_or_symbol(std::false_type) {}
 
-		template <class T> void create_symbol(std::false_type) {
-			m_symbol = T(0, 0, m_rotation, invert);
+		template <class T> void create_and_symbol(std::true_type) {
+			m_symbol = T(m_gate.inputs().size(), 0, 0, m_rotation, invert);
 		}
+		template <class T> void create_and_symbol(std::false_type) {}
+		template <class T> void create_buffer_symbol(std::true_type) {
+			m_symbol = SymType(0, 0, m_rotation, invert);
+		}
+		template <class T> void create_buffer_symbol(std::false_type) {}
+
 
 		GateDiagram(GateType &a_gate, double x, double y, double rotation, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area, Point(x,y)), m_gate(a_gate), m_rotation(rotation)
 		{
-			create_symbol<SymType>(std::is_same<SymType, OrSymbol>());
+			create_or_symbol<SymType>(std::is_same<SymType, OrSymbol>());
+			create_and_symbol<SymType>(std::is_same<SymType, AndSymbol>());
+			create_buffer_symbol<SymType>(std::is_same<SymType, BufferSymbol>());
 		}
 	};
 
@@ -316,6 +325,10 @@ namespace app {
 			return false;
 		}
 
+		void set_rotation(double rotation) {    // override rotation
+			m_symbol.set_rotation(rotation);
+		}
+
 		TristateDiagram(Tristate &a_tris, bool point_right, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area, Point(x,y)), m_tris(a_tris), m_point_right(point_right)
 		{
@@ -401,6 +414,8 @@ namespace app {
 			cr->restore();
 			return false;
 		}
+		void set_scale(double a_scale) {m_symbol.set_scale(a_scale); }
+		void flipped(bool a_flipped) { m_symbol.flipped(a_flipped); }
 
 		MuxDiagram(Mux &a_mux, double x, double y, double rotation, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area, Point(x,y)), m_mux(a_mux),  m_rotation(rotation) {

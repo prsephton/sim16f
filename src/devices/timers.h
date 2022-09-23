@@ -1,3 +1,4 @@
+#pragma once
 #include "device_base.h"
 #include "register.h"
 #include "clock.h"
@@ -38,10 +39,60 @@ class Timer0: public Device {
 	BYTE timer() const {return m_timer; }
 };
 
+//___________________________________________________________________________________
 class Timer1: public Device {
+	DeviceEventQueue eq;
 
+	Connection m_rb6;
+	Connection m_rb7;
+	Connection m_fosc;
+	Connection m_t1oscen;
+	Tristate   m_t1osc;
+	Wire       m_osc_wire;
+	Schmitt    m_trigger;
+	Connection m_tmr1cs;
+	Mux        m_t1csmux;
+	Counter    m_prescaler;
+	Connection m_t1ckps0;
+	Connection m_t1ckps1;
+	Mux        m_scale;
+	Counter    m_synch;
+	Connection m_t1sync;
+	Mux        m_syn_asyn;
+	Connection m_tmr1on;
+	AndGate    m_signal;
+	Counter    m_tmr1;
+
+	void register_changed(Register *r, const std::string &name, const std::vector<BYTE> &data);
+	void on_clock(Clock *c, const std::string &name, const std::vector<BYTE> &data);
+	void on_tmr1(Connection *c, const std::string &name, const std::vector<BYTE> &data);
+
+  public:
+	Timer1();
+	~Timer1();
+
+	Connection &rb6() { return m_rb6; }
+	Connection &rb7() { return m_rb7; }
+	Connection &fosc() { return m_fosc; }
+	Connection &t1oscen() { return m_t1oscen; }
+	Tristate   &t1osc() { return m_t1osc; }
+	Wire       &osc_wire() { return m_osc_wire; }
+	Schmitt    &trigger() { return m_trigger; }
+	Connection &tmr1cs() { return m_tmr1cs; }
+	Mux        &t1csmux() { return m_t1csmux; }
+	Counter    &prescaler() { return m_prescaler; }
+	Connection &t1ckps0() { return m_t1ckps0; }
+	Connection &t1ckps1() { return m_t1ckps1; }
+	Mux        &pscale() { return m_scale; }
+	Counter    &synch() { return m_synch; }
+	Connection &t1sync() { return m_t1sync; }
+	Mux        &syn_asyn() { return m_syn_asyn; }
+	Connection &tmr1on() { return m_tmr1on; }
+	AndGate    &signal() { return m_signal; }
+	Counter    &tmr1() { return m_tmr1; }
 };
 
+//___________________________________________________________________________________
 class Timer2: public Device {
 
 };

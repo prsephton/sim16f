@@ -1084,18 +1084,20 @@ template <class T> class
 
 
 //___________________________________________________________________________________
-// A binary counter.  If clock is set, it is synchronous, otherwise asynch ripple.
+// A binary counter.  If clock is set, it is synchronous, otherwise a ripple.
 	void Counter::on_signal(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
 		if (not m_clock) {            // enabled
 			m_overflow = false;
-			if (c->signal() ^ (not m_rising)) {
+			if (m_ripple) {
 				m_value = m_value + 1;     // asynchronous ripple counter
-				if (m_value & (1 << m_bits.size())) {
-					m_value = 0;
-					m_overflow = true;
-				}
-				set_value(m_value);
+			} else if (c->signal() ^ (not m_rising)) {
+				m_value = m_value + 1;     // synchronous ripple counter
 			}
+			if (m_value & (1 << m_bits.size())) {
+				m_value = 0;
+				m_overflow = true;
+			}
+			set_value(m_value);
 		} else {
 			m_signal = c->signal();
 		}
@@ -1117,14 +1119,16 @@ template <class T> class
 	}
 
 	Counter::Counter(unsigned int nbits, unsigned long a_value): Device(),
-			m_in(m_dummy), m_clock(NULL), m_rising(true), m_signal(true) {
+			m_in(m_dummy), m_clock(NULL), m_rising(true), m_ripple(true), m_signal(true) {
+		if (m_rising) m_ripple = false;
 		assert(nbits < sizeof(a_value) * 8);
 		m_bits.resize(nbits);
 		set_value(a_value);
 	}
 
 	Counter::Counter(const Connection &a_in, bool rising, size_t nbits, unsigned long a_value, const Connection *a_clock):
-		Device(), m_in(a_in), m_clock(a_clock), m_rising(rising), m_signal(true) {
+		Device(), m_in(a_in), m_clock(a_clock), m_rising(rising), m_ripple(true), m_signal(true) {
+		if (m_rising) m_ripple = false;
 		assert(nbits < sizeof(a_value) * 8);
 		m_bits.resize(nbits);
 		set_value(a_value);

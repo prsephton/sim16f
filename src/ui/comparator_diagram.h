@@ -280,7 +280,7 @@ namespace app {
 				"Comparators Off"
 			})
 		{
-//			pix_extents(740.0, 500.0);
+			pix_extents(550.0, 370.0);
 			DeviceEvent<Comparator>::subscribe<ComparatorsDiagram>(this, &ComparatorsDiagram::on_comparator_change);
 			c1 = new OpAmpSymbol(300,150);
 			c2 = new OpAmpSymbol(300,270);
