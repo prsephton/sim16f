@@ -17,7 +17,15 @@ bool is_decimal(const std::string &in);
 bool is_hex(const std::string &in);
 bool FileExists(const std::string &s);
 int as_int(const std::string &a_val);
+const std::string as_text(double a_value, int a_precision=4);
+bool float_equiv(double a, double b, double limit=1.0e-12);
 
+//_____________________________________________________________________________________________________________
+// A convenience class to deal with values that have a unit.  Return a value and a magnitude.
+double value_and_unit(double a_value, int &a_mag);
+//_____________________________________________________________________________________________________________
+// Return properly formatted numbers with units
+const std::string unit_text(double a_value, const std::string &unit);
 
 class LockUI {
 	static std::mutex mtx;

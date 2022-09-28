@@ -29,7 +29,7 @@
 #include "../utils/smart_ptr.h"
 #include "../utils/utility.h"
 #include "constants.h"
-
+#include <cmath>
 //__________________________________________________________________________________________________
 // A small function to return a current time stamp in microseconds.
 using time_stamp = std::chrono::time_point<std::chrono::system_clock, std::chrono::microseconds>;
@@ -46,8 +46,8 @@ class Device {
 	std::string m_name;
 	bool m_debug;
   public:
-	static constexpr float Vss = 0.0;
-	static constexpr float Vdd = 5.0;
+	static constexpr double Vss = 0.0;
+	static constexpr double Vdd = 5.0;
 
 	Device(): m_name(""), m_debug(false) {}
 	Device(const Device &d): m_debug(false) {
@@ -59,11 +59,12 @@ class Device {
 		name(d.name());
 		return *this;
 	}
-
+	virtual std::string info() { return "Name: " + name(); }
 	virtual ~Device() {}
 	void debug(bool flag) { m_debug = flag; }
 	bool debug() const { return m_debug; }
 	const std::string &name() const { return m_name; }
+	virtual int slot_id(int a_id) { return a_id; }
 	void name(const std::string &a_name) { m_name = a_name; }
 };
 
@@ -157,16 +158,16 @@ class DeviceEventQueue {
 	void process_events() {
 		int n;
 		try {
-			for (n=0; n<100; ++n)
+			for (n=0; n<1000; ++n)
 				if (not process_single().operator->()) break;
 //			std::cout << "Event Queue Processed: " << n << " events." << std::endl;
 		} catch (std::exception &e) {
 			std::cout << e.what() << std::endl;
 		} catch (...) {}
 
-		if (n == 100) {
+		if (n == 1000) {
 			std::cout << "Possible event loop detected" << std::endl;
-			debug = true;
+//			debug = true;
 		}
 	}
 };
@@ -285,44 +286,61 @@ template <class T> class DeviceEvent: public QueueableEvent {
 // Note:  Store conductance (1/R) instead of R because we use it way more often.
 //
 class Connection: public Device {
-	float m_V;                   //  A voltage on the connection
-	float m_conductance;         //  Internal resistance [inverse] (1/ohm)
-	bool  m_impeded;             //  The connection has an infinite resistance
-	bool  m_determinate;         //  We know what the value of the voltage is
-	float m_vDrop;               //  The voltage drop over this connection
+	double m_V;                   //  A voltage on the connection
+	double m_conductance;         //  Internal resistance [inverse] (1/ohm)
+	bool   m_impeded;             //  The connection has an infinite resistance
+	bool   m_determinate;         //  We know what the value of the voltage is
+	double m_vDrop;               //  The voltage drop over this connection
 	DeviceEventQueue eq;
 
-	const float min_R = 1.0e-9;
-	const float max_R = 1.0e+9;
+	const double min_R = 1.0e-12;
+	const double max_R = 1.0e+12;
 
   protected:
-	void queue_change();
-	virtual float calc_voltage_drop(float out_voltage);
+	virtual double calc_voltage_drop(double out_voltage);
 	bool impeded_suppress_change(bool a_impeded);
 
   public:
 	Connection(const std::string &a_name="");
-	Connection(float V, bool impeded=true, const std::string &a_name="");
+	Connection(double V, bool impeded=true, const std::string &a_name="");
 	virtual	~Connection();
 
-	virtual float rd(bool include_vdrop=false) const;
+	void queue_change(bool process_q = true);
+	virtual double rd(bool include_vdrop=false) const;
 
-	float vDrop() const;
+	virtual bool connect(Connection &c) { return false; }
+	virtual void disconnect(Connection &c) {}
+	virtual std::string info();
+
+	double vDrop() const;
 	virtual bool signal() const;
 	virtual bool impeded() const;
 	virtual bool determinate() const;
-	virtual float set_vdrop(float out_voltage);
-	void impeded(bool a_impeded);
-
 	void determinate(bool on);
-	void conductance(float iR);
-	virtual void R(float a_R);
-	virtual float conductance() const;
-	virtual float R() const;
-	virtual float I() const;
-	virtual void set_value(float V, bool a_impeded);
+	void conductance(double iR);
+	virtual void R(double a_R);
+	virtual double conductance() const;
+	virtual double R() const;
+	virtual double I() const;
+	virtual void impeded(bool a_impeded);
+	virtual double set_vdrop(double out_voltage);
+	virtual void set_value(double V, bool a_impeded);
 };
 
+//___________________________________________________________________________________
+//  This singleton provides a clock signal to other components which may need
+//  periodic updates or refresh cycles.
+//  Simulation::speed() is a multiplier which controls how quickly
+//
+class Simulation {
+	static Connection m_clock;
+	static double m_speed;
+  public:
+	static Connection &clock() { return m_clock; }
+	static double speed() { return m_speed; }   // a simulation speed multiplier
+	static void speed(double a_speed) { m_speed = a_speed; }
+	Simulation() {}
+};
 
 //___________________________________________________________________________________
 //   A terminal for connections.  It is impeded by default, but any
@@ -334,35 +352,66 @@ class Connection: public Device {
 class Terminal: public Connection {
 	std::set<Connection*> m_connects;
 	bool m_terminal_impeded;
+	int m_nslots = 1;
+
+  protected:
+	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
+	virtual double calc_voltage_drop(double out_voltage);
+
+  public:
+	Terminal(const std::string name="");
+	Terminal(double V, const std::string name="");
+	virtual ~Terminal();
+	void recalc();
+	virtual void calculate_voltage(double Vc, double Ci);
+	virtual bool connect(Connection &c);
+	virtual void disconnect(Connection &c);
+	virtual int slot_id(int a_id) { return m_nslots++; }
+	virtual void set_value(double V, bool a_impeded);
+	void impeded(bool a_impeded);
+	virtual bool impeded() const;
+	virtual double rd(bool include_vdrop=true) const;
+};
+
+//___________________________________________________________________________________
+//  A resistor is just a terminal.
+
+//___________________________________________________________________________________
+// A [very basic] capacitor.
+// This is a time frequency driven analog component.
+// Changes in voltage are recalculated periodically, as determined by a signal
+//   from Simulation::clock().
+class Capacitor: public Terminal {
+	double m_F;      // Capacitance in Farads
+	time_stamp m_T;  // last time stamp
 
   protected:
 
-	void recalc();
-	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
-	virtual float calc_voltage_drop(float out_voltage);
+	// Vc is sum(V/R).  R is total resistance.
+	virtual void calculate_voltage(double Vc, double Ci);
+	void on_clock(Connection *c, const std::string &a_name, const std::vector<BYTE>&a_data);
 
   public:
-	Terminal(const std::string name="Pin");
-	Terminal(float V, const std::string name="Pin");
-	virtual ~Terminal();
-	void connect(Connection &c);
-	void disconnect(Connection &c);
-	virtual void set_value(float V, bool a_impeded);
-	void impeded(bool a_impeded);
-	virtual bool impeded() const;
-	virtual float rd(bool include_vdrop=true) const;
+	double F();
+	void F(double a_F);
+	void reset();
+	virtual bool connect(Connection &c);
+	Capacitor(const std::string name="");
+	Capacitor(double V, const std::string &a_name);
+	~Capacitor();
 };
 
 
 //___________________________________________________________________________________
 // Voltage source.   Always constant, no matter what.  Overrides connection V.
 class Voltage: public Terminal {
-	float m_voltage;
+	double m_voltage;
 public:
-	Voltage(float V, const std::string name="Vin");
+	Voltage(double V, const std::string name="Vin");
 
+	void voltage(double a_voltage) { m_voltage = a_voltage; }
 	virtual bool impeded() const;
-	virtual float rd(bool include_vdrop=true) const;
+	virtual double rd(bool include_vdrop=true) const;
 };
 
 //___________________________________________________________________________________
@@ -370,7 +419,7 @@ public:
 // lowest unimpeded, otherwise the highest impeded connection as the voltage
 class PullUp: public Connection {
 public:
-	PullUp(float V, const std::string name="Vin");
+	PullUp(double V, const std::string name="Vin");
 	virtual bool impeded() const;
 };
 
@@ -380,7 +429,7 @@ class Ground: public Voltage {
 public:
 	Ground();
 	virtual bool impeded() const;
-	virtual float rd(bool include_vdrop=true) const;
+	virtual double rd(bool include_vdrop=true) const;
 };
 
 
@@ -396,7 +445,7 @@ class Inverse: public Connection {
 	Inverse(Connection &a_c);
 	virtual  ~Inverse();
 
-	virtual void set_value(float V, bool a_impeded);
+	virtual void set_value(double V, bool a_impeded);
 	void impeded(bool a_impeded);
 	void determinate(bool on);
 };
@@ -408,7 +457,7 @@ class Inverse: public Connection {
 // In this digital model, we don't particularly care what the resistance is, or how
 // much current flows.
 
-class Output: public Connection {
+class Output: public Terminal {
 	Connection &c;
 	bool wrapper;
 
@@ -417,14 +466,14 @@ class Output: public Connection {
   public:
 	Output();
 	Output(Connection &a_c);
-	Output(float V, const std::string &a_name="");
+	Output(double V, const std::string &a_name="");
 	virtual ~Output();
 	virtual bool signal() const;
-	virtual float rd(bool include_vdrop=true) const;
+	virtual double rd(bool include_vdrop=true) const;
 	virtual bool impeded() const;
 	virtual bool determinate() const;
 
-	virtual void set_value(float V, bool a_impeded=true);
+	virtual void set_value(double V, bool a_impeded=true);
 	void impeded(bool a_impeded);
 	void determinate(bool on);
 };
@@ -445,18 +494,19 @@ class Input: public Connection {
   public:
 	Input();
 	Input(Connection &a_c);
-	Input(float V, const std::string &a_name="");
+	Input(double V, const std::string &a_name="");
 	virtual ~Input();
 
 	virtual bool signal() const;
-	virtual float rd(bool include_vdrop=true) const;
+	virtual double rd(bool include_vdrop=true) const;
 	virtual bool impeded() const;
 	virtual bool determinate() const;
 
-	virtual void set_value(float V, bool a_impeded=true);
+	virtual void set_value(double V, bool a_impeded=true);
 	void impeded(bool a_impeded);
 	void determinate(bool on);
 };
+
 
 //___________________________________________________________________________________
 //  A generic gate
@@ -472,8 +522,8 @@ class Gate: public Device {
 	Gate(): Device(), m_inverted(false) {};
 	Gate(const std::vector<Connection *> &in, bool inverted=false, const std::string &a_name="");
 	virtual ~Gate();
-	void connect(size_t a_pos, Connection &in);
-	void disconnect(size_t a_pos);
+	virtual bool connect(size_t a_pos, Connection &in);
+	virtual void disconnect(size_t a_pos);
 	void inverted(bool a_inverted) { m_inverted = a_inverted; }
 	bool inverted() {return m_inverted; }
 	std::vector<Connection *> &inputs() { return m_in; }
@@ -488,7 +538,7 @@ class ABuffer: public Gate {
   public:
 	ABuffer(): Gate({}, false) {};
 	ABuffer(Connection &in, const std::string &a_name="");
-	void connect(Connection &in) { Gate::connect(0, in); }
+	virtual bool connect(Connection &in) { Gate::connect(0, in); return true; }
 };
 
 //___________________________________________________________________________________
@@ -498,7 +548,7 @@ class Inverter: public Gate {
   public:
 	Inverter(): Gate({}, true) {};
 	Inverter(Connection &in, const std::string &a_name="");
-	void connect(Connection &in) { Gate::connect(0, in); }
+	virtual bool connect(Connection &in) { Gate::connect(0, in); return true; }
 };
 
 //___________________________________________________________________________________
@@ -558,12 +608,12 @@ class Wire: public Device {
 	std::vector< Connection* > connections;
 	bool indeterminate;
 	DeviceEventQueue eq;
-	float Voltage;
-	float m_sum_conductance;
-	float m_sum_v_over_R;
+	double Voltage;
+	double m_sum_conductance;
+	double m_sum_v_over_R;
 
 
-	float recalc();
+	double recalc();
 	bool assert_voltage();
 	void queue_change();
 	void on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data);
@@ -573,10 +623,10 @@ class Wire: public Device {
 	Wire(Connection &from, Connection &to, const std::string &a_name="");
 	virtual	~Wire();
 
-	void connect(Connection &connection, const std::string &a_name="");
-	void disconnect(const Connection &connection);
+	virtual bool connect(Connection &connection, const std::string &a_name="");
+	virtual void disconnect(const Connection &connection);
 
-	float rd(bool include_vdrop=false);
+	double rd(bool include_vdrop=false);
 	bool determinate();
 	bool signal();
 };
@@ -612,7 +662,7 @@ class Tristate: public Device {
 	Tristate &inverted(bool v);
 	Tristate &gate_invert(bool v);
 
-	void wr(float in);
+	void wr(double in);
 	void input(Connection &in);
 	void gate(Connection &gate);
 
@@ -625,20 +675,19 @@ class Tristate: public Device {
 // Clamps a voltage between a lower and upper bound.
 class Clamp: public Device {
 	Connection *m_in;
-	float m_lo;
-	float m_hi;
+	double m_lo;
+	double m_hi;
 
 	void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:
 	Clamp(): Device(), m_in(NULL), m_lo(0), m_hi(0) {}
-	Clamp(Connection &in, float vLow=0.0, float vHigh=5.0);
+	Clamp(Connection &in, double vLow=0.0, double vHigh=5.0);
 	void reclamp(Connection &in);
 	void unclamp();
 	void limits(double a_lo, double a_hi) {m_lo = a_lo; m_hi = a_hi; }
 	~Clamp();
 };
-
 
 //___________________________________________________________________________________
 // A relay, such as a reed relay.  A signal applied closes the relay.  Functionally,
@@ -747,15 +796,15 @@ public:
 //___________________________________________________________________________________
 // Prevents a jittering signal from toggling between high/low states.
 class Schmitt: public Device {
-	Connection &m_in;
-	Connection &m_enable;
-	Connection m_enabled;
-	Connection m_out;
-	bool       m_gate_invert;
-	bool       m_out_invert;
+	Connection *m_in;
+	Connection *m_enable;
+	Connection 	m_enabled;
+	Connection 	m_out;
+	bool       	m_gate_invert;
+	bool       	m_out_invert;
 
-	const float m_lo = Vdd / 10.0 * 4;
-	const float m_hi = Vdd / 10.0 * 6;
+	const double m_lo = Vdd / 10.0 * 4;
+	const double m_hi = Vdd / 10.0 * 6;
 
 	void recalc();
 	void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
@@ -770,6 +819,9 @@ class Schmitt: public Device {
 	void out_invert(bool invert);
 	bool out_invert() const { return m_out_invert; }
 
+	void set_input(Connection &in);
+	void set_gate(Connection &en);
+
 	Connection &in();
 	Connection &en();
 	Connection &rd();
@@ -783,8 +835,8 @@ class SignalTrace: public Device {
   public:
 	struct DataPoint {
 		time_stamp ts;
-		float v;
-		DataPoint(time_stamp current_ts, float voltage) {
+		double v;
+		DataPoint(time_stamp current_ts, double voltage) {
 			ts = current_ts;
 			v = voltage;
 		}
@@ -797,7 +849,7 @@ class SignalTrace: public Device {
 	const std::vector<Connection *> m_values;
 	std::chrono::microseconds m_duration_us;
 	std::map<Connection *, std::queue<DataPoint> > m_times;
-	std::map<Connection *, float > m_initial;
+	std::map<Connection *, double > m_initial;
 
 	void crop(time_stamp current_ts = current_time_us());
 	void on_connection_change(Connection *c, const std::string &name, const std::vector<BYTE> &data);

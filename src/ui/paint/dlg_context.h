@@ -209,7 +209,6 @@ namespace app {
 			Glib::RefPtr<Gtk::ComboBoxText> cbox;
 			int max_unit;
 
-			double value_and_unit(double a_value, int &a_unit);
 			void set_from_value(double a_value);
 			double value();
 			scaled_value(Glib::RefPtr<Gtk::Entry> a_entry, Glib::RefPtr<Gtk::ComboBoxText> a_cbox, int a_max_unit);

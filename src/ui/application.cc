@@ -15,6 +15,7 @@
 #include "display_registers.h"
 #include "timer0.h"
 #include "timer1.h"
+#include "scratch.h"
 #include "paint/dlg_context.h"
 
 
@@ -33,6 +34,7 @@ void Sim16F::init_cpu(CPU_DATA &cpu) {
 	m_parts["Timer0"] = new app::Timer0(cpu, m_refGlade);
 	m_parts["Timer1"] = new app::Timer1Component(cpu, m_refGlade);
 	m_parts["Comparators"] = new app::Comparators(cpu, m_refGlade);
+	m_parts["Scratch"] = new app::ScratchComponent(cpu, m_refGlade);
 
 	new app::ContextDialogFactory(m_refGlade);  // initialise factory.
 

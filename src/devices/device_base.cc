@@ -1,11 +1,13 @@
+#include <sstream>
 #include "device_base.h"
 #include "../utils/utility.h"
-
 //_______________________________________________________________________________________________
 //  Event queue static definitions
 bool DeviceEventQueue::debug = false;
 std::mutex DeviceEventQueue::mtx;
 std::queue< SmartPtr<QueueableEvent> >DeviceEventQueue::events;
+Connection Simulation::m_clock;
+double Simulation::m_speed = 1.0;
 
 LockUI DeviceEventQueue::m_ui_lock(false);
 
@@ -22,17 +24,17 @@ template <class T> class
 //
 // Note:  Store conductance (1/R) instead of R, because we use it way more often.
 //
-	void Connection::queue_change(){  // Add a voltage change event to the queue
+	void Connection::queue_change(bool process_q){  // Add a voltage change event to the queue
 		eq.queue_event(new DeviceEvent<Connection>(*this, "Voltage Change"));
 		if (debug())
 			std::cout << name() << ": processing events" << std::endl;
-		eq.process_events();
+		if (process_q) eq.process_events();
 		if (debug())
 			std::cout << name() << ": done processing events" << std::endl;
 	}
 
-	float Connection::calc_voltage_drop(float out_voltage) {
-		float V = rd(false);
+	double Connection::calc_voltage_drop(double out_voltage) {
+		double V = rd(false);
 		if (debug()) {
 			std::cout << name() << ": Calculating vDrop = out_voltage["<<out_voltage << "] - V[" ;
 			std::cout << V << "] = " << out_voltage - V << std::endl;
@@ -56,14 +58,14 @@ template <class T> class
 		Device(a_name), m_V(Vss), m_conductance(1.0e+4), m_impeded(true), m_determinate(false), m_vDrop(0) {
 	};
 
-	Connection::Connection(float V, bool impeded, const std::string &a_name):
+	Connection::Connection(double V, bool impeded, const std::string &a_name):
 		Device(a_name), m_V(V), m_conductance(1.0e+4), m_impeded(impeded), m_determinate(true), m_vDrop(0) {
 	};
 
 	Connection::~Connection() { eq.remove_events_for(this); }
 
-	float Connection::rd(bool include_vdrop) const {
-		float val = m_V + include_vdrop * vDrop();
+	double Connection::rd(bool include_vdrop) const {
+		double val = m_V + include_vdrop * vDrop();
 		if (debug()) {
 			if (include_vdrop)
 				std::cout << "Connection " << name() << ": read value ["<< m_V << " + " << vDrop() << "] = " << val << std::endl;
@@ -73,12 +75,12 @@ template <class T> class
 		return val;
 	}
 
-	float Connection::vDrop() const { return m_vDrop; }
+	double Connection::vDrop() const { return m_vDrop; }
 
 	bool Connection::signal() const { return rd(true) > Vdd/2.0; }
 	bool Connection::impeded() const { return m_impeded; }
 	bool Connection::determinate() const { return m_determinate || !impeded(); }
-	float Connection::set_vdrop(float out_voltage) {
+	double Connection::set_vdrop(double out_voltage) {
 		m_vDrop = calc_voltage_drop(out_voltage);
 		if (debug()) std::cout << "vDrop: " << name() << "= " << m_vDrop << std::endl;
 		return m_vDrop;
@@ -95,7 +97,7 @@ template <class T> class
 		m_determinate = on;
 	}
 
-	void Connection::conductance(float iR) {  // set internal resistanve
+	void Connection::conductance(double iR) {  // set internal resistanve
 		if (iR >= min_R && iR <= max_R) {
 			m_conductance = iR;
 		} else if (iR < min_R) {
@@ -103,31 +105,50 @@ template <class T> class
 		}
 	}
 
-	void Connection::R(float a_R) {  // set internal resistanve
+	void Connection::R(double a_R) {  // set internal resistance
 		conductance(a_R>0?1/a_R:1/max_R);
 	}
 
-	float Connection::conductance() const {  // internal resistanve
+	double Connection::conductance() const {  // internal resistanve
 		return m_conductance;
 	}
 
-	float Connection::R() const {  // internal resistanve
+	double Connection::R() const {  // internal resistanve
 		return m_conductance>0?1/m_conductance:max_R;
 	}
 
-	float Connection::I() const {  // maximum current given V & R
+	double Connection::I() const {  // maximum current given V & R
 		return m_vDrop * m_conductance;
 	}
 
-	void Connection::set_value(float V, bool a_impeded) {
-		if (m_V != V || m_impeded != a_impeded || !determinate()) {
+	std::string Connection::info() 	{
+		std::ostringstream l_info;
+		l_info << Device::info() << std::endl;
+		if (impeded()) {
+			l_info << "Impeded = true" << std::endl;
+			l_info << "V = " << unit_text(rd(), "V") << std::endl;
+		} else {
+			l_info << "Vin = " << unit_text(rd(), "V") << std::endl;
+			l_info << "Vdrop = " << unit_text(vDrop(), "V") << std::endl;
+			l_info << "Vout = " << unit_text(rd(true), "V") << std::endl;
+			l_info << "R = " << unit_text(R(), "Ω") << std::endl;
+			l_info << "I = " << unit_text(I(), "A") << std::endl;
+			l_info << "P = " << unit_text(I()*vDrop(), "W") << std::endl;
+		}
+
+		return l_info.str();
+	}
+
+
+	void Connection::set_value(double V, bool a_impeded) {
+		if (!float_equiv(m_V, V) || m_impeded != a_impeded || !determinate()) {
 			determinate(true);     // the moment we change the value of a connection the value is determined
 			impeded_suppress_change(a_impeded);
 			m_V = V;
 			m_vDrop = 0;
 			if (debug())
 				std::cout << "Connection " << name() << ": set value V = " << V << std::endl;
-			queue_change();
+			queue_change(false);
 		}
 	}
 
@@ -142,61 +163,75 @@ template <class T> class
 	void Terminal::recalc() {
 		if (m_connects.size()) {   // don't change value unless at least one connection
 			m_terminal_impeded = true;
-			float sum_conductance = 0;
-			float sum_v_over_R = 0;
+			double sum_conductance = 0;
+			double sum_v_over_R = 0;
 			for (auto &c : m_connects ) {
 				if (c->impeded()) {
 				} else {
 					m_terminal_impeded = false;
-					float iR = c->conductance();
-					float Vc = c->rd(false);
+					double iR = c->conductance();
+					double Vc = c->rd(false);
 					sum_conductance += iR;
 					sum_v_over_R += Vc * iR;
 				}
 			}
 			if (not m_terminal_impeded) {
-				conductance(sum_conductance);  // treat that external R as an internal R
-				float V = sum_v_over_R/sum_conductance;
-				Connection::set_value(V, Connection::impeded());       // the calculated voltage becomes our voltage
+				calculate_voltage(sum_v_over_R, sum_conductance);
 			}
-		}
-	}
 
-	void Terminal::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		recalc();
-		for (auto &c : m_connects ) {
-			if (c->impeded()) {           // set voltage on outputs
-				c->set_value(rd(false), true);
-			}
-		}
-	}
-
-	float Terminal::calc_voltage_drop(float out_voltage) {
-		float total_vDrop = Connection::calc_voltage_drop(out_voltage); // vDrop = out_voltage - V
-		if ( not impeded() && m_connects.size()) {    // if we have inputs, update them
+			double out_voltage = rd(false);
 			for (auto &c : m_connects ) {
-				if (not c->impeded()) {
+				if (c->impeded()) {           // set voltage on outputs
+					c->set_value(out_voltage, true);
+				} else {
 					c->set_vdrop(out_voltage);
 				}
 			}
 		}
+	}
+
+	// Vc is sum(V/R).  Ci is total Conductivity.
+	void Terminal::calculate_voltage(double Vc, double Ci) {
+		if (!impeded()) {
+			Vc += rd() * conductance();           // add in this terminals V/R
+			Ci += conductance();               // and add 1/R to total
+		}
+
+		double V = Vc / Ci;         // V = sum(Vi/Ri) * sum(1/Ri)  ; i = 1..n
+		Connection::set_value(V, Connection::impeded());       // the calculated voltage becomes our input voltage
+	}
+
+	void Terminal::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+		recalc();
+	}
+
+	double Terminal::calc_voltage_drop(double out_voltage) {
+		double total_vDrop = Connection::calc_voltage_drop(out_voltage); // vDrop = out_voltage - V
+		if (not float_equiv(vDrop(), total_vDrop))     // if we have a new voltage drop,
+			queue_change(false);        // queue change so we can recalculate and propagate voltages
 		return total_vDrop;
 	}
 
 	Terminal::Terminal(const std::string name): Connection(name), m_connects(), m_terminal_impeded(true) {}
-	Terminal::Terminal(float V, const std::string name): Connection(V, true, name), m_connects(), m_terminal_impeded(true) {}
+	Terminal::Terminal(double V, const std::string name): Connection(V, true, name), m_connects(), m_terminal_impeded(true) {}
 	Terminal::~Terminal() {
 		for (auto &c : m_connects ) {
 			DeviceEvent<Connection>::unsubscribe<Terminal>(this, &Terminal::on_change, c);
 		}
 	}
-	void Terminal::connect(Connection &c) {
+
+	bool Terminal::connect(Connection &c) {
 		if (m_connects.find(&c) == m_connects.end()) {
 			m_connects.insert(&c);
 			recalc();
 			DeviceEvent<Connection>::subscribe<Terminal>(this, &Terminal::on_change, &c);
+			return true;
+		} else {
+			disconnect(c);
+			return false;
 		}
 	}
+
 	void Terminal::disconnect(Connection &c) {
 		if (m_connects.find(&c) != m_connects.end()) {
 			DeviceEvent<Connection>::unsubscribe<Terminal>(this, &Terminal::on_change, &c);
@@ -205,16 +240,16 @@ template <class T> class
 		}
 	}
 
-	void Terminal::set_value(float V, bool a_impeded) {
+	void Terminal::set_value(double V, bool a_impeded) {
 		// NOTE: When our actual internal voltage is being determined by a pool of connections with at
 		//       least one input, we cannot (should not) override the internal voltage by using
 		//       set_value().   We can achieve the same effect as set_value() by setting default
 		//       direction, and calling set_vdrop() instead.
 		if (m_connects.size() && !m_terminal_impeded) {
 			Connection::impeded_suppress_change(a_impeded);
-			float drop = vDrop();
+			double drop = vDrop();
 			set_vdrop(V);
-			if (drop != vDrop()) queue_change();
+			if (not float_equiv(drop, vDrop())) queue_change();
 		} else {
 			Connection::set_value(V, a_impeded);
 		}
@@ -222,23 +257,78 @@ template <class T> class
 
 	void Terminal::impeded(bool a_impeded) { Connection::impeded(a_impeded); }
 	bool Terminal::impeded() const { if (m_connects.size()) return m_terminal_impeded; return Connection::impeded(); }
-	float Terminal::rd(bool include_vdrop) const {
+	double Terminal::rd(bool include_vdrop) const {
 		return Connection::rd(include_vdrop);
+	}
+
+
+	//___________________________________________________________________________________
+	// A capacitor.  A time frequency driven analog component.
+	// Changes in voltage are recalculated periodically, as determined by a signal
+	// from Simulation::clock().
+
+	// Vc is sum(V/R).  Ci is total conductivity.
+	void Capacitor::calculate_voltage(double Vc, double Ci) {
+		auto ts = current_time_us();
+		auto dT = ((ts - m_T).count() / 1000000.0) * Simulation::speed();   // dT in seconds
+		if (dT > 0.1)  { // 100 ms steps.  We don't want to flood the message queue!
+			double R = 1/Ci;
+			Vc = Vc * R;  // Voltage at input of Rserial, excluding Rserial
+			double tau = (R+Connection::R()) * m_F;     // time constant
+			double V = (Vc - rd(false)) * (1 - exp(-dT / tau));
+
+			if (not float_equiv(V, 0, Vc / 1000)) {
+				m_T = ts;
+				std::cout << "R=" << R+Connection::R();
+				std::cout << "; dT=" << dT;
+				std::cout << "; Vc=" << Vc << "; Cap v=" << V << "[" << rd(false) + V << "]" << std::endl;
+				Connection::set_value(rd(false) + V, Connection::impeded());
+			}
+		}
+	}
+	void Capacitor::reset() {
+		Connection::set_value(0, Connection::impeded());
+		m_T = current_time_us();
+	}
+
+	bool Capacitor::connect(Connection &c) {
+		reset();
+		return Terminal::connect(c);
+	}
+
+	void Capacitor::on_clock(Connection *c, const std::string &a_name, const std::vector<BYTE>&a_data) {
+		recalc();    // time-value based component.
+	}
+	double Capacitor::F() { return m_F; }
+	void Capacitor::F(double a_F) { m_F = a_F; }
+
+	Capacitor::Capacitor(double V, const std::string &a_name): Terminal(V, a_name) {
+		m_F = 1e-6;
+		m_T = current_time_us();
+		DeviceEvent<Connection>::subscribe<Capacitor>(this, &Capacitor::on_clock, &Simulation::clock());
+	};
+	Capacitor::Capacitor(const std::string name): Terminal(name) {
+		m_F = 1e-6;
+		m_T = current_time_us();
+		DeviceEvent<Connection>::subscribe<Capacitor>(this, &Capacitor::on_clock, &Simulation::clock());
+	};
+	Capacitor::~Capacitor() {
+		DeviceEvent<Connection>::unsubscribe<Capacitor>(this, &Capacitor::on_clock, &Simulation::clock());
 	}
 
 
 //___________________________________________________________________________________
 // Voltage source.   Always constant, no matter what.  Overrides connection V.
-	Voltage::Voltage(float V, const std::string name): Terminal(V, name), m_voltage(V) {}
+	Voltage::Voltage(double V, const std::string name): Terminal(V, name), m_voltage(V) {}
 
 	bool Voltage::impeded() const { return false; }
-	float Voltage::rd(bool include_vdrop) const { return m_voltage; }
+	double Voltage::rd(bool include_vdrop) const { return m_voltage + include_vdrop * vDrop(); }
 
 
 //___________________________________________________________________________________
 // A Weak Voltage source.  If there are any unimpeded connections, we calculate the
 // lowest unimpeded, otherwise the highest impeded connection as the voltage
-	PullUp::PullUp(float V, const std::string name): Connection(V, false, name) {
+	PullUp::PullUp(double V, const std::string name): Connection(V, false, name) {
 		R(1.0e+6);
 	}
 
@@ -250,7 +340,7 @@ template <class T> class
 	Ground::Ground(): Voltage(0, "GND") {}
 
 	bool Ground::impeded() const { return false; }
-	float Ground::rd(bool include_vdrop) const { return Vss; }
+	double Ground::rd(bool include_vdrop) const { return Vss; }
 
 
 //___________________________________________________________________________________
@@ -267,7 +357,7 @@ template <class T> class
 		DeviceEvent<Connection>::unsubscribe<Inverse>(this, &Inverse::on_connection_change, &c);
 	}
 
-	void Inverse::set_value(float V, bool a_impeded) { c.set_value(V, a_impeded); }
+	void Inverse::set_value(double V, bool a_impeded) { c.set_value(V, a_impeded); }
 	void Inverse::impeded(bool a_impeded) { Connection::impeded(a_impeded); c.impeded(a_impeded); }
 	void Inverse::determinate(bool on) { Connection::determinate(on); c.determinate(on); }
 
@@ -282,22 +372,22 @@ template <class T> class
 		queue_change();
 	}
 
-	Output::Output(): Connection(), c(*this), wrapper(false) {}
-	Output::Output(Connection &a_c): Connection(), c(a_c), wrapper(true) {
+	Output::Output(): Terminal(), c(*this), wrapper(false) {}
+	Output::Output(Connection &a_c): Terminal(), c(a_c), wrapper(true) {
 		DeviceEvent<Connection>::subscribe<Output>(this, &Output::on_connection_change, &c);
 	}
-	Output::Output(float V, const std::string &a_name): Connection(V, false, a_name), c(*this), wrapper(false) {};
+	Output::Output(double V, const std::string &a_name): Terminal(V, a_name), c(*this), wrapper(false) {};
 	Output::~Output() {
 		if (wrapper)
 			DeviceEvent<Connection>::unsubscribe<Output>(this, &Output::on_connection_change, &c);
 	}
 
 	bool Output::signal() const { if (wrapper) return c.signal(); return Connection::signal(); }
-	float Output::rd(bool include_vdrop) const { if (wrapper) return c.rd(); return Connection::rd(); }
-	bool Output::impeded() const { return false; }
+	double Output::rd(bool include_vdrop) const { if (wrapper) return c.rd(); return Connection::rd(); }
+	bool Output::impeded() const { return true; }
 	bool Output::determinate() const { return true; }
 
-	void Output::set_value(float V, bool a_impeded) { if (wrapper) c.set_value(V, false); else Connection::set_value(V, false); }
+	void Output::set_value(double V, bool a_impeded) { if (wrapper) c.set_value(V, false); else Connection::set_value(V, false); }
 	void Output::impeded(bool a_impeded) { if (wrapper) c.impeded(false); else Connection::impeded(false); }
 	void Output::determinate(bool on) { if (wrapper) c.determinate(true); else Connection::determinate(true); }
 
@@ -316,18 +406,18 @@ template <class T> class
 	Input::Input(Connection &a_c): Connection(), c(a_c), wrapper(true) {
 		DeviceEvent<Connection>::subscribe<Input>(this, &Input::on_connection_change, &c);
 	}
-	Input::Input(float V, const std::string &a_name): Connection(V, false, a_name), c(*this), wrapper(false) {};
+	Input::Input(double V, const std::string &a_name): Connection(V, false, a_name), c(*this), wrapper(false) {};
 	Input::~Input() {
 		if (wrapper)
 			DeviceEvent<Connection>::unsubscribe<Input>(this, &Input::on_connection_change, &c);
 	}
 
 	bool Input::signal() const { if (wrapper) return c.signal(); return Connection::signal(); }
-	float Input::rd(bool include_vdrop) const { if (wrapper) return c.rd(); return Connection::rd(); }
+	double Input::rd(bool include_vdrop) const { if (wrapper) return c.rd(); return Connection::rd(); }
 	bool Input::impeded() const { return true; }
 	bool Input::determinate() const { if (wrapper) return c.determinate(); return Connection::determinate(); }
 
-	void Input::set_value(float V, bool a_impeded) { if (wrapper) c.set_value(V, true); else Connection::set_value(V, true); }
+	void Input::set_value(double V, bool a_impeded) { if (wrapper) c.set_value(V, true); else Connection::set_value(V, true); }
 	void Input::impeded(bool a_impeded) { if (wrapper) c.impeded(true); else Connection::impeded(true); }
 	void Input::determinate(bool on) { if (wrapper) c.determinate(on); else Connection::determinate(on); }
 
@@ -358,12 +448,13 @@ template <class T> class
 		for (size_t n = 0; n < m_in.size(); ++n)
 			DeviceEvent<Connection>::unsubscribe<Gate>(this, &Gate::on_change, m_in[n]);
 	}
-	void Gate::connect(size_t a_pos, Connection &in) {
+	bool Gate::connect(size_t a_pos, Connection &in) {
 		if (a_pos+1 > m_in.size()) m_in.resize(a_pos+1);
 		if (m_in[a_pos])
 			DeviceEvent<Connection>::unsubscribe<Gate>(this, &Gate::on_change, m_in[a_pos]);
 		m_in[a_pos] = &in;
 		DeviceEvent<Connection>::subscribe<Gate>(this, &Gate::on_change, m_in[a_pos]);
+		return true;
 	}
 
 	void Gate::disconnect(size_t a_pos) {
@@ -464,28 +555,28 @@ template <class T> class
 //   If a wire has no unimpeded connections, the voltage on the wire is indeterminate.
 
 
-	float Wire::recalc() {
+	double Wire::recalc() {
 		indeterminate = true;
 		if (debug()) std::cout << "read wire " << name() << ": [";
-		float sum_conductance = 0;
-		float sum_v_over_R = 0;
+		double sum_conductance = 0;
+		double sum_v_over_R = 0;
 		for (auto conn = connections.begin(); conn != connections.end(); ++conn) {
 			if (debug()) {
 				std::cout << (conn == connections.begin()?"":", ");
 				std::cout << (*conn)->name();
 			}
-			float v = (*conn)->rd(false);
+			double v = (*conn)->rd(false);
 			if ((*conn)->impeded())  {
 				if (debug()) std::cout << "[o]: ";
 			} else {
 				indeterminate = false;
-				float iR = (*conn)->conductance();
+				double iR = (*conn)->conductance();
 				if (debug()) std::cout << "[i]: ";
 				sum_conductance += iR;
 				sum_v_over_R += v * iR;
 			}
 		}
-		float V = Vss;
+		double V = Vss;
 		if (not indeterminate) {
 			m_sum_conductance = sum_conductance;
 			m_sum_v_over_R = sum_v_over_R;
@@ -502,7 +593,7 @@ template <class T> class
 	}
 
 	bool Wire::assert_voltage() {  // fires signals to any impeded connections
-		float V = recalc();
+		double V = recalc();
 		bool changed = Voltage != V;
 		if (debug()) {
 			if (!indeterminate) {
@@ -557,11 +648,12 @@ template <class T> class
 		}
 	}
 
-	void Wire::connect(Connection &connection, const std::string &a_name) {
+	bool Wire::connect(Connection &connection, const std::string &a_name) {
 		connections.push_back(&connection);
 		if (a_name.length()) connection.name(a_name);
 		DeviceEvent<Connection>::subscribe<Wire>(this, &Wire::on_connection_change, &connection);
 		queue_change();
+		return true;
 	}
 	void Wire::disconnect(const Connection &connection) {
 		for (auto conn=connections.begin(); conn != connections.end(); ++conn) {
@@ -575,14 +667,14 @@ template <class T> class
 		queue_change();
 	}
 
-	float Wire::rd(bool include_vdrop) {
+	double Wire::rd(bool include_vdrop) {
 		if (debug()) std::cout << name() << ": rd() = " << Voltage << std::endl;
 		return Voltage;
 	}
 
 	bool Wire::determinate() { return !indeterminate; }
 	bool Wire::signal() {
-		float V = rd();
+		double V = rd();
 		return V > Vdd/2.0;
 	}
 
@@ -640,7 +732,7 @@ template <class T> class
 	Tristate& Tristate::inverted(bool v) { m_invert_output = v; recalc_output(); return *this; }
 	Tristate& Tristate::gate_invert(bool v) { m_invert_gate = v; recalc_output(); return *this; }
 
-	void Tristate::wr(float in) { m_in->set_value(in, true); }
+	void Tristate::wr(double in) { m_in->set_value(in, true); }
 	void Tristate::input(Connection &in) {
 		DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_change, m_in);
 		m_in = &in; recalc_output();
@@ -664,7 +756,7 @@ template <class T> class
 
 	void Clamp::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
 		if (!m_in) return;
-		float in = m_in->rd();
+		double in = m_in->rd();
 		bool changed = false;
 		if (in < m_lo) {
 			in = m_lo; changed = true;
@@ -676,7 +768,7 @@ template <class T> class
 			m_in->set_value(in, m_in->impeded());
 	}
 
-	Clamp::Clamp(Connection &in, float vLow, float vHigh):
+	Clamp::Clamp(Connection &in, double vLow, double vHigh):
 		m_in(&in), m_lo(vLow), m_hi(vHigh) {
 		DeviceEvent<Connection>::subscribe<Clamp>(this, &Clamp::on_change, m_in);
 	};
@@ -702,7 +794,7 @@ template <class T> class
 		if (m_sw == NULL || m_in == NULL)
 			return;
 		bool impeded = !m_sw->signal(); // open circuit if not signal
-		float out = m_in->rd();
+		double out = m_in->rd();
 		m_out.set_value(out, impeded);
 	}
 
@@ -825,7 +917,7 @@ template <class T> class
 	}
 
 	void Mux::set_output() {
-		float value = m_in[m_idx]->rd();
+		double value = m_in[m_idx]->rd();
 		if (debug()) std::cout << "MUX." << name() << " sel(" << (int)m_idx << ") = " << value << std::endl;
 		m_out.set_value(value);
 	}
@@ -873,7 +965,7 @@ template <class T> class
 	void FET::recalc() {
 		bool active = m_gate.signal() ^ (not m_is_nType);
 
-		float in = m_in.rd(), out = m_out.rd();
+		double in = m_in.rd(), out = m_out.rd();
 
 		if (!m_in.determinate()) in = out;
 		if (!m_out.determinate()) out = in;
@@ -930,19 +1022,20 @@ template <class T> class
 		//  0     1     1
 		//  1     0     1
 		//  1     1     0
-		bool enabled = m_gate_invert ^ m_enable.signal();
+
+		bool enabled = m_gate_invert ^ m_enable->signal();
 		if (debug()) std::cout << "Schmitt: " << name() << ": enabled=" << (enabled?"true":"false");
-		float Vout = m_out.rd();
+		double Vout = m_out.rd();
 		if (!enabled)     // high impedence
 			m_out.set_value(Vss, true);
 		else {
-			double Vin = m_in.rd();
+			double Vin = m_in->rd();
 			if ((Vin > m_hi && Vout < m_hi) || (Vin < m_lo && Vout > m_lo)) {
-				Vout = m_out_invert?(!m_in.signal())*Vdd:m_in.signal()*Vdd;
+				Vout = m_out_invert?(!m_in->signal())*Vdd:m_in->signal()*Vdd;
 				if (debug()) std::cout << " : Vin=" << Vin << " : Vout=" << Vout;
 				m_out.set_value(Vout, false);
 			} else if ((Vin > m_hi && Vout > m_hi) || (Vin < m_lo && Vout < m_lo)) {
-				Vout = m_out_invert?(!m_in.signal())*Vdd:m_in.signal()*Vdd;
+				Vout = m_out_invert?(!m_in->signal())*Vdd:m_in->signal()*Vdd;
 				if (debug()) std::cout << " : Vin=" << Vin << " : Vout=" << Vout;
 				m_out.set_value(Vout, false);
 			} else if (debug())
@@ -956,28 +1049,40 @@ template <class T> class
 	}
 
 	Schmitt::Schmitt(Connection &in, Connection &en, bool impeded, bool gate_invert, bool out_invert):
-		m_in(in), m_enable(en), m_out(Vss, impeded), m_gate_invert(gate_invert), m_out_invert(out_invert) {
-		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, &m_in);
-		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, &m_enable);
+		m_in(&in), m_enable(&en), m_out(Vss, impeded), m_gate_invert(gate_invert), m_out_invert(out_invert) {
+		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, m_in);
+		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, m_enable);
 		recalc();
 	}
 	Schmitt::Schmitt(Connection &in, bool impeded, bool out_invert):
-		m_in(in), m_enable(m_enabled), m_out(Vss, impeded), m_gate_invert(false), m_out_invert(out_invert) {
-		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, &m_in);
-		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, &m_enable);
-		m_enable.set_value(Vdd, true);     // No enable signal, so always true
+		m_in(&in), m_enable(&m_enabled), m_out(Vss, impeded), m_gate_invert(false), m_out_invert(out_invert) {
+		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, m_in);
+		DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, m_enable);
+		m_enable->set_value(Vdd, true);     // No enable signal, so always true
 		recalc();
 	}
 	Schmitt::~Schmitt() {
-		DeviceEvent<Connection>::unsubscribe<Schmitt>(this, &Schmitt::on_change, &m_in);
-		DeviceEvent<Connection>::unsubscribe<Schmitt>(this, &Schmitt::on_change, &m_enable);
+		DeviceEvent<Connection>::unsubscribe<Schmitt>(this, &Schmitt::on_change, m_in);
+		DeviceEvent<Connection>::unsubscribe<Schmitt>(this, &Schmitt::on_change, m_enable);
 	}
 
 	void Schmitt::gate_invert(bool invert) { m_gate_invert = invert; recalc(); }
 	void Schmitt::out_invert(bool invert) { m_out_invert = invert; recalc(); }
 
-	Connection& Schmitt::in() { return m_in; }
-	Connection& Schmitt::en() { return m_enable; }
+	void Schmitt::set_input(Connection &in) {
+		if (m_in) DeviceEvent<Connection>::unsubscribe<Schmitt>(this, &Schmitt::on_change, m_in);
+		m_in = &in;
+		if (m_in) DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, m_in);
+	};
+
+	void Schmitt::set_gate(Connection &en) {
+		if (m_enable) DeviceEvent<Connection>::unsubscribe<Schmitt>(this, &Schmitt::on_change, m_enable);
+		m_enable = &en;
+		if (m_enable) DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, m_enable);
+	};
+
+	Connection& Schmitt::in() { return *m_in; }
+	Connection& Schmitt::en() { return *m_enable; }
 	Connection& Schmitt::rd() { return m_out; }
 
 
@@ -1024,7 +1129,7 @@ template <class T> class
 	// returns a collated map of map<connection*, queue<datapoint> where each connection has an equal queue length.
 	// and all columns are for the same time stamp.
 	std::map<Connection *, std::queue<SignalTrace::DataPoint> > SignalTrace::collate() {
-		std::map<Connection *, float > l_initial = m_initial;
+		std::map<Connection *, double > l_initial = m_initial;
 		std::map<Connection *, std::queue<DataPoint> > l_times = m_times;
 		std::map<Connection *, std::queue<DataPoint> > l_collated;
 

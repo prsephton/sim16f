@@ -1,5 +1,6 @@
 #include <iostream>
 #include "dlg_context.h"
+#include "../../utils/utility.h"
 
 namespace app {
 	SmartPtr<ContextDialogFactory> ContextDialogFactory::factory;
@@ -28,15 +29,6 @@ namespace app {
 		return i;
 	}
 
-
-	//_____________________________________________________________________________________________________________
-	// A convenience class to deal with values that have a unit.
-	double ContextDialog::scaled_value::value_and_unit(double a_value, int &a_unit) {
-		int mag = round(log10(a_value) / 3.0);  // round away from zero
-		double divisor = pow(10, mag*3);
-		return a_value / divisor;
-	}
-
 	void ContextDialog::scaled_value::set_from_value(double a_value) {
 		int l_unit;
 		double val = value_and_unit(a_value, l_unit);
@@ -49,17 +41,14 @@ namespace app {
 		//   ... etc.
 		// The ComboBoxText id starts at pico=0, ranging up to max_unit.
 
-		max_unit -= 4;   // now using equivalent ComboBoxText units.
 		if (l_unit > max_unit) {
-			val *= pow(10, (max_unit-l_unit)*3);
+			val *= pow(10, (l_unit-max_unit)*3);
 			l_unit = max_unit;
 		} else if (l_unit < -4) {
 			val *= pow(10, (l_unit+4)*3);
 			l_unit = -4;
-		} else {
-			val *= pow(10, l_unit*3);
 		}
-		cbox->set_active(l_unit+4);
+		cbox->set_active_id(as_text(l_unit+4));
 		entry->set_text(ContextDialog::as_text(val));
 	}
 
@@ -141,7 +130,7 @@ namespace app {
 		if (need_gate_inverted)
 			m_rb_gate_inverted->set_active(l_gate_invert);
 
-		std::cout << "Gate invert [app]=" << (l_gate_invert?"true":"false") << std::endl;
+//		std::cout << "Gate invert [app]=" << (l_gate_invert?"true":"false") << std::endl;
 
 		bool need_orientation = component.needs_orientation(l_orientation);
 		m_lb_orientation->set_visible(need_orientation);
@@ -281,7 +270,7 @@ namespace app {
 			if (need_inductance) component.set_inductance(scaled_value(m_inductance, m_inductance_unit, 0).value());
 			if (need_inverted) component.set_inverted(m_rb_inverted->get_active());
 			if (need_gate_inverted) component.set_gate_inverted(m_rb_gate_inverted->get_active());
-			std::cout << "Gate invert [dlg]=" << (m_rb_gate_inverted->get_active()?"true":"false") << std::endl;
+//			std::cout << "Gate invert [dlg]=" << (m_rb_gate_inverted->get_active()?"true":"false") << std::endl;
 
 
 			if (need_orientation) {

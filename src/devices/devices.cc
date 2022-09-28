@@ -324,6 +324,7 @@ void Clock::toggle() {
 //	std::cout << "toggle clock; high:" << high << "; phase:" << (int)phase << "\n";
 	DeviceEventQueue eq;
 	eq.queue_event(new DeviceEvent<Clock>(*this, "oscillator", {(BYTE)high}));
+	Simulation::clock().set_value(high*Vdd, false);
 
 	Q1 = phase == 1; if (Q1 && high) eq.queue_event(new DeviceEvent<Clock>(*this, "Q1"));
 	Q2 = phase == 2; if (Q2 && high) eq.queue_event(new DeviceEvent<Clock>(*this, "Q2"));

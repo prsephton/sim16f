@@ -152,14 +152,28 @@ namespace app {
 
 	struct WHATS_AT {
 		typedef enum {NOTHING, INPUT, OUTPUT, GATE, IN_OUT, START, END, SYMBOL, LINE, POINT, TEXT} ELEMENT;
+		typedef enum {WEST, SOUTH, EAST, NORTH} AFFINITY;
 
 		void *pt;
 		ELEMENT what;
 		int id;
+		AFFINITY dir = WEST;
 
-		WHATS_AT(void *a_pt, ELEMENT a_element, int a_id): pt(a_pt), what(a_element), id(a_id){}
+		WHATS_AT &rotate_affinity(double a_rotation) {
+			a_rotation = a_rotation + M_PI * 2;
+			int quad = round(a_rotation*2 / M_PI);        // a number with which to rotate affinity
+			dir = (AFFINITY)(((int)dir + quad) % 4);
+			return *this;
+		}
+
+		WHATS_AT(void *a_pt, ELEMENT a_element, int a_id, AFFINITY d=WEST): pt(a_pt), what(a_element), id(a_id), dir(d) {}
 		bool match(void *a_pt, ELEMENT a_what, int a_id) const {
 			return (pt == a_pt && what == a_what && id == a_id);
+		}
+		const std::string asText(void *address) const {
+			std::ostringstream s;
+			s << std::hex << address;
+			return s.str();
 		}
 		const std::string asText(int i) const {
 			std::ostringstream s;
@@ -167,7 +181,7 @@ namespace app {
 			return s.str();
 		}
 		const std::string asText(const std::string &prefix) const {
-			return prefix + "::" + asText((int)what) + "::" + asText(id);
+			return prefix + "::" + asText(pt) + "::" + asText((int)what) + "::" + asText(id);
 		}
 
 	};
@@ -190,7 +204,7 @@ namespace app {
 		virtual ~CairoDrawingBase() {}
 
 
-		virtual WHATS_AT location(Point p) {
+		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return WHATS_AT(this, WHATS_AT::NOTHING, 0);
 		}
 
@@ -204,11 +218,12 @@ namespace app {
 		void position(const Point &a_pos) { m_pos = a_pos; }
 		const Point &position() const { return m_pos; }
 
-		// Attempt to slot output from source into input at target.  We don't need to redefine this method upstream.
 		virtual void slot(CairoDrawingBase *source, const WHATS_AT &source_info, const WHATS_AT &target_info) {};
-		// Create a new connection as described by InterConnect c.  This method must be implemented
-		// by diagrams which wish to support connections to defined input slots.
-		virtual void connect(Component *c){}
+		// Attempt to slot output from source into input at target.
+		virtual bool slot(const WHATS_AT &w, Connection *source) { return false; };
+		// Return the connection at the indicatewd location
+		virtual Connection *slot(const WHATS_AT &w) { return NULL; };
+
 		// context editor for item at target
 		virtual void context(const WHATS_AT &target_info) {};
 		// move the indicated item to requested location.  with move_dia=true, move the whole diagram, else the symbol
@@ -217,11 +232,65 @@ namespace app {
 		};
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) = 0;
-		virtual bool on_motion(double x, double y) {
+		virtual bool on_motion(double x, double y, guint a_state) {
 			m_mouse_pos = Point(x,y);
 			m_area->queue_draw_area(2, 2, 100, 20);
 			return false;
 		}
+		static void black(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->set_source_rgba(0.0, 0.0, 0.0, 1.0);
+		}
+
+		static void darkblue(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->set_source_rgba(0.0, 0.0, 0.5, 1.0);
+		}
+
+		static void lightblue(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->set_source_rgba(0.5, 0.5, 1.0, 1.0);
+		}
+
+		static void blue(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->set_source_rgba(0.0, 0.0, 1.0, 1.0);
+		}
+
+		static void selected(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->set_source_rgba(0.0, 0.0, 0.0, 0.75);
+		}
+
+		static void white(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->set_source_rgba(1.0, 1.0, 1.0, 1.0);
+		}
+
+		static void gray(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->set_source_rgba(0.0, 0.0, 0.0, 0.25);
+		}
+
+		static void orange(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->set_source_rgba(0.75, 0.55, 0.2, 1.0);
+		}
+
+		static void green(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->set_source_rgba(0.5, 0.95, 0.5, 1.0);
+		}
+
+		static void bright_yellow(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->set_source_rgba(1.0, 1.0, 0.75, 1.0);
+		}
+
+		static void indeterminate(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->set_source_rgba(0.2, 0.5, 0.75, 1.0);
+		}
+		static void draw_indicator(const Cairo::RefPtr<Cairo::Context>& cr, bool ind) {
+			if (ind) { orange(cr); } else { gray(cr); }
+			cr->save();
+			cr->fill_preserve();
+			cr->set_source_rgba(0.0, 0.0, 0.0, 1.0);
+			cr->set_line_width(0.4);
+			cr->stroke();
+			cr->restore();
+		}
+
+		void draw_info(const Cairo::RefPtr<Cairo::Context>& cr, const std::string &a_info);
 	};
 
 	struct InterConnection: public Component {
@@ -229,17 +298,14 @@ namespace app {
 		CairoDrawingBase *to;       		// destination CairoDrawing for this connection
 		WHATS_AT src_index;
 		WHATS_AT dst_index;
-		Device *connection;         	    // a wire, or a connection, or null.
-		SmartPtr<Component> connection_diagram;	// a [wirediagram] or [connectiondiagram] object, or null
+		Connection *connection;         	    // a connection, or null.
+		bool connected = false;
+
+		void draw(const Cairo::RefPtr<Cairo::Context>& cr);
 
 		InterConnection(
 				CairoDrawingBase *source, const WHATS_AT &source_info,
-				CairoDrawingBase *target, const WHATS_AT &target_info)
-			: from(source), to(target), src_index(source_info), dst_index(target_info),
-			  connection(NULL), connection_diagram(NULL)
-		{
-			target->connect(this);
-		}
+				CairoDrawingBase *target, const WHATS_AT &target_info);
 
 	};
 
@@ -291,189 +357,21 @@ namespace app {
 		 *  }
 		 */
 
-		void select_source_cursor(const Glib::RefPtr<Gdk::Window> &win, WHATS_AT::ELEMENT what) {
-			if (what==WHATS_AT::IN_OUT) {
-				win->set_cursor(m_cursor_in_out);
-			} else if (what==WHATS_AT::OUTPUT) {
-				win->set_cursor(m_cursor_output);
-			} else if (what==WHATS_AT::START) {
-				win->set_cursor(m_cursor_start);
-			} else if (what==WHATS_AT::SYMBOL) {
-				win->set_cursor(m_cursor_symbol);
-			} else if (what==WHATS_AT::LINE) {
-				win->set_cursor(m_cursor_line);
-			} else if (what==WHATS_AT::POINT) {
-				win->set_cursor(m_cursor_point);
-			} else if (what==WHATS_AT::TEXT) {
-				win->set_cursor(m_cursor_text);
-			}
-		}
-
-		void select_target_cursor(const Glib::RefPtr<Gdk::Window> &win, WHATS_AT::ELEMENT what) {
-			if (what==WHATS_AT::IN_OUT) {
-				win->set_cursor(m_cursor_in_out);
-			} else if (what==WHATS_AT::END) {
-				win->set_cursor(m_cursor_end);
-			} else if (what==WHATS_AT::INPUT) {
-				win->set_cursor(m_cursor_input);
-			} else if (what==WHATS_AT::GATE) {
-				win->set_cursor(m_cursor_input);
-			}
-		}
-
-		bool button_press_event(GdkEventButton* button_event) {
-			LockUI mtx;
-			for (auto &dwg : m_drawings) {
-				if (!dwg->interactive()) continue;
-
-				WHATS_AT w = dwg->location(Point(button_event->x, button_event->y));
-				if (w.what!=WHATS_AT::NOTHING) {
-					m_actions.push(Action(dwg, Point(button_event->x, button_event->y), w));
-				}
-			}
-			while (m_actions.size() > 1) m_actions.pop();  // retain only the last action
-			mtx.release();
-			return true;  // Highlander: stop propagating this event
-		}
-
-		bool button_release_event(GdkEventButton* button_event) {
-			LockUI mtx;
-			std::stack<Action> l_term;
-			if (m_actions.size()) {
-				for (auto &dwg : m_drawings) {
-					WHATS_AT w = dwg->location(Point(button_event->x, button_event->y));
-					if (w.what!=WHATS_AT::NOTHING) {
-						l_term.push(Action(dwg, Point(button_event->x, button_event->y), w));
-					}
-				}
-				if (l_term.size()) {
-					auto &source = m_actions.front();
-					auto &target = l_term.top();
-					switch (button_event->button) {
-					case 1:          // left button released
-						target.dwg->slot(source.dwg, source.what, target.what);
-						break;
-					case 2:          // middle button released
-						break;
-					case 3:          // right button released
-						if (source.origin.close_to(target.origin))
-							target.dwg->context(target.what);    // it's a click
-						break;
-					}
-
-				}
-				while (m_actions.size()) m_actions.pop();  // clear all actions
-			}
-			mtx.release();
-			return true;  // Highlander: stop propagating this event
-		}
-
-		bool motion_event(GdkEventMotion* motion_event) {
-//			std::cout << "motion x=" << motion_event->x << " y=" << motion_event->y << ";" << std::endl;
-			LockUI mtx;
-
-			std::stack<WHATS_AT> locations;
-			Glib::RefPtr<Gdk::Window> win = Glib::wrap(motion_event->window, true);
-
-			for (auto &dwg : m_drawings) {
-				if (!dwg->interactive()) continue;
-				WHATS_AT w = dwg->location(Point(motion_event->x, motion_event->y));
-				if (w.what!=WHATS_AT::NOTHING) {
-					locations.push(w);
-				}
-
-				if (!m_actions.size()) {
-					dwg->on_motion(motion_event->x, motion_event->y);
-				}
-			}
-			if (m_actions.size()) {
-				auto &source = m_actions.front();
-				if (source.what.what == WHATS_AT::SYMBOL) {
-					Point p(motion_event->x, motion_event->y);
-					p.scale(source.dwg->scale()).snap(grid_size);
-
-					if (not source.origin.close_to(p)) {
-						if ((motion_event->state & Gdk::BUTTON1_MASK) == Gdk::BUTTON1_MASK) {
-							if ((motion_event->state & Gdk::SHIFT_MASK) == Gdk::SHIFT_MASK)
-								source.dwg->move(source.what, p, true);
-							else
-								source.dwg->move(source.what, p);
-							m_area->queue_draw();
-						}
-					}
-				}
-			}
-			if (locations.size()) {
-				auto w = locations.top();
-				if (m_actions.size()) {     // dragging over possible target
-					select_target_cursor(win, w.what);
-				} else {                    // Just moving, action selected
-					select_source_cursor(win, w.what);
-				}
-			} else if (m_actions.size()) {  // dragging over nothing
-				auto w = m_actions.front().what;
-				select_source_cursor(win, w.what);
-			} else {
-				win->set_cursor(m_cursor_arrow);
-			}
-			mtx.release();
-			return true;   // there can be only one!
-		}
-
-		void recalc_scale() {
-			double swidth =  m_alloc_width / m_pix_width;
-			double sheight = m_alloc_height / m_pix_height;
-			m_scale = swidth < sheight?swidth:sheight;  // maintain aspect ratio
-		}
-
-		void size_changed(Gtk::Allocation& allocation) {
-			m_alloc_width = allocation.get_width();
-			m_alloc_height = allocation.get_height();
-			recalc_scale();
-		}
+		void select_source_cursor(const Glib::RefPtr<Gdk::Window> &win, WHATS_AT::ELEMENT what);
+		void select_target_cursor(const Glib::RefPtr<Gdk::Window> &win, WHATS_AT::ELEMENT what);
+		bool button_press_event(GdkEventButton* button_event);
+		bool button_release_event(GdkEventButton* button_event);
+		bool motion_event(GdkEventMotion* motion_event);
+		void recalc_scale();
+		void size_changed(Gtk::Allocation& allocation);
 
 	  public:
 
-		void set_extents(float a_pix_width, float a_pix_height) {
-			m_pix_width = a_pix_width; m_pix_height = a_pix_height;
-			recalc_scale();
-		}
-
-		double get_scale() const { return m_scale; }
-
-		void add_drawing(CairoDrawingBase *drawing) {
-			m_drawings.push_back(drawing);
-		}
-
-		void remove_drawing(CairoDrawingBase *drawing) {
-			for (size_t n=0; n < m_drawings.size(); ++n)
-				if (m_drawings[n] == drawing) {
-					m_drawings.erase(m_drawings.begin() + n);
-					return;
-				}
-		}
-
-		Interaction(Glib::RefPtr<Gtk::DrawingArea> a_area): m_area(a_area) {
-
-			m_cursor_arrow = Gdk::Cursor::create(Gdk::CursorType::ARROW);
-			m_cursor_in_out = Gdk::Cursor::create(Gdk::CursorType::DOT);
-			m_cursor_output = Gdk::Cursor::create(Gdk::CursorType::DOT);
-			m_cursor_input = Gdk::Cursor::create(Gdk::CursorType::PLUS);
-			m_cursor_start = Gdk::Cursor::create(Gdk::CursorType::LEFT_SIDE);
-			m_cursor_end = Gdk::Cursor::create(Gdk::CursorType::RIGHT_SIDE);
-			m_cursor_symbol = Gdk::Cursor::create(Gdk::CursorType::TCROSS);
-			m_cursor_line = Gdk::Cursor::create(Gdk::CursorType::HAND2);
-			m_cursor_point = Gdk::Cursor::create(Gdk::CursorType::PENCIL);
-			m_cursor_text = Gdk::Cursor::create(Gdk::CursorType::DRAFT_LARGE);
-
-			m_area->signal_motion_notify_event().connect(sigc::mem_fun(*this, &Interaction::motion_event));
-			m_area->signal_button_press_event().connect(sigc::mem_fun(*this, &Interaction::button_press_event));
-			m_area->signal_button_release_event().connect(sigc::mem_fun(*this, &Interaction::button_release_event));
-			m_area->signal_size_allocate().connect(sigc::mem_fun(*this, &Interaction::size_changed));
-
-			m_area->add_events(Gdk::POINTER_MOTION_MASK | Gdk::BUTTON_PRESS_MASK | Gdk::BUTTON_RELEASE_MASK );
-
-		}
+		void set_extents(float a_pix_width, float a_pix_height);
+		double get_scale() const;
+		void add_drawing(CairoDrawingBase *drawing);
+		void remove_drawing(CairoDrawingBase *drawing);
+		Interaction(Glib::RefPtr<Gtk::DrawingArea> a_area);
 
 	};
 
@@ -505,15 +403,37 @@ namespace app {
 		// attempt to slot output from source into input at target
 		// An input "slot" can only have one source at a time.  Sources may be used any number of times.
 		virtual void slot(CairoDrawingBase *source, const WHATS_AT &source_info, const WHATS_AT &target_info) {
-			m_components[target_info.asText("Connection")] = new InterConnection(source, source_info, this, target_info);
+			if (source != this) {
+				InterConnection *ic = new InterConnection(source, source_info, this, target_info);
+				std::string key = target_info.asText("Connection");
+				if (ic->connected) {
+					m_components[key] = ic;
+				} else {    // disconnect toggle?
+					delete ic;
+					for (auto c: m_components) {
+						InterConnection *i = dynamic_cast<InterConnection *>(c.second.operator ->());
+						if (i && i->src_index.match(source_info.pt, source_info.what, source_info.id))
+							if (i->dst_index.match(target_info.pt, target_info.what, i->dst_index.id)) {
+								std::cout << "Disconnecting " << c.first << std::endl;
+								m_components.erase(c.first);
+								break;
+							}
+					}
+				}
+			}
 		};
 
 		bool draw_content(const Cairo::RefPtr<Cairo::Context>& cr) {
 			LockUI mtx;
 //			std::cout << "dwg acquired lock" << std::endl;
+
 			m_dev_origin = Point(0,0);
 			cr->save();
 			cr->user_to_device(m_dev_origin.x, m_dev_origin.y);
+			for (auto &component: m_components) {
+				InterConnection *ic = dynamic_cast<InterConnection *>(component.second.operator ->());
+				if (ic) ic->draw(cr);
+			}
 			double l_scale = m_interactions.produce(m_area)->get_scale();
 			cr->scale(l_scale, l_scale);
 			bool ok = on_draw(cr);
@@ -578,54 +498,6 @@ namespace app {
 			m_interactions.produce(m_area)->set_extents(a_pix_width, a_pix_height);
 		}
 
-		static void black(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->set_source_rgba(0.0, 0.0, 0.0, 1.0);
-		}
-
-		static void darkblue(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->set_source_rgba(0.0, 0.0, 0.5, 1.0);
-		}
-
-		static void lightblue(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->set_source_rgba(0.5, 0.5, 1.0, 1.0);
-		}
-
-		static void blue(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->set_source_rgba(0.0, 0.0, 1.0, 1.0);
-		}
-
-		static void selected(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->set_source_rgba(0.0, 0.0, 0.0, 0.75);
-		}
-
-		static void white(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->set_source_rgba(1.0, 1.0, 1.0, 1.0);
-		}
-
-		static void gray(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->set_source_rgba(0.0, 0.0, 0.0, 0.25);
-		}
-
-		static void orange(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->set_source_rgba(0.75, 0.55, 0.2, 1.0);
-		}
-
-		static void green(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->set_source_rgba(0.5, 0.95, 0.5, 1.0);
-		}
-
-		static void indeterminate(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->set_source_rgba(0.2, 0.5, 0.75, 1.0);
-		}
-		static void draw_indicator(const Cairo::RefPtr<Cairo::Context>& cr, bool ind) {
-			if (ind) { orange(cr); } else { gray(cr); }
-			cr->save();
-			cr->fill_preserve();
-			cr->set_source_rgba(0.0, 0.0, 0.0, 1.0);
-			cr->set_line_width(0.4);
-			cr->stroke();
-			cr->restore();
-		}
 
 		virtual void recalculate() {}
 

@@ -11,13 +11,152 @@
 
 namespace app {
 
+	template <class DeviceType, class SymbolType> class BasicDiagram: public CairoDrawing {
+	  protected:
+		SymbolType  m_symbol;
+		DeviceType &m_device;
+
+		virtual WHATS_AT location(Point p, bool for_input=false) {
+			WHATS_AT w = m_symbol.location(p);
+			if (for_input)
+				w.id = m_device.slot_id(w.id);
+			return w;
+		}
+
+		virtual const Point *point_at(const WHATS_AT &w) const {
+			const Point *pt = m_symbol.hotspot_at(w);
+			if (!pt) return m_symbol.hotspot_at(WHATS_AT(w.pt, w.what, 0));
+			return pt;
+		}
+
+		// Attempt to slot output from source into input at target.
+		// If source is already connected, disconnect instead.
+		virtual bool slot(const WHATS_AT &w, Connection *source) {
+			return m_device.connect(*source);  // should work for terminals
+		};
+
+		// Return the connection at the indicated location
+		virtual Connection *slot(const WHATS_AT &w) {
+			return dynamic_cast<Connection *>(&m_device);
+		};
+
+
+		virtual bool on_motion(double x, double y, guint state) {
+			Rect r = m_symbol.bounding_rect();
+			bool selected = m_symbol.selected();
+			m_symbol.selected() = r.inside(Point(x, y));
+			if (selected != m_symbol.selected()) {
+				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+			}
+			return false;
+		}
+
+		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->save();
+			position().cairo_translate(cr);
+			m_symbol.draw_symbol(cr, m_dev_origin);
+			if (m_symbol.selected()) {
+				draw_info(cr, m_device.info());
+			}
+			cr->restore();
+			return false;
+		}
+
+		// Context menu for m_symbol
+		virtual void context(const WHATS_AT &target_info) {
+			ContextDialogFactory().popup_context(m_symbol);
+			m_area->queue_draw();
+		};
+
+	  public:
+		BasicDiagram(Glib::RefPtr<Gtk::DrawingArea>a_area, DeviceType &a_device, double x, double y, double rotation=0, double scale=1):
+			CairoDrawing(a_area, Point(x,y)), m_symbol(x, y, rotation, scale), m_device(a_device)
+		{
+			m_symbol.name(a_device.name());
+		}
+
+	};
+
+	class VddDiagram: public BasicDiagram<Voltage, VddSymbol> {
+		// Context menu for a VddSymbol
+		virtual void context(const WHATS_AT &target_info) {
+			ContextDialogFactory().popup_context(m_symbol);
+			m_device.name(m_symbol.name());
+			m_device.voltage(m_symbol.voltage());
+			m_area->queue_draw();
+		};
+	  public:
+		VddDiagram(Glib::RefPtr<Gtk::DrawingArea>a_area, Voltage &a_device, double x, double y, double rotation=0, double scale=1):
+			BasicDiagram<Voltage, VddSymbol>(a_area, a_device, x, y, rotation, scale) {
+
+		}
+
+	};
+
+	class IODiagram: public BasicDiagram<Terminal, ConnectionSymbol> {
+
+		// Context menu for a ConnectionSymbol
+		virtual void context(const WHATS_AT &target_info) {
+			ContextDialogFactory().popup_context(m_symbol);
+			m_device.name(m_symbol.name());
+		}
+
+	  public:
+		IODiagram(Glib::RefPtr<Gtk::DrawingArea>a_area, Terminal &a_device, double x, double y, double rotation=0, double scale=1):
+			BasicDiagram<Terminal, ConnectionSymbol>(a_area, a_device, x, y, rotation, scale) {}
+
+	};
+
+	class ResistorDiagram : public BasicDiagram<Terminal, ResistorSymbol> {
+
+		// Context menu for a ResistorSymbol
+		virtual void context(const WHATS_AT &target_info) {
+			ContextDialogFactory().popup_context(m_symbol);
+			m_device.name(m_symbol.name());
+			m_device.R(m_symbol.resistance());
+			m_device.recalc();
+			m_area->queue_draw();
+		}
+
+	  public:
+		ResistorDiagram(Glib::RefPtr<Gtk::DrawingArea>a_area, Terminal &a_device, double x, double y, double rotation=0, double scale=1):
+			BasicDiagram<Terminal, ResistorSymbol>(a_area, a_device, x, y, rotation, scale) {}
+	};
+
+	class CapacitorDiagram : public BasicDiagram<Capacitor, CapacitorSymbol> {
+
+		// Context menu for a ResistorSymbol
+		virtual void context(const WHATS_AT &target_info) {
+			ContextDialogFactory().popup_context(m_symbol);
+			m_device.name(m_symbol.name());
+			m_device.F(m_symbol.capacitance());
+			m_device.reset();
+			m_area->queue_draw();
+		}
+
+	  public:
+		CapacitorDiagram(Glib::RefPtr<Gtk::DrawingArea>a_area, Capacitor &a_device, double x, double y, double rotation=0, double scale=1):
+			BasicDiagram<Capacitor, CapacitorSymbol>(a_area, a_device, x, y, rotation, scale) {
+			m_device.F(m_symbol.capacitance());
+		}
+	};
+
+
+	typedef class BasicDiagram<Ground, VssSymbol> VssDiagram;
+	typedef class BasicDiagram<Terminal, PinSymbol> TerminalDiagram;
+	typedef class BasicDiagram<Input, InputSymbol> InputDiagram;
+	typedef class BasicDiagram<Output, OutputSymbol> OutputDiagram;
+	typedef class BasicDiagram<PullUp, PullUpSymbol> PullUpDiagram;
+	typedef class BasicDiagram<Inverse, PinSymbol> InverseDiagram;
+
+
 	template<class GateType, class SymType, bool invert=false, bool is_xor=false>
 	class GateDiagram: public CairoDrawing {
 		GateType &m_gate;
 		double m_rotation;
 		SymType m_symbol;
 
-		virtual WHATS_AT location(Point p) {
+		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_symbol.location(p);
 		}
 		virtual const Point *point_at(const WHATS_AT &w) const {
@@ -26,7 +165,7 @@ namespace app {
 
 	  public:
 
-		virtual bool on_motion(double x, double y) {
+		virtual bool on_motion(double x, double y, guint state) {
 			Rect r = m_symbol.bounding_rect();
 			bool selected = m_symbol.selected();
 			m_symbol.selected() = r.inside(Point(x, y));
@@ -95,7 +234,7 @@ namespace app {
 		double m_scale;
 		PinSymbol m_symbol;
 
-		virtual WHATS_AT location(Point p) {
+		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_symbol.location(p);
 		}
 
@@ -105,7 +244,7 @@ namespace app {
 
 	  public:
 
-		virtual bool on_motion(double x, double y) {
+		virtual bool on_motion(double x, double y, guint state) {
 			Rect r = m_symbol.bounding_rect();
 			bool selected = m_symbol.selected();
 			m_symbol.selected() = r.inside(Point(x, y));
@@ -158,7 +297,7 @@ namespace app {
 
 	  public:
 
-		virtual bool on_motion(double x, double y) {
+		virtual bool on_motion(double x, double y, guint state) {
 			return false;
 		}
 		virtual const Point *point_at(const WHATS_AT &w) const {
@@ -208,39 +347,32 @@ namespace app {
 
 		SchmittSymbol m_symbol;
 
-		virtual WHATS_AT location(Point p) {
+		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_symbol.location(p);
 		}
 		virtual const Point *point_at(const WHATS_AT &w) const {
 			return m_symbol.hotspot_at(w);
 		}
 
-		// Create a new connection as described by InterConnect c.
-		virtual void connect(Component *c){
-			InterConnection *ic = dynamic_cast<InterConnection *>(c);
-			if (ic) {
-				if (ic->dst_index.what == WHATS_AT::INPUT)
-					ic->connection = &m_schmitt.in();
-				else if (ic->dst_index.what == WHATS_AT::GATE)
-					ic->connection = &m_schmitt.en();
-				Connection *conn = dynamic_cast<Connection *>(ic->connection);
-				if (conn) {
-					const Point *p1 = ic->from->point_at(ic->src_index);
-					const Point *p2 = ic->to->point_at(ic->dst_index);
-					if (p2 && p2) {
-						ConnectionDiagram *cd = new ConnectionDiagram(*conn, 0, 0, m_area);
-						ic->connection_diagram = cd;
-						cd->add(ConnectionDiagram::pt(p1->x,p1->y).first());
-						cd->add(ConnectionDiagram::pt(p2->x,p2->y));
-						m_area->queue_draw();
-					}
-				}
-			}
+		virtual Connection *slot(const WHATS_AT &w) {
+			if (w.what == WHATS_AT::OUTPUT) return &m_schmitt.rd();
+			return NULL;
 		}
+
+		virtual bool slot(const WHATS_AT &w, Connection *source) {
+			if (w.what == WHATS_AT::INPUT)
+				m_schmitt.set_input(*source);
+			else if (w.what == WHATS_AT::GATE)
+				m_schmitt.set_gate(*source);
+			else
+				return false;
+			return true;
+		}
+
 
 	  public:
 
-		virtual bool on_motion(double x, double y) {
+		virtual bool on_motion(double x, double y, guint state) {
 			Rect r = m_symbol.bounding_rect();
 			bool selected = m_symbol.selected();
 			m_symbol.selected() = r.inside(Point(x, y));
@@ -284,7 +416,7 @@ namespace app {
 
 		TristateSymbol m_symbol;
 
-		virtual WHATS_AT location(Point p) {
+		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_symbol.location(p);
 		}
 		virtual const Point *point_at(const WHATS_AT &w) const {
@@ -294,7 +426,7 @@ namespace app {
 
 	  public:
 
-		virtual bool on_motion(double x, double y) {
+		virtual bool on_motion(double x, double y, guint state) {
 			Rect r = m_symbol.bounding_rect();
 			bool selected = m_symbol.selected();
 			m_symbol.selected() = r.inside(Point(x, y));
@@ -343,7 +475,7 @@ namespace app {
 		Relay &m_relay;
 		RelaySymbol m_symbol;
 
-		virtual WHATS_AT location(Point p) {
+		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_symbol.location(p);
 		}
 		virtual const Point *point_at(const WHATS_AT &w) const {
@@ -352,7 +484,7 @@ namespace app {
 
 	  public:
 
-		virtual bool on_motion(double x, double y) {
+		virtual bool on_motion(double x, double y, guint state) {
 			Rect r = m_symbol.bounding_rect();
 			bool selected = m_symbol.selected();
 			m_symbol.selected() = r.inside(Point(x, y));
@@ -384,7 +516,7 @@ namespace app {
 		MuxSymbol m_symbol;
 		double m_rotation;
 
-		virtual WHATS_AT location(Point p) {
+		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_symbol.location(p);
 		}
 		virtual const Point *point_at(const WHATS_AT &w) const {
@@ -395,7 +527,7 @@ namespace app {
 
 		void draw_forward(bool a_forward){ m_symbol.draw_forward(a_forward); }
 
-		virtual bool on_motion(double x, double y) {
+		virtual bool on_motion(double x, double y, guint state) {
 			Rect r = m_symbol.bounding_rect();
 			bool selected = m_symbol.selected();
 			m_symbol.selected() = r.inside(Point(x, y));
@@ -432,7 +564,7 @@ namespace app {
 		BlockSymbol m_basic;
 		LatchSymbol m_latchsym;
 
-		virtual WHATS_AT location(Point p) {
+		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_latchsym.location(p);
 		}
 		virtual const Point *point_at(const WHATS_AT &w) const {
@@ -441,7 +573,7 @@ namespace app {
 
 	  public:
 
-		virtual bool on_motion(double x, double y) {
+		virtual bool on_motion(double x, double y, guint state) {
 			Rect r = m_latchsym.bounding_rect();
 			bool selected = r.inside(Point(x, y));
 			if (selected != m_latchsym.selected()) {
@@ -480,14 +612,14 @@ namespace app {
 		Point m_size;
 		BlockSymbol m_basic;
 
-		virtual WHATS_AT location(Point p) {
+		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_basic.location(p);
 		}
 		virtual const Point *point_at(const WHATS_AT &w) const {
 			return m_basic.hotspot_at(w);
 		}
 
-		virtual bool on_motion(double x, double y) {
+		virtual bool on_motion(double x, double y, guint state) {
 			Rect r = m_basic.bounding_rect();
 			bool selected = m_basic.selected();
 			m_basic.selected() = r.inside(Point(x, y));
@@ -551,14 +683,14 @@ namespace app {
 		BlockSymbol m_basic;
 		std::vector<std::string> m_names;
 
-		virtual WHATS_AT location(Point p) {
+		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_basic.location(p);
 		}
 		virtual const Point *point_at(const WHATS_AT &w) const {
 			return m_basic.hotspot_at(w);
 		}
 
-		virtual bool on_motion(double x, double y) {
+		virtual bool on_motion(double x, double y, guint state) {
 			Rect r = m_basic.bounding_rect();
 			bool selected = m_basic.selected();
 			m_basic.selected() = r.inside(Point(x, y));
