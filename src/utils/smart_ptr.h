@@ -46,6 +46,12 @@ template < class T > class SmartPtr
     T& operator* () { return *pData; }
     T* operator-> () { return pData; }
     operator bool() const { return (pData != 0); }
+    bool operator < (SmartPtr<T> &other) const {
+    	return (long)(void *)pData < (long)(void *)(other.operator ->());
+    }
+    bool operator == (SmartPtr<T> &other) const {
+    	return (long)(void *)pData == (long)(void *)(other.operator ->());
+    }
 
     SmartPtr<T>& operator = (const SmartPtr<T>& sp)
     {
