@@ -59,12 +59,22 @@ class Device {
 		name(d.name());
 		return *this;
 	}
+
+	virtual double resistance_for() { return 1e-12; }
+	virtual void calc_conductance_precedents(double &Gin, double &Iin, double &Idrop) {
+		Gin = 1e+12;
+		Iin = -1e-12;
+		Idrop = 0;
+	}
+	virtual bool recalc_total_R() { return false; }
+
 	virtual std::string info() { return "Name: " + name(); }
 	virtual ~Device() {}
 	void debug(bool flag) { m_debug = flag; }
 	bool debug() const { return m_debug; }
 	const std::string &name() const { return m_name; }
 	virtual int slot_id(int a_id) { return a_id; }
+	virtual bool unslot(void *slot_id){ return true; }
 	void name(const std::string &a_name) { m_name = a_name; }
 };
 
@@ -98,9 +108,11 @@ class DeviceEventQueue {
 	}
 
 	void clear() {
+		mtx.lock();
 		while (!events.empty()) {
 			events.pop();
 		}
+		mtx.unlock();
 	}
 
 	int size() {
@@ -126,6 +138,10 @@ class DeviceEventQueue {
 			return NULL;
 		else {
 			mtx.lock();
+			if (events.empty()) {
+				mtx.unlock();
+				return NULL;
+			}
 			auto event = events.front(); events.pop();
 			mtx.unlock();
 			m_ui_lock.acquire();
@@ -141,9 +157,7 @@ class DeviceEventQueue {
 		time_stamp expire = current_time_us() + std::chrono::duration<unsigned long, std::micro>(timeout_us);
 		while (current_time_us() < expire) {
 			auto event = process_single();
-			if (event.operator->())
-				std::cout << event->name() << std::endl;
-			if (event.operator->()== NULL)
+			if (event == SmartPtr<QueueableEvent>(NULL))
 				sleep_for_us(10);
 			else if (event->name() == name) {
 				std::cout << name << ": Try dynamic cast" << std::endl;
@@ -159,7 +173,7 @@ class DeviceEventQueue {
 		int n;
 		try {
 			for (n=0; n<1000; ++n)
-				if (not process_single().operator->()) break;
+				if (not process_single()) break;
 //			std::cout << "Event Queue Processed: " << n << " events." << std::endl;
 		} catch (std::exception &e) {
 			std::cout << e.what() << std::endl;
@@ -285,28 +299,77 @@ template <class T> class DeviceEvent: public QueueableEvent {
 //
 // Note:  Store conductance (1/R) instead of R because we use it way more often.
 //
+// There is a [connection] instance for every output for a device.  This connection
+//  has properties such as voltage and conductance for the device it represents.
+// A Slot is used to represent a connection between devices.  It has an input
+// connection, and a target device.  The same connection may be used in
+// multiple slots.
+//
+// Not all components need slots- only those passive ones which affect
+// a voltage at input.  Terminals, for example.
+struct Slot {
+	Device *dev;          // target device
+	Device *connection;   // this connection containing the slot
+	double vdrop = 0;     // voltage drop between this connection and the device
+	double total_R = 0;   // total resistance after this connection
+
+	Slot(Device *a_dev, Device *a_connection);
+	~Slot() {
+//		if (dev) dev->unslot(this);
+	}  // automatically unslot from targets
+
+	double calc_conductance();
+	void set_total_R(double a_total_R, double Gin, double Iin, double Idrop);
+	void recalc_total_R();
+	double calc_resistance_ratio();
+	double resistance_for();
+
+	void unslot() { dev = NULL; }
+//	void calculate_vdrop(double out_voltage);
+};
+
 class Connection: public Device {
 	double m_V;                   //  A voltage on the connection
 	double m_conductance;         //  Internal resistance [inverse] (1/ohm)
 	bool   m_impeded;             //  The connection has an infinite resistance
 	bool   m_determinate;         //  We know what the value of the voltage is
-	double m_vDrop;               //  The voltage drop over this connection
+	std::set<Slot *> m_slots;     //  The set of target slots for this connection.
+//	double m_vDrop;               //  The voltage drop over this connection
 	DeviceEventQueue eq;
-
+	double m_vdrop = 0;
 	const double min_R = 1.0e-12;
 	const double max_R = 1.0e+12;
 
   protected:
-	virtual double calc_voltage_drop(double out_voltage);
 	bool impeded_suppress_change(bool a_impeded);
 
+	void unslot_all_slots() {
+		for (auto slot: m_slots)
+			delete slot;
+		m_slots.clear();
+	}
+
   public:
+	virtual Slot *slot(Device *d);
+	virtual bool unslot(Slot *slot_id);
+
 	Connection(const std::string &a_name="");
 	Connection(double V, bool impeded=true, const std::string &a_name="");
 	virtual	~Connection();
 
+	void set_vdrop();
+	void reset_vdrop();
+//	double total_R();
+
+//	void zero_point(double &sum_conductance);
+//	virtual void propagate_R();
+
 	void queue_change(bool process_q = true);
 	virtual double rd(bool include_vdrop=false) const;
+
+	void calc_conductance_antecedents(double &Gout, double &Iout);
+	virtual bool recalc_total_R();
+	virtual void set_total_R();
 
 	virtual bool connect(Connection &c) { return false; }
 	virtual void disconnect(Connection &c) {}
@@ -323,7 +386,6 @@ class Connection: public Device {
 	virtual double R() const;
 	virtual double I() const;
 	virtual void impeded(bool a_impeded);
-	virtual double set_vdrop(double out_voltage);
 	virtual void set_value(double V, bool a_impeded);
 };
 
@@ -350,23 +412,30 @@ class Simulation {
 //   A terminal without connections is always impeded (treated as an output).
 
 class Terminal: public Connection {
-	std::set<Connection*> m_connects;
+	std::map<Connection*, Slot *> m_connects;
 	bool m_terminal_impeded;
 	int m_nslots = 1;
 
   protected:
 	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
-	virtual double calc_voltage_drop(double out_voltage);
+	// virtual double calc_voltage_drop(double out_voltage, double output_R);
 
   public:
 	Terminal(const std::string name="");
 	Terminal(double V, const std::string name="");
 	virtual ~Terminal();
 	void recalc();
-	virtual void calculate_voltage(double Vc, double Ci);
+//	virtual void propagate_R();
+
+	virtual void calc_conductance_precedents(double &Gin, double &Iin, double &Idrop);
+
+	virtual bool recalc_total_R();
+	virtual void set_total_R();
+	virtual double calculate_voltage(double Vc, double VdropV, double Ci);
 	virtual bool connect(Connection &c);
 	virtual void disconnect(Connection &c);
 	virtual int slot_id(int a_id) { return m_nslots++; }
+	virtual bool unslot(void *slot_id);
 	virtual void set_value(double V, bool a_impeded);
 	void impeded(bool a_impeded);
 	virtual bool impeded() const;
@@ -382,19 +451,20 @@ class Terminal: public Connection {
 // Changes in voltage are recalculated periodically, as determined by a signal
 //   from Simulation::clock().
 class Capacitor: public Terminal {
-	double m_F;      // Capacitance in Farads
-	time_stamp m_T;  // last time stamp
+	double m_F;       // Capacitance in Farads
+	double m_I = 0;   // current flowing
+	double m_R = 0;   // Resistance factor
+	time_stamp m_T;   // last time stamp
 
   protected:
-
-	// Vc is sum(V/R).  R is total resistance.
-	virtual void calculate_voltage(double Vc, double Ci);
+	double calculate_voltage(double Vc,double VdropC, double Ci);
 	void on_clock(Connection *c, const std::string &a_name, const std::vector<BYTE>&a_data);
 
   public:
 	double F();
 	void F(double a_F);
 	void reset();
+	double conductance() const { return 1/(1/Connection::conductance() + m_R); }
 	virtual bool connect(Connection &c);
 	Capacitor(const std::string name="");
 	Capacitor(double V, const std::string &a_name);
@@ -403,15 +473,41 @@ class Capacitor: public Terminal {
 
 
 //___________________________________________________________________________________
+// A [very basic] capacitor.
+// This is a time frequency driven analog component.
+class Inductor: public Terminal {
+	double m_H;        // Inductance in Henry's
+	time_stamp m_T;    // last time stamp
+	double m_I = 0;    // Current
+	double m_R = 0;
+
+  protected:
+	double calculate_voltage(double Vc, double VdropC, double Ci);
+	void on_clock(Connection *c, const std::string &a_name, const std::vector<BYTE>&a_data);
+
+  public:
+
+	double H();
+	void H(double a_H);
+	void reset();
+	double conductance() const { return 1/(1/Connection::conductance() + m_R); }
+	virtual bool connect(Connection &c);
+	Inductor(const std::string name="");
+	Inductor(double V, const std::string &a_name);
+	~Inductor();
+};
+
+
+//___________________________________________________________________________________
 // Voltage source.   Always constant, no matter what.  Overrides connection V.
 class Voltage: public Terminal {
-	double m_voltage;
+//	double m_voltage;
 public:
 	Voltage(double V, const std::string name="Vin");
 
-	void voltage(double a_voltage) { m_voltage = a_voltage; }
+	void voltage(double a_voltage) { Connection::set_value(a_voltage, false); }
 	virtual bool impeded() const;
-	virtual double rd(bool include_vdrop=true) const;
+//	virtual double rd(bool include_vdrop=true) const;
 };
 
 //___________________________________________________________________________________
@@ -605,7 +701,7 @@ class XOrGate: public Gate {
 //   If a wire has no unimpeded connections, the voltage on the wire is indeterminate.
 
 class Wire: public Device {
-	std::vector< Connection* > connections;
+	std::map< Connection *, Slot * > connections;
 	bool indeterminate;
 	DeviceEventQueue eq;
 	double Voltage;
@@ -780,10 +876,12 @@ class FET: public Device {
 	Connection &m_gate;
 	Connection m_out;
 	bool       m_is_nType;
+	Slot 	  *m_in_slot;
 
 	void recalc();
 	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 	virtual void on_output_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
+	virtual bool unslot(void *slot_id) { m_in_slot = NULL; return true; }
 
 public:
 	FET(Connection &in, Connection &gate, bool is_nType = true, bool dbg=false);
@@ -846,7 +944,7 @@ class SignalTrace: public Device {
 	};
 
   protected:
-	const std::vector<Connection *> m_values;
+	std::vector<Connection *> m_values;
 	std::chrono::microseconds m_duration_us;
 	std::map<Connection *, std::queue<DataPoint> > m_times;
 	std::map<Connection *, double > m_initial;
@@ -857,6 +955,10 @@ class SignalTrace: public Device {
   public:
 	SignalTrace(const std::vector<Connection *> &in, const std::string &a_name="");
 	~SignalTrace();
+
+	void add_trace(Connection *c);
+	void remove_trace(Connection *c);
+	void clear_traces();
 
 	// returns a collated map of map<connection*, queue<datapoint> where each connection has an equal queue length.
 	// and all columns are for the same time stamp.
