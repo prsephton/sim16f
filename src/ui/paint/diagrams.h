@@ -6,10 +6,35 @@
 #include <queue>
 #include <type_traits>
 #include "../../utils/utility.h"
-#include "cairo_drawing.h"
 #include "../../devices/devices.h"
+#include "common.h"
+#include "cairo_drawing.h"
 
 namespace app {
+
+	class Counters {
+		static std::map<std::string, int> m_counters;
+	  public:
+		static void reset() { m_counters.clear(); }
+		static std::string next(std::string type) {
+			if (not type.length()) type="U";
+			auto c = m_counters.find(type);
+			if (c == m_counters.end()) {
+				m_counters[type] = 0;
+				c = m_counters.find(type);
+			}
+			c->second += 1;
+			return type + int_to_string(c->second);
+		}
+		static void rename(Symbol *sym, Device *dev) {
+			if (dev->name().length()) {
+				sym->name(dev->name());
+			} else {
+				sym->name(next(sym->name()));
+				dev->name(sym->name());
+			}
+		}
+	};
 
 	template <class DeviceType, class SymbolType> class BasicDiagram: public CairoDrawing {
 	  protected:
@@ -66,13 +91,18 @@ namespace app {
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
 			m_area->queue_draw();
-		};
+		}
+
+		virtual void show_name(bool a_show) {
+			m_symbol.show_name(a_show);
+		}
+
 
 	  public:
 		BasicDiagram(Glib::RefPtr<Gtk::DrawingArea>a_area, DeviceType &a_device, double x, double y, double rotation=0, double scale=1):
-			CairoDrawing(a_area, Point(x,y)), m_symbol(x, y, rotation, scale), m_device(a_device)
-		{
-			m_symbol.name(a_device.name());
+			CairoDrawing(a_area, Point(x,y)), m_symbol(x, y, rotation, scale), m_device(a_device) {
+			Counters::rename(&m_symbol, &a_device);
+
 		}
 
 	};
@@ -88,7 +118,6 @@ namespace app {
 	  public:
 		VddDiagram(Glib::RefPtr<Gtk::DrawingArea>a_area, Voltage &a_device, double x, double y, double rotation=0, double scale=1):
 			BasicDiagram<Voltage, VddSymbol>(a_area, a_device, x, y, rotation, scale) {
-
 		}
 
 	};
@@ -120,7 +149,9 @@ namespace app {
 
 	  public:
 		ResistorDiagram(Glib::RefPtr<Gtk::DrawingArea>a_area, Terminal &a_device, double x, double y, double rotation=0, double scale=1):
-			BasicDiagram<Terminal, ResistorSymbol>(a_area, a_device, x, y, rotation, scale) {}
+			BasicDiagram<Terminal, ResistorSymbol>(a_area, a_device, x, y, rotation, scale) {
+			m_device.R(m_symbol.resistance());
+		}
 	};
 
 	class CapacitorDiagram : public BasicDiagram<Capacitor, CapacitorSymbol> {
@@ -138,6 +169,24 @@ namespace app {
 		CapacitorDiagram(Glib::RefPtr<Gtk::DrawingArea>a_area, Capacitor &a_device, double x, double y, double rotation=0, double scale=1):
 			BasicDiagram<Capacitor, CapacitorSymbol>(a_area, a_device, x, y, rotation, scale) {
 			m_device.F(m_symbol.capacitance());
+		}
+	};
+
+	class InductorDiagram : public BasicDiagram<Inductor, InductorSymbol> {
+
+		// Context menu for a ResistorSymbol
+		virtual void context(const WHATS_AT &target_info) {
+			ContextDialogFactory().popup_context(m_symbol);
+			m_device.name(m_symbol.name());
+			m_device.H(m_symbol.inductance());
+			m_device.reset();
+			m_area->queue_draw();
+		}
+
+	  public:
+		InductorDiagram(Glib::RefPtr<Gtk::DrawingArea>a_area, Inductor &a_device, double x, double y, double rotation=0, double scale=1):
+			BasicDiagram<Inductor, InductorSymbol>(a_area, a_device, x, y, rotation, scale) {
+			m_device.H(m_symbol.inductance());
 		}
 	};
 
@@ -209,6 +258,9 @@ namespace app {
 		}
 		template <class T> void create_buffer_symbol(std::false_type) {}
 
+		virtual void show_name(bool a_show) {
+			m_symbol.show_name(a_show);
+		}
 
 		GateDiagram(GateType &a_gate, double x, double y, double rotation, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area, Point(x,y)), m_gate(a_gate), m_rotation(rotation)
@@ -216,6 +268,7 @@ namespace app {
 			create_or_symbol<SymType>(std::is_same<SymType, OrSymbol>());
 			create_and_symbol<SymType>(std::is_same<SymType, AndSymbol>());
 			create_buffer_symbol<SymType>(std::is_same<SymType, BufferSymbol>());
+			Counters::rename(&m_symbol, &a_gate);
 		}
 	};
 
@@ -284,11 +337,16 @@ namespace app {
 			m_area->queue_draw_area((int)position().x, (int)position().y-10, 20, 20);
 		}
 
+		virtual void show_name(bool a_show) {
+			m_symbol.show_name(true);
+		}
+
 		PinDiagram(Connection &a_pin, double x, double y, double rotation, double scale, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area, Point(x,y)), m_pin(a_pin), m_rotation(rotation), m_scale(scale)
 		{
 			DeviceEvent<Connection>::subscribe<PinDiagram>(this, &PinDiagram::on_connection_change, &a_pin);
 			m_symbol = PinSymbol(0,0, m_rotation, m_scale);
+			Counters::rename(&m_symbol, &a_pin);
 		}
 	};
 
@@ -336,8 +394,9 @@ namespace app {
 		}
 
 		ClampDiagram(Clamp &a_clamp, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			CairoDrawing(a_area, Point(x,y)), m_clamp(a_clamp)
-		{}
+			CairoDrawing(a_area, Point(x,y)), m_clamp(a_clamp) {
+//			Counters::rename(&m_symbol, &a_clamp);
+		}
 	};
 
 	class SchmittDiagram:  public CairoDrawing {
@@ -402,11 +461,15 @@ namespace app {
 			m_area->queue_draw();
 		};
 
+		virtual void show_name(bool a_show) {
+			m_symbol.show_name(true);
+		}
 
 		SchmittDiagram(Schmitt &a_schmitt, double x, double y, double rotation, bool dual, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area, Point(x,y)), m_schmitt(a_schmitt), m_rotation(rotation), m_dual(dual)
 		{
 			m_symbol = SchmittSymbol(0, 0, m_rotation, m_dual);
+			Counters::rename(&m_symbol, &a_schmitt);
 		}
 	};
 
@@ -461,12 +524,17 @@ namespace app {
 			m_symbol.set_rotation(rotation);
 		}
 
+		virtual void show_name(bool a_show) {
+			m_symbol.show_name(true);
+		}
+
 		TristateDiagram(Tristate &a_tris, bool point_right, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area, Point(x,y)), m_tris(a_tris), m_point_right(point_right)
 		{
 			double rot = m_point_right?CairoDrawing::DIRECTION::RIGHT:CairoDrawing::DIRECTION::LEFT;
 			m_symbol = TristateSymbol(0,0,rot,m_tris.inverted(), m_tris.gate_invert());
 			m_symbol.name(a_tris.name());
+			Counters::rename(&m_symbol, &a_tris);
 		}
 
 	};
@@ -504,9 +572,14 @@ namespace app {
 			return false;
 		}
 
+		virtual void show_name(bool a_show) {
+			m_symbol.show_name(true);
+		}
+
 		RelayDiagram(Relay &a_relay, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area, Point(x,y)), m_relay(a_relay) {
 			m_symbol = RelaySymbol(0,0,0,m_relay.sw().signal());
+			Counters::rename(&m_symbol, &a_relay);
 		}
 
 	};
@@ -549,9 +622,14 @@ namespace app {
 		void set_scale(double a_scale) {m_symbol.set_scale(a_scale); }
 		void flipped(bool a_flipped) { m_symbol.flipped(a_flipped); }
 
+		virtual void show_name(bool a_show) {
+			m_symbol.show_name(true);
+		}
+
 		MuxDiagram(Mux &a_mux, double x, double y, double rotation, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area, Point(x,y)), m_mux(a_mux),  m_rotation(rotation) {
 			m_symbol = MuxSymbol(0, 0, m_rotation, m_mux.no_selects(), m_mux.no_inputs());
+			Counters::rename(&m_symbol, &a_mux);
 		}
 
 	};
@@ -598,11 +676,16 @@ namespace app {
 			return false;
 		}
 
+		virtual void show_name(bool a_show) {
+			m_latchsym.show_name(true);
+		}
+
 		LatchDiagram(Latch &a_latch, bool point_right, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area, Point(x,y)), m_latch(a_latch), m_point_right(point_right), m_size(70, 70)
 		{
 			m_basic = BlockSymbol(m_size.x/2, m_size.y/2, m_size.x, m_size.y);
 			m_latchsym = LatchSymbol(0, 0, 0, !m_point_right);
+			Counters::rename(&m_latchsym, &a_latch);
 		}
 	};
 
@@ -666,11 +749,16 @@ namespace app {
 			return false;
 		}
 
+		virtual void show_name(bool a_show) {
+			m_basic.show_name(true);
+		}
+
 		CounterDiagram(Counter &a_counter, Glib::RefPtr<Gtk::DrawingArea>a_area, double x, double y):
 			CairoDrawing(a_area, Point(x,y)), m_counter(a_counter),
 			m_size(a_counter.nbits() * 7 + 50, 30 + 20 * a_counter.is_sync())
 		{
 			m_basic = BlockSymbol(m_size.x/2, m_size.y/2, m_size.x, m_size.y);
+			Counters::rename(&m_basic, &a_counter);
 		}
 	};
 
@@ -680,98 +768,93 @@ namespace app {
 		int m_width;
 		int m_rowHeight;
 		Point m_size;
-		BlockSymbol m_basic;
+		TraceSymbol m_symbol;
 		std::vector<std::string> m_names;
 
 		virtual WHATS_AT location(Point p, bool for_input=false) {
-			return m_basic.location(p);
+			return m_symbol.location(p);
 		}
 		virtual const Point *point_at(const WHATS_AT &w) const {
-			return m_basic.hotspot_at(w);
+			return m_symbol.hotspot_at(w);
 		}
 
 		virtual bool on_motion(double x, double y, guint state) {
-			Rect r = m_basic.bounding_rect();
-			bool selected = m_basic.selected();
-			m_basic.selected() = r.inside(Point(x, y));
-			if (selected != m_basic.selected()) {
+			Rect r = m_symbol.bounding_rect();
+			bool selected = m_symbol.selected();
+			m_symbol.selected() = r.inside(Point(x, y));
+			if (selected != m_symbol.selected()) {
 				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
 			}
 			return false;
 		}
 
 
-	  public:
-
-		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-
-			cr->save();
-			cr->translate(position().x+2, position().y);
-			m_basic.draw_symbol(cr, m_dev_origin);
-			cr->set_line_width(0.8);
-			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+		void set_symbol_data() {
 			auto first_ts = m_trace.first_us();
 			auto range =  std::chrono::duration<double>(m_trace.current_us() - first_ts).count();
-			int width = m_width-2;
-			int nth_row = 1;
-			int text_width = 0;
-			for (auto &name : m_names) {
-				Cairo::TextExtents extents;
-				cr->get_text_extents(name, extents);
-				if (text_width < extents.width) text_width = extents.width;
-				cr->move_to(0, nth_row * m_rowHeight-4);
-				cr->text_path(name);
-				cr->fill_preserve(); cr->stroke();
-				nth_row++;
-			}
-			if (text_width) text_width += 8;
-			cr->translate(text_width, 2);
-			width -= text_width;
 			auto collated = m_trace.collate();
-			nth_row = 0;
+			int nth = 0;
+			m_symbol.clear_data();
 			for (auto &c : m_trace.traced()) {
 				auto &q = collated[c];
-				bool first = true;
-				double v = 0;
-
+				auto &row = m_symbol.add_data_row(m_names[nth++]);
 				while (!q.empty()) {
 					auto &data = q.front();
 					auto ts = std::chrono::duration<double>(data.ts - first_ts).count();
-					float x = ts / range;
-//					std::cout << x << "[" << data.v <<  "] ";
-					if (first) {
-						cr->move_to(x * width, nth_row * m_rowHeight +  (1 - data.v / c->Vdd) * (m_rowHeight - 4));
-						v = data.v;
-						first = false;
-					} else {
-						cr->line_to(x * width, nth_row * m_rowHeight +  (1 - v / c->Vdd) * (m_rowHeight - 4));
-						cr->line_to(x * width, nth_row * m_rowHeight +  (1 - data.v / c->Vdd) * (m_rowHeight - 4));
-						v = data.v;
-					}
+					double x = ts / range;
+					row.add(x, data.v/c->Vdd);
 					q.pop();
 				}
-//				std::cout << std::endl;
-				if (nth_row % 2) black(cr); else blue(cr);
-				cr->stroke();
-				nth_row++;
 			}
+		}
 
+	  public:
+
+		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			set_symbol_data();
+			cr->save();
+			cr->translate(position().x+2, position().y);
+			m_symbol.draw_symbol(cr, m_dev_origin);
 			cr->restore();
 			return false;
 		}
+
+
+		virtual void show_name(bool a_show) {
+			m_symbol.show_name(true);
+		}
+
+		void set_rowHeight(double rh) {
+			m_symbol.set_rowHeight(rh);
+			m_rowHeight = rh;
+		}
+
+		void add_trace(Connection *c) {
+			m_trace.add_trace(c);
+		}
+
+		void remove_trace(Connection *c) {
+			m_trace.remove_trace(c);
+		}
+
+		void clear_traces() {
+			m_trace.clear_traces();
+		}
+
 
 		TraceDiagram(SignalTrace &a_trace, Glib::RefPtr<Gtk::DrawingArea>a_area, double x, double y, int width=200, int row_height=20):
 			CairoDrawing(a_area, Point(x,y)), m_trace(a_trace),
 			m_width(width), m_rowHeight(row_height),
 			m_size(m_width, a_trace.traced().size() * m_rowHeight)
 		{
-			m_basic = BlockSymbol(m_size.x/2, m_size.y/2, m_size.x, m_size.y);
+			m_symbol = TraceSymbol(m_size.x/2, m_size.y/2, m_size.x, row_height);
 			m_names.resize(a_trace.traced().size());
 			for (size_t n=0; n < m_names.size(); ++n) {
 				m_names[n] = m_trace.traced()[n]->name();
 				if (not m_names[n].length())
 					m_names[n] = std::string("S") + int_to_hex(n, ".");
 			}
+			Counters::rename(&m_symbol, &a_trace);
 		}
 	};
 
