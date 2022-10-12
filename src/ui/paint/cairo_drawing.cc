@@ -283,28 +283,32 @@ namespace app{
 	bool Interaction::button_release_event(GdkEventButton* button_event) {
 		std::stack<Action> l_term;
 		if (m_actions.size()) {
-			for (auto &dwg : m_drawings) {
-				WHATS_AT w = dwg->location(Point(button_event->x, button_event->y), true);
-				if (w.what!=WHATS_AT::NOTHING) {
-					l_term.push(Action(dwg, Point(button_event->x, button_event->y), w));
-				}
-			}
-			if (l_term.size()) {
+			if (button_event->y <= 0) {
 				auto &source = m_actions.front();
-				auto &target = l_term.top();
-				switch (button_event->button) {
-				case 1:          // left button released
-					target.dwg->slot(source.dwg, source.what, target.what);
-					m_area->queue_draw();
-					break;
-				case 2:          // middle button released
-					break;
-				case 3:          // right button released
-					if (source.origin.close_to(target.origin))
-						target.dwg->context(target.what);    // it's a click
-					break;
+				deleting(source.dwg);
+			} else {
+				for (auto &dwg : m_drawings) {
+					WHATS_AT w = dwg->location(Point(button_event->x, button_event->y), true);
+					if (w.what!=WHATS_AT::NOTHING) {
+						l_term.push(Action(dwg, Point(button_event->x, button_event->y), w));
+					}
 				}
-
+				if (l_term.size()) {
+					auto &source = m_actions.front();
+					auto &target = l_term.top();
+					switch (button_event->button) {
+					case 1:          // left button released
+						target.dwg->slot(source.dwg, source.what, target.what);
+						m_area->queue_draw();
+						break;
+					case 2:          // middle button released
+						break;
+					case 3:          // right button released
+						if (source.origin.close_to(target.origin))
+							target.dwg->context(target.what);    // it's a click
+						break;
+					}
+				}
 			}
 			while (m_actions.size()) m_actions.pop();  // clear all actions
 		}
@@ -314,7 +318,7 @@ namespace app{
 	bool Interaction::motion_event(GdkEventMotion* motion_event) {
 //			std::cout << "motion x=" << motion_event->x << " y=" << motion_event->y << ";" << std::endl;
 		LockUI mtx;
-
+		bool deleting = false;
 		std::stack<WHATS_AT> locations;
 		Glib::RefPtr<Gdk::Window> win = Glib::wrap(motion_event->window, true);
 
@@ -345,13 +349,16 @@ namespace app{
 					}
 				}
 			}
+			deleting = (motion_event->y <= 0);
+//			std::cout << "Cursor drag: x=" << motion_event->x << "; y=" << motion_event->y << std::endl;
 		}
-		if (locations.size()) {
+		if (deleting) {
+			win->set_cursor(m_cursor_del);
+		} else if (locations.size()) {
 			auto w = locations.top();
 			if (m_actions.size()) {     // dragging over possible target
 				select_target_cursor(win, w.what);
 			} else {                    // Just moving, action selected
-
 				select_source_cursor(win, w.what);
 			}
 		} else if (m_actions.size()) {  // dragging over nothing
@@ -408,6 +415,7 @@ namespace app{
 		m_cursor_line = Gdk::Cursor::create(Gdk::CursorType::HAND2);
 		m_cursor_point = Gdk::Cursor::create(Gdk::CursorType::PENCIL);
 		m_cursor_text = Gdk::Cursor::create(Gdk::CursorType::DRAFT_LARGE);
+		m_cursor_del = Gdk::Cursor::create(Gdk::CursorType::PIRATE);
 
 		m_area->signal_motion_notify_event().connect(sigc::mem_fun(*this, &Interaction::motion_event));
 		m_area->signal_button_press_event().connect(sigc::mem_fun(*this, &Interaction::button_press_event));

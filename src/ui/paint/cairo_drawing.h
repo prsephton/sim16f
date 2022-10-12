@@ -217,6 +217,7 @@ namespace app {
 		double scale() { return m_scale; }
 		void position(const Point &a_pos) { m_pos = a_pos; }
 		const Point &position() const { return m_pos; }
+		virtual bool deleting(CairoDrawingBase *drawing) { return false; }
 
 		virtual void slot(CairoDrawingBase *source, const WHATS_AT &source_info, const WHATS_AT &target_info) {};
 		// Attempt to slot output from source into input at target.
@@ -228,6 +229,8 @@ namespace app {
 		virtual void context(const WHATS_AT &target_info) {};
 		// move the indicated item to requested location.  with move_dia=true, move the whole diagram, else the symbol
 		virtual void move(const WHATS_AT &target_info, const Point &destination, bool move_dia = false) {
+			if (destination.y < 0) return;
+			if (destination.x < 0) return;
 			position(destination);
 		};
 
@@ -289,7 +292,7 @@ namespace app {
 			cr->stroke();
 			cr->restore();
 		}
-
+		virtual void show_name(bool a_show) {}
 		void draw_info(const Cairo::RefPtr<Cairo::Context>& cr, const std::string &a_info);
 	};
 
@@ -323,6 +326,7 @@ namespace app {
 		Glib::RefPtr<Gdk::Cursor> m_cursor_line;
 		Glib::RefPtr<Gdk::Cursor> m_cursor_point;
 		Glib::RefPtr<Gdk::Cursor> m_cursor_text;
+		Glib::RefPtr<Gdk::Cursor> m_cursor_del;
 
 		int grid_size = 5;
 		float m_pix_width = 860.0;
@@ -364,11 +368,15 @@ namespace app {
 		bool motion_event(GdkEventMotion* motion_event);
 		void recalc_scale();
 		void size_changed(Gtk::Allocation& allocation);
-
 	  public:
 
 		void set_extents(float a_pix_width, float a_pix_height);
 		double get_scale() const;
+		void deleting(CairoDrawingBase *drawing) {
+			for (auto dwg: m_drawings)
+				if (dwg->deleting(drawing))
+					break;
+		}
 		void add_drawing(CairoDrawingBase *drawing);
 		void remove_drawing(CairoDrawingBase *drawing);
 		Interaction(Glib::RefPtr<Gtk::DrawingArea> a_area);

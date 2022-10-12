@@ -6,12 +6,12 @@
 #include <queue>
 #include <cmath>
 #include "cairo_drawing.h"
-#include "dlg_context.h"
+#include "properties.h"
 #include "../../devices/devices.h"
 
 namespace app {
 
-	class Symbol : public Configurable {
+	class Symbol : virtual public Configurable, public prop::Rotation, public prop::Scale {
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) = 0;
 
@@ -19,12 +19,11 @@ namespace app {
 		std::string m_name;
 		double m_x;
 		double m_y;
-		double m_rotation;
-		double m_scale;
 		bool   m_selected;
 		Rect   m_rect;
 		Point  m_ofs;
 		std::vector<Point> m_hotspots;
+		bool   m_show_name = false;
 
 	  public:
 
@@ -45,14 +44,55 @@ namespace app {
 			cr->restore();
 		}
 
-		void set_rotation(double a_rotation) { m_rotation = a_rotation; }
-		void set_scale(double a_scale) { m_scale = a_scale; }
-
 		void rotate(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->rotate(m_rotation);
+			cr->rotate(get_rotation());
 		}
 		void scale(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->scale(m_scale, m_scale);
+			cr->scale(get_scale(), get_scale());
+		}
+
+		void draw_label(const Cairo::RefPtr<Cairo::Context>& cr, double x, double y, const std::string &text) {
+			if (text.length()) {
+
+				cr->save();
+				cr->translate(m_x, m_y);
+				scale(cr);
+				cr->save();
+				rotate(cr);
+				Cairo::TextExtents extents;
+				cr->get_text_extents(text, extents);
+
+				switch (((int)round(2*(get_rotation() + 2*M_PI)/M_PI)) % 4) {
+				  case WHATS_AT::WEST:
+					  cr->move_to(x, y);
+					  break;
+				  case WHATS_AT::SOUTH:
+					  cr->move_to(x + extents.height, y);
+					  break;
+				  case WHATS_AT::EAST:
+					  cr->move_to(x+extents.width, y-extents.height);
+					  break;
+				  case WHATS_AT::NORTH:
+					  cr->move_to(x, y-extents.width);
+					  break;
+				}
+				cr->restore();
+				CairoDrawingBase::black(cr);
+				cr->show_text(text);
+				cr->restore();
+			}
+		}
+
+		void show_name(bool show) { m_show_name = show; }
+
+		void draw_value(const Cairo::RefPtr<Cairo::Context>& cr, double x, double y, const std::string &text) {
+			if (m_show_name)
+				draw_label(cr, x, y, text);
+		}
+
+		void draw_label(const Cairo::RefPtr<Cairo::Context>& cr, double x, double y) {
+			if (m_show_name)
+				draw_label(cr, x, y, name());
 		}
 
 		void draw_symbol(const Cairo::RefPtr<Cairo::Context>& cr, Point a_ofs) {
@@ -121,8 +161,9 @@ namespace app {
 		virtual void set_name(const std::string &a_name){ name(a_name); }
 
 		Symbol(double x=0, double y=0, double rotation=0, double scale=1.0):
-			m_name(""), m_x(x), m_y(y), m_rotation(rotation), m_scale(scale), m_selected(false),
+			m_name(""), m_x(x), m_y(y), m_selected(false),
 			m_rect(0,0,0,0), m_ofs(0,0) {
+			set_rotation(rotation); set_scale(scale);
 			m_hotspots.resize(10);
 		}
 		virtual ~Symbol() {}
@@ -202,16 +243,16 @@ namespace app {
 			rotation = atan2(dy, dx);
 //			printf("Rotation is %.2f\n", rotation);
 			length = sqrt(dy*dy + dx*dx);
+			name("Bus");
 		}
 	};
 
 	class PinSymbol: public Symbol {
-
 	  public:
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::IN_OUT, 0).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 0).rotate_affinity(get_rotation());
 			return Symbol::location(p);
 		}
 
@@ -222,6 +263,7 @@ namespace app {
 		}
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			draw_label(cr, 25, 0);
 			cr->save();
 			cr->translate(m_x, m_y);
 			rotate(cr); scale(cr);
@@ -239,21 +281,18 @@ namespace app {
 			cr->restore();
 		}
 
-		PinSymbol(double x=0, double y=0, double rotation=0, double scale=1.0): Symbol(x, y, rotation, scale) {}
+		PinSymbol(double x=0, double y=0, double rotation=0, double scale=1.0): Symbol(x, y, rotation, scale) {
+			name("P");
+		}
 	};
 
-	class VddSymbol: public Symbol {
-		double m_voltage = 5;
-
-		// context menu integration
-		virtual bool needs_voltage(double &a_voltage){ a_voltage = voltage(); return true; }
-		virtual void set_voltage(double a_voltage){ m_voltage = a_voltage; }
+	class VddSymbol: public Symbol, public prop::Voltage {
 
 	  public:
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::SOUTH).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::SOUTH).rotate_affinity(get_rotation());
 			return Symbol::location(p);
 		}
 
@@ -262,8 +301,6 @@ namespace app {
 				return &hotspot(0);
 			return NULL;
 		}
-
-		double voltage() { return m_voltage; }
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
@@ -286,7 +323,9 @@ namespace app {
 			cr->restore();
 		}
 
-		VddSymbol(double x=0, double y=0, double rotation=0, double scale=1.0): Symbol(x, y, rotation, scale) {}
+		VddSymbol(double x=0, double y=0, double rotation=0, double scale=1.0): Symbol(x, y, rotation, scale) {
+			name("V");
+		}
 	};
 
 
@@ -295,7 +334,7 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::NORTH).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::NORTH).rotate_affinity(get_rotation());
 			return Symbol::location(p);
 		}
 
@@ -318,7 +357,9 @@ namespace app {
 			cr->fill_preserve(); cr->stroke();
 			cr->restore();
 		}
-		VssSymbol(double x=0, double y=0, double rotation=0, double scale=1.0): Symbol(x, y, rotation, scale) {}
+		VssSymbol(double x=0, double y=0, double rotation=0, double scale=1.0): Symbol(x, y, rotation, scale) {
+			name("Ground");
+		}
 	};
 
 
@@ -328,7 +369,7 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::IN_OUT, 0, WHATS_AT::WEST).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 0, WHATS_AT::WEST).rotate_affinity(get_rotation());
 			if (hotspot(1).close_to(p))
 				return WHATS_AT(this, WHATS_AT::IN_OUT, 1, WHATS_AT::EAST);
 			return Symbol::location(p);
@@ -345,6 +386,7 @@ namespace app {
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
+
 			rotate(cr); scale(cr);
 			bounding_rect(cr, Rect(0, -5, 30, 10));
 			hotspot(cr, 0, Point(0, 0));
@@ -370,7 +412,9 @@ namespace app {
 			cr->restore();
 		}
 
-		ConnectionSymbol(double x=0, double y=0, double rotation=0, double scale=1.0): Symbol(x, y, rotation, scale) {}
+		ConnectionSymbol(double x=0, double y=0, double rotation=0, double scale=1.0): Symbol(x, y, rotation, scale) {
+			name("IO");
+		}
 	};
 
 
@@ -380,7 +424,7 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0).rotate_affinity(get_rotation());
 			return Symbol::location(p);
 		}
 
@@ -413,7 +457,9 @@ namespace app {
 			cr->restore();
 		}
 
-		InputSymbol(double x=0, double y=0, double rotation=0, double scale=1.0): Symbol(x, y, rotation, scale) {}
+		InputSymbol(double x=0, double y=0, double rotation=0, double scale=1.0): Symbol(x, y, rotation, scale) {
+			name("In");
+		}
 	};
 
 
@@ -423,7 +469,7 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(get_rotation());
 			return Symbol::location(p);
 		}
 
@@ -456,24 +502,20 @@ namespace app {
 			cr->restore();
 		}
 
-		OutputSymbol(double x=0, double y=0, double rotation=0, double scale=1.0): Symbol(x, y, rotation, scale) {}
+		OutputSymbol(double x=0, double y=0, double rotation=0, double scale=1.0): Symbol(x, y, rotation, scale) {
+			name("Out");
+		}
 	};
 
-	class ResistorSymbol: public Symbol {
-		double m_resistance = 1.0;
-
-		// context menu integration
-		virtual bool needs_resistance(double &a_resistance){ a_resistance = resistance(); return true; }
-		virtual void set_resistance(double a_resistance){ m_resistance = a_resistance; }
+	class ResistorSymbol: public Symbol, public prop::Resistance {
 
 	  public:
-		double resistance() { return m_resistance; }
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::IN_OUT, 0).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 0).rotate_affinity(get_rotation());
 			if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::IN_OUT, 1, WHATS_AT::EAST).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 1, WHATS_AT::EAST).rotate_affinity(get_rotation());
 			return Symbol::location(p);
 		}
 
@@ -486,6 +528,8 @@ namespace app {
 		}
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			draw_label(cr, 0, -8);
+			draw_value(cr, 35, -8, unit_text(resistance(), "Ω"));
 			cr->save();
 			cr->translate(m_x, m_y);
 			rotate(cr); scale(cr);
@@ -510,24 +554,20 @@ namespace app {
 			cr->stroke();
 			cr->restore();
 		}
-		ResistorSymbol(double x=0, double y=0, double rotation=0, double scale=1): Symbol(x, y, rotation, scale) {}
+		ResistorSymbol(double x=0, double y=0, double rotation=0, double scale=1): Symbol(x, y, rotation, scale) {
+			name("R");
+		}
 	};
 
-	class CapacitorSymbol: public Symbol {
-		double m_capacitance = 1.0e-6;
-
-		// context menu integration
-		virtual bool needs_capacitance(double &a_capacitance){ a_capacitance = capacitance(); return true; }
-		virtual void set_capacitance(double a_capacitance){ m_capacitance = a_capacitance; }
+	class CapacitorSymbol: public Symbol, public prop::Capacitance {
 
 	  public:
-		double capacitance() { return m_capacitance; }
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::IN_OUT, 0, WHATS_AT::NORTH).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 0, WHATS_AT::NORTH).rotate_affinity(get_rotation());
 			if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::IN_OUT, 1, WHATS_AT::SOUTH).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 1, WHATS_AT::SOUTH).rotate_affinity(get_rotation());
 			return Symbol::location(p);
 		}
 
@@ -540,6 +580,8 @@ namespace app {
 		}
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			draw_label(cr, 10, 4);
+			draw_value(cr, 10, 44, unit_text(capacitance(), "F"));
 			cr->save();
 			cr->translate(m_x, m_y);
 			rotate(cr); scale(cr);
@@ -563,7 +605,63 @@ namespace app {
 			cr->stroke();
 			cr->restore();
 		}
-		CapacitorSymbol(double x=0, double y=0, double rotation=0, double scale=1): Symbol(x, y, rotation, scale) {}
+		CapacitorSymbol(double x=0, double y=0, double rotation=0, double scale=1): Symbol(x, y, rotation, scale) {
+			name("C");
+		}
+	};
+
+
+	class InductorSymbol: public Symbol, public prop::Inductance {
+
+	  public:
+
+		virtual WHATS_AT location(Point p) {
+			if (hotspot(0).close_to(p))
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 0, WHATS_AT::WEST).rotate_affinity(get_rotation());
+			if (hotspot(1).close_to(p))
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 1, WHATS_AT::EAST).rotate_affinity(get_rotation());
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			if (what.match((void *)this, WHATS_AT::IN_OUT, 0))
+				return &hotspot(0);
+			if (what.match((void *)this, WHATS_AT::IN_OUT, 1))
+				return &hotspot(1);
+			return NULL;
+		}
+
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			draw_label(cr, 0, -8);
+			draw_value(cr, 35, -8, unit_text(inductance(), "H"));
+			cr->save();
+			cr->translate(m_x, m_y);
+			rotate(cr); scale(cr);
+
+			bounding_rect(cr, Rect(0, -5, 45, 10));
+			hotspot(cr, 0, Point(0, 0));
+			hotspot(cr, 1, Point(45,0));
+
+			cr->rectangle(0, -6, 45, 9.4);
+			cr->clip();
+
+			cr->set_line_width(1.2);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_SQUARE);
+			cr->move_to( 0, 0);
+			cr->line_to(10, 0);
+
+			cr->arc(15, 0, 5, M_PI, M_PI/4);
+			cr->arc(22.5, 0, 5, M_PI*3/4, M_PI/4);
+			cr->arc(30, 0, 5, M_PI*3/4, 0);
+
+			cr->move_to(35, 0);
+			cr->line_to(45, 0);
+			cr->stroke();
+			cr->restore();
+		}
+		InductorSymbol(double x=0, double y=0, double rotation=0, double scale=1): Symbol(x, y, rotation, scale) {
+			name("L");
+		}
 	};
 
 
@@ -573,7 +671,7 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::SOUTH).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::SOUTH).rotate_affinity(get_rotation());
 			return Symbol::location(p);
 		}
 
@@ -596,7 +694,9 @@ namespace app {
 			cr->restore();
 		}
 
-		PullUpSymbol(double x=0, double y=0, double rotation=0, double scale=1.0): Symbol(x, y, rotation, scale) {}
+		PullUpSymbol(double x=0, double y=0, double rotation=0, double scale=1.0): Symbol(x, y, rotation, scale) {
+			name("V");
+		}
 	};
 
 
@@ -605,9 +705,9 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(get_rotation());
 			if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(get_rotation());
 			return Symbol::location(p);
 		}
 
@@ -620,9 +720,10 @@ namespace app {
 		}
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			draw_label(cr, 0, -10);
 			cr->save();
 			cr->translate(m_x, m_y);
-			cr->rotate(m_rotation);
+			cr->rotate(get_rotation());
 			bounding_rect(cr, Rect(0, -7, 10, 14));
 			hotspot(cr, 0, Point(0, -7));
 			hotspot(cr, 1, Point(0, 7));
@@ -634,7 +735,9 @@ namespace app {
 			cr->move_to(7, 0); cr->line_to(10, 0); cr->stroke();
 			cr->restore();
 		}
-		DiodeSymbol(double x=0, double y=0, double rotation=0): Symbol(x, y, rotation) {}
+		DiodeSymbol(double x=0, double y=0, double rotation=0): Symbol(x, y, rotation) {
+			name("D");
+		}
 	};
 
 
@@ -646,11 +749,11 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::NORTH).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::NORTH).rotate_affinity(get_rotation());
 			if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::SOUTH).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::SOUTH).rotate_affinity(get_rotation());
 			if (hotspot(2).close_to(p))
-				return WHATS_AT(this, WHATS_AT::GATE, 0).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::GATE, 0).rotate_affinity(get_rotation());
 			return Symbol::location(p);
 		}
 
@@ -666,9 +769,10 @@ namespace app {
 
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			draw_label(cr, 0, -8);
 			cr->save();
 			cr->translate(m_x, m_y);
-			cr->rotate(m_rotation);
+			cr->rotate(get_rotation());
 			bounding_rect(cr, Rect(0, -20, 20, 40));
 			hotspot(cr, 0, Point(20, -20));
 			hotspot(cr, 1, Point(20,  20));
@@ -702,18 +806,19 @@ namespace app {
 			cr->restore();
 		}
 		FETSymbol(double x=0, double y=0, double rotation=0, bool nType=true, bool with_vss=false, bool with_vdd=false):
-			Symbol(x, y, rotation), m_nType(nType), m_with_vss(with_vss), m_with_vdd(with_vdd) {}
+			Symbol(x, y, rotation), m_nType(nType), m_with_vss(with_vss), m_with_vdd(with_vdd) {
+			name("T");
+		}
 	};
 
-	class BufferSymbol: public Symbol  {
-		bool m_inverted;
+	class BufferSymbol: public Symbol, public prop::Inverted  {
 	  public:
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(get_rotation());
 			if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(get_rotation());
 			return Symbol::location(p);
 		}
 
@@ -725,14 +830,11 @@ namespace app {
 			return NULL;
 		}
 
-		// context menu integration
-		virtual bool needs_inverted(bool &a_inverted){ a_inverted = inverted(); return true; }
-		virtual void set_inverted(bool a_inverted){ inverted(a_inverted); }
-
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			draw_label(cr, 15, -15);
 			cr->save();
 			cr->translate(m_x, m_y);
-			cr->rotate(m_rotation);
+			cr->rotate(get_rotation());
 			bounding_rect(cr, Rect(0, -15, 30, 30));
 			hotspot(cr, 0, Point(0, 0));
 			hotspot(cr, 1, Point(30, 0));
@@ -740,7 +842,7 @@ namespace app {
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 			cr->move_to(0, -15); cr->line_to(0, 15);
 			cr->line_to(30, 0); cr->close_path();
-			if (m_inverted) {
+			if (inverted()) {
 				cr->stroke();
 				cr->save();
 				cr->set_line_width(0.8);
@@ -753,11 +855,11 @@ namespace app {
 			cr->restore();
 		}
 
-		void inverted(bool a_invert) { m_inverted = a_invert; }
-		bool inverted() const { return m_inverted; }
-
-		BufferSymbol(double x=0, double y=0, double rotation=0, bool inverted=false):
-			Symbol(x, y, rotation), m_inverted(inverted) {}
+		BufferSymbol(double x=0, double y=0, double rotation=0, bool a_inverted=false):
+			Symbol(x, y, rotation) {
+			inverted(a_inverted);
+			name("U");
+		}
 	};
 
 
@@ -770,7 +872,7 @@ namespace app {
 			int y2 = -w/2 + w * 3/4;
 			cr->save();
 			cr->translate(m_x, m_y);
-			cr->rotate(m_rotation);
+			cr->rotate(get_rotation());
 			bounding_rect(cr, Rect(0, -w/2, w, w));
 
 			hotspot(cr, 0, Point(0, y1));
@@ -802,11 +904,11 @@ namespace app {
 	public:
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(get_rotation());
 			if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 1).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::INPUT, 1).rotate_affinity(get_rotation());
 			if (hotspot(2).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(get_rotation());
 			return Symbol::location(p);
 		}
 
@@ -821,59 +923,49 @@ namespace app {
 		}
 
 		OpAmpSymbol(double x=0, double y=0, double rotation=0, bool plus_on_top=false):
-			Symbol(x, y, rotation), m_plus_on_top(plus_on_top){}
+			Symbol(x, y, rotation), m_plus_on_top(plus_on_top){
+			name("U");
+		}
 
 	};
 
-	class AndSymbol: public Symbol {
-		bool m_inverted;
-		int  m_inputs;
+	class AndSymbol: public Symbol, public prop::Inverted, public prop::Inputs {
 	  public:
 
 		virtual WHATS_AT location(Point p) {
-			for (int n=0; n<m_inputs; ++n)
+			for (int n=0; n<inputs(); ++n)
 				if (hotspot(n).close_to(p))
-					return WHATS_AT(this, WHATS_AT::INPUT, n).rotate_affinity(m_rotation);
-			if (hotspot(m_inputs).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, m_inputs, WHATS_AT::EAST).rotate_affinity(m_rotation);
+					return WHATS_AT(this, WHATS_AT::INPUT, n).rotate_affinity(get_rotation());
+			if (hotspot(inputs()).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, inputs(), WHATS_AT::EAST).rotate_affinity(get_rotation());
 
 			return Symbol::location(p);
 		}
 
 		virtual const Point *hotspot_at(const WHATS_AT &what) const {
-			for (int n=0; n<m_inputs; ++n)
+			for (int n=0; n<inputs(); ++n)
 				if (what.match((void *)this, WHATS_AT::INPUT, n))
 					return &hotspot(n);
 			if (what.match((void *)this, WHATS_AT::OUTPUT, 0))
-				return &hotspot(m_inputs);
+				return &hotspot(inputs());
 			return NULL;
 		}
-
-		// context menu integration
-		virtual bool needs_inverted(bool &a_inverted){ a_inverted = inverted(); return true; }
-		virtual void set_inverted(bool a_inverted){ inverted(a_inverted); }
-		virtual bool needs_inputs(int &a_inputs){a_inputs = m_inputs; return true; }
-		virtual void set_inputs(int a_inputs){ m_inputs = a_inputs; }
-
-		void inverted(bool a_invert) { m_inverted = a_invert; }
-		bool inverted() const { return m_inverted; }
-		int inputs() const { return m_inputs; }
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			double h = 30;
 			cr->save();
 			cr->translate(m_x, m_y);
-			cr->rotate(m_rotation);
+			cr->rotate(get_rotation());
 			cr->set_line_width(1.2);
 			bounding_rect(cr, Rect(0, -h/2, h, h));
-			for (int n=1; n<=m_inputs; ++n) {
-				double y = -h/2+n*h/(m_inputs+1);
+			for (int n=1; n<=inputs(); ++n) {
+				double y = -h/2+n*h/(inputs()+1);
 				hotspot(cr, n-1, Point(0, y));
 				cr->move_to(-3.5, y);
 				cr->line_to(0, y);
 				cr->stroke();
 			}
-			hotspot(cr, m_inputs, Point(h, 0));
+			hotspot(cr, inputs(), Point(h, 0));
 
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 
@@ -883,7 +975,7 @@ namespace app {
 			cr->stroke();
 
 
-			if (m_inverted) {
+			if (inverted()) {
 				cr->save();
 				cr->set_line_width(0.8);
 				cr->arc(h + 3.5, 0, 3.5, 0, 2*M_PI);
@@ -894,64 +986,51 @@ namespace app {
 
 			cr->restore();
 		}
-		AndSymbol(int a_inputs=2, double x=0, double y=0, double rotation=0, bool inverted=false):
-			Symbol(x, y, rotation), m_inverted(inverted), m_inputs(a_inputs){}
+		AndSymbol(int a_inputs=2, double x=0, double y=0, double rotation=0, bool a_inverted=false):
+			Symbol(x, y, rotation) {
+			inverted(a_inverted); inputs(a_inputs);
+			name("U");
+		}
 	};
 
-	class OrSymbol: public Symbol  {
-		bool m_inverted;
-		bool m_xor;
-		int  m_inputs;
+	class OrSymbol: public Symbol, public prop::Inverted, public prop::Inputs, public prop::Xor  {
 	  public:
 
 		virtual WHATS_AT location(Point p) {
-			for (int n=0; n<m_inputs; ++n)
+			for (int n=0; n<inputs(); ++n)
 				if (hotspot(n).close_to(p))
-					return WHATS_AT(this, WHATS_AT::INPUT, n).rotate_affinity(m_rotation);
-			if (hotspot(m_inputs).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, m_inputs, WHATS_AT::EAST).rotate_affinity(m_rotation);
+					return WHATS_AT(this, WHATS_AT::INPUT, n).rotate_affinity(get_rotation());
+			if (hotspot(inputs()).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, inputs(), WHATS_AT::EAST).rotate_affinity(get_rotation());
 
 			return Symbol::location(p);
 		}
 
 		virtual const Point *hotspot_at(const WHATS_AT &what) const {
-			for (int n=0; n<m_inputs; ++n)
+			for (int n=0; n<inputs(); ++n)
 				if (what.match((void *)this, WHATS_AT::INPUT, n))
 					return &hotspot(n);
 			if (what.match((void *)this, WHATS_AT::OUTPUT, 0))
-				return &hotspot(m_inputs);
+				return &hotspot(inputs());
 			return NULL;
 		}
-
-		// context menu integration
-		virtual bool needs_inverted(bool &a_inverted){ a_inverted = inverted(); return true; }
-		virtual void set_inverted(bool a_inverted){ inverted(a_inverted); }
-		virtual bool needs_inputs(int &a_inputs){a_inputs = m_inputs; return true; }
-		virtual void set_inputs(int a_inputs){ m_inputs = a_inputs; }
-		virtual bool needs_xor(bool &a_xor){a_xor = is_xor(); return true; }
-		virtual void set_xor(int a_xor){ m_xor = a_xor; }
-
-		void inverted(bool a_invert) { m_inverted = a_invert; }
-		bool inverted() const { return m_inverted; }
-		int inputs() const { return m_inputs; }
-		bool is_xor() const { return m_xor; }
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			double h   = 30.0;
 			double ofs = h/8;
 			cr->save();
 			cr->translate(m_x, m_y);
-			cr->rotate(m_rotation);
+			cr->rotate(get_rotation());
 			cr->set_line_width(1.2);
 			bounding_rect(cr, Rect(0, -h/2, h, h));
-			for (int n=1; n<=m_inputs; ++n) {
-				double y = -h/2+n*h/(m_inputs+1);
-				hotspot(cr, n-1, Point(0, -h/2+n*h/(m_inputs+1)));
+			for (int n=1; n<=inputs(); ++n) {
+				double y = -h/2+n*h/(inputs()+1);
+				hotspot(cr, n-1, Point(0, -h/2+n*h/(inputs()+1)));
 				cr->move_to(-3.5, y);
 				cr->line_to(0, y);
 				cr->stroke();
 			}
-			hotspot(cr, m_inputs, Point(h, 0));
+			hotspot(cr, inputs(), Point(h, 0));
 
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 			cr->save();
@@ -962,7 +1041,7 @@ namespace app {
 			cr->restore();
 			cr->stroke();
 
-			if (m_xor) {
+			if (is_xor()) {
 				cr->save();
 				cr->scale(1/4.0, 1.0);
 				cr->arc(ofs, 0, h/2, -M_PI/2, M_PI/2);
@@ -980,7 +1059,7 @@ namespace app {
 			cr->restore();
 			cr->stroke();
 
-			if (m_inverted) {
+			if (inverted()) {
 				cr->save();
 				cr->set_line_width(0.8);
 				cr->arc(h + 3.5, 0, 3.5, 0, 2*M_PI);
@@ -990,24 +1069,26 @@ namespace app {
 			}
 			cr->restore();
 		}
-		OrSymbol(int a_inputs=2, double x=0, double y=0, double rotation=0, bool inverted=false, bool is_xor=false):
-			Symbol(x, y, rotation), m_inverted(inverted), m_xor(is_xor), m_inputs(a_inputs){}
+		OrSymbol(int a_inputs=2, double x=0, double y=0, double rotation=0, bool a_inverted=false, bool a_is_xor=false):
+			Symbol(x, y, rotation){
+			inverted(a_inverted); set_xor(a_is_xor); inputs(a_inputs);
+			name("U");
+		}
 	};
 
 
-	class TristateSymbol: public BufferSymbol {
-		bool m_gate_inverted;
+	class TristateSymbol: public BufferSymbol, public prop::Gate_Inverted {
 	  public:
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(get_rotation());
 			if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(get_rotation());
 			if (hotspot(2).close_to(p))
-				return WHATS_AT(this, WHATS_AT::GATE, 0, WHATS_AT::SOUTH).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::GATE, 0, WHATS_AT::SOUTH).rotate_affinity(get_rotation());
 			if (hotspot(3).close_to(p))
-				return WHATS_AT(this, WHATS_AT::GATE, 1, WHATS_AT::NORTH).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::GATE, 1, WHATS_AT::NORTH).rotate_affinity(get_rotation());
 
 			return BufferSymbol::location(p);
 		}
@@ -1024,28 +1105,18 @@ namespace app {
 			return BufferSymbol::hotspot_at(what);
 		}
 
-		// context menu integration
-		virtual bool needs_inverted(bool &a_inverted){ a_inverted = inverted(); return true; }
-		virtual bool needs_gate_inverted(bool &a_inverted){ a_inverted = gate_inverted(); return true; }
-
-		virtual void set_inverted(bool a_inverted){ inverted(a_inverted); }
-		virtual void set_gate_inverted(bool a_inverted){ gate_inverted(a_inverted); }
-
-		void gate_inverted(bool a_invert) { m_gate_inverted = a_invert; }
-		bool gate_inverted() const { return m_gate_inverted; }
-
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			BufferSymbol::draw(cr);
 			cr->save();
 
 			cr->translate(m_x, m_y);
-			cr->rotate(m_rotation);
+			cr->rotate(get_rotation());
 
 			hotspot(cr, 2, Point(15,  7.5));
 			hotspot(cr, 3, Point(15, -7.5));
 
 			cr->set_line_width(1.2);
-			if (m_gate_inverted) {
+			if (gate_inverted()) {
 				cr->save();
 				cr->set_line_width(0.8);
 				cr->arc(15, 11, 3.5, 0, 2*M_PI);
@@ -1058,8 +1129,11 @@ namespace app {
 			cr->restore();
 		}
 
-		TristateSymbol(double x=0, double y=0, double rotation=0, bool inverted=false,  bool gate_inverted=false):
-			BufferSymbol(x, y, rotation, inverted), m_gate_inverted(gate_inverted) {}
+		TristateSymbol(double x=0, double y=0, double rotation=0, bool inverted=false,  bool a_gate_inverted=false):
+			BufferSymbol(x, y, rotation, inverted) {
+			gate_inverted(a_gate_inverted);
+			name("U");
+		}
 
 	};
 
@@ -1070,13 +1144,13 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(get_rotation());
 			else if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::GATE, 0).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::GATE, 0).rotate_affinity(get_rotation());
 			else if (hotspot(2).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(get_rotation());
 			else if (hotspot(3).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 1, WHATS_AT::EAST).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 1, WHATS_AT::EAST).rotate_affinity(get_rotation());
 			return Symbol::location(p);
 		}
 
@@ -1159,7 +1233,9 @@ namespace app {
 		}
 
 		LatchSymbol(double x=0, double y=0, double rotation=0, bool backward=false):
-			Symbol(x, y, rotation), m_point_right(!backward), D(false), Ck(false), Q(false) {}
+			Symbol(x, y, rotation), m_point_right(!backward), D(false), Ck(false), Q(false) {
+			name("U");
+		}
 	};
 
 
@@ -1172,12 +1248,12 @@ namespace app {
 		virtual WHATS_AT location(Point p) {
 			for (int n=0; n<m_gates; ++n)
 				if (hotspot(n).close_to(p))
-					return WHATS_AT(this, WHATS_AT::GATE, n, WHATS_AT::SOUTH).rotate_affinity(m_rotation);
+					return WHATS_AT(this, WHATS_AT::GATE, n, WHATS_AT::SOUTH).rotate_affinity(get_rotation());
 			for (int n=0; n<m_inputs; ++n)
 				if (hotspot(m_gates+n).close_to(p))
-					return WHATS_AT(this, WHATS_AT::INPUT, n).rotate_affinity(m_rotation);
+					return WHATS_AT(this, WHATS_AT::INPUT, n).rotate_affinity(get_rotation());
 			if (hotspot(m_gates+m_inputs).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(get_rotation());
 			return Symbol::location(p);
 		}
 
@@ -1197,9 +1273,9 @@ namespace app {
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
-			cr->rotate(m_rotation);
-			cr->scale(m_scale, m_scale);
-			cr->set_line_width(1.2/m_scale);
+			cr->rotate(get_rotation());
+			cr->scale(get_scale(), get_scale());
+			cr->set_line_width(1.2/get_scale());
 
 			int cw = 5, ch = 14;
 			int width = cw * (m_gates+1);
@@ -1233,22 +1309,23 @@ namespace app {
 
 			cr->set_line_width(0.2);
 			double h = (height0) / (m_inputs+1);
+			cr->save();
+			cr->rotate(-get_rotation());
+			cr->scale(1/get_scale(), 1/get_scale());
+			cr->set_font_size(8);
 			for (int r=0; r < m_inputs; ++r) {
-				cr->move_to(width/2, height0/2.0 - (r+1) * h);
-				cr->save();
-				cr->rotate(-m_rotation);
-				cr->rel_move_to(-cw/2, 0);
-				cr->scale(0.8, 0.8);
-				cr->text_path(int_to_hex(m_forward?r:(m_inputs-r-1), "", ""));
-				cr->fill_preserve(); cr->stroke();
-				cr->restore();
+				std::string txt = int_to_hex(m_forward?r:(m_inputs-r-1), "", "");
+				draw_label(cr, width/2-3, height0/2.0 - (r+1) * h, txt);
 			}
+			cr->restore();
 			cr->restore();
 		}
 		void flipped(bool a_flipped) { m_flipped = a_flipped?-1:1; }
 		void draw_forward(bool a_forward){ m_forward = a_forward; }
 		MuxSymbol(double x=0, double y=0, double rotation=0, int gates=1, int inputs=2):
-			Symbol(x, y, rotation), m_gates(gates), m_inputs(inputs), m_forward(true) {}
+			Symbol(x, y, rotation), m_gates(gates), m_inputs(inputs), m_forward(true) {
+			name("U");
+		}
 	};
 
 	class ALUSymbol: public Symbol  {
@@ -1257,7 +1334,7 @@ namespace app {
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
-			cr->rotate(m_rotation);
+			cr->rotate(get_rotation());
 			int cw = 10, ch = 12;
 			int width = cw * 9;
 			int height = ch * 2;
@@ -1283,13 +1360,13 @@ namespace app {
 			cr->restore();
 		}
 		ALUSymbol(double x=0, double y=0, double rotation=0, int gates=1, int inputs=2):
-			Symbol(x, y, rotation) {}
+			Symbol(x, y, rotation) {
+			name("U");
+		}
 	};
 
-	class SchmittSymbol: public Symbol  {
+	class SchmittSymbol: public Symbol, public prop::Inverted, public prop::Gate_Inverted  {
 		bool m_dual;
-		bool m_inverted;
-		bool m_gate_inverted;
 
 	  public:
 
@@ -1298,9 +1375,9 @@ namespace app {
 
 			for (int n=0; n<n_inputs; ++n)
 				if (hotspot(n).close_to(p))
-					return WHATS_AT(this, WHATS_AT::INPUT, n).rotate_affinity(m_rotation);
+					return WHATS_AT(this, WHATS_AT::INPUT, n).rotate_affinity(get_rotation());
 			if (hotspot(n_inputs).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, n_inputs, WHATS_AT::EAST).rotate_affinity(m_rotation);
+				return WHATS_AT(this, WHATS_AT::OUTPUT, n_inputs, WHATS_AT::EAST).rotate_affinity(get_rotation());
 
 			return Symbol::location(p);
 		}
@@ -1318,7 +1395,7 @@ namespace app {
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
-			cr->rotate(m_rotation);
+			cr->rotate(get_rotation());
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 
@@ -1326,7 +1403,7 @@ namespace app {
 			int y1 = 6, y2 = -6;
 
 			if (m_dual) {
-				AndSymbol s = AndSymbol(2, 0, 0, 0, m_inverted);
+				AndSymbol s = AndSymbol(2, 0, 0, 0, inverted());
 				s.draw(cr);
 				bounding_rect(cr, Rect(0, -15, 30, 30));
 
@@ -1340,7 +1417,7 @@ namespace app {
 				}
 				hotspot(cr, 2, Point(h, 0));
 			} else {
-				BufferSymbol s = BufferSymbol(0,0,0,m_inverted);
+				BufferSymbol s = BufferSymbol(0,0,0,inverted());
 				s.draw(cr);
 				bounding_rect(cr, Rect(0, -15, 30, 30));
 				hotspot(cr, 0, Point(0, 0));
@@ -1355,39 +1432,11 @@ namespace app {
 			cr->restore();
 		}
 
-		// context menu integration
-		virtual bool needs_inverted(bool &a_inverted){ a_inverted = inverted(); return true; }
-		virtual bool needs_gate_inverted(bool &a_inverted){ a_inverted = gate_inverted(); return true; }
-
-		virtual void set_inverted(bool a_inverted){ inverted(a_inverted); }
-		virtual void set_gate_inverted(bool a_inverted){ gate_inverted(a_inverted); }
-
-		bool inverted() const {return m_inverted;}
-		void inverted(bool a_invert) {m_inverted = a_invert;}
-		bool gate_inverted() const {return m_gate_inverted;}
-		void gate_inverted(bool a_invert) {m_gate_inverted = a_invert;}
-
 		SchmittSymbol(double x=0, double y=0, double rotation=0, bool dual=true):
-			Symbol(x, y, rotation), m_dual(dual), m_inverted(false), m_gate_inverted(false) {}
-	};
-
-	class BlockSymbol: public Symbol  {
-		double m_w;
-		double m_h;
-	  public:
-
-		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->save();
-			cr->translate(m_x, m_y);
-			bounding_rect(cr, Rect(-m_w/2, -m_h/2, m_w, m_h));
-			cr->set_line_width(1.2);
-			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
-			cr->rectangle(-m_w/2, -m_h/2, m_w, m_h);
-			cr->stroke();
-			cr->restore();
+			Symbol(x, y, rotation), m_dual(dual){
+			inverted(false); gate_inverted(false);
+			name("U");
 		}
-		BlockSymbol(double x=0, double y=0, double w=100, double h=100):
-			Symbol(x, y, 0), m_w(w), m_h(h) {}
 	};
 
 	class RelaySymbol: public Symbol  {
@@ -1400,7 +1449,7 @@ namespace app {
 
 			cr->save();
 			cr->translate(m_x, m_y);
-			cr->rotate(m_rotation);
+			cr->rotate(get_rotation());
 			bounding_rect(cr, Rect(0, 0, sz*4, -sz));
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
@@ -1446,8 +1495,118 @@ namespace app {
 			cr->restore();
 		}
 		RelaySymbol(double x=0, double y=0, double rotation=0, bool closed=false, bool flipped=false):
-			Symbol(x, y, rotation), m_flipped(flipped), m_closed(closed) {}
+			Symbol(x, y, rotation), m_flipped(flipped), m_closed(closed) {
+			name("U");
+		}
 	};
+
+	class BlockSymbol: public Symbol, public prop::Dimensions  {
+
+	  public:
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->save();
+			cr->translate(m_x, m_y);
+			bounding_rect(cr, Rect(-width()/2, -height()/2, width(), height()));
+			cr->set_line_width(1.2);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+			cr->rectangle(-width()/2, -height()/2, width(), height());
+			cr->stroke();
+			cr->restore();
+		}
+		BlockSymbol(double x=0, double y=0, double w=100, double h=100):
+			Symbol(x, y, 0) { width(w), height(h); }
+	};
+
+
+	class TraceSymbol: public BlockSymbol {
+		double m_rowHeight;
+
+	  public:
+		struct DataPoint {
+			double xratio;
+			double dratio;
+			DataPoint(double a_xRatio, double a_dRatio): xratio(a_xRatio), dratio(a_dRatio) {}
+		};
+		struct DataRow {
+			std::string name;
+			std::vector<DataPoint> data;
+			DataRow(const std::string &a_name) : name(a_name) {}
+			void add(double xRatio, double dRatio) {
+				data.push_back(DataPoint(xRatio, dRatio));
+			}
+		};
+
+	  protected:
+		std::vector<DataRow> m_rows;
+
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			BlockSymbol::draw(cr);
+			cr->save();
+			cr->translate(2+m_x-width()/2, m_y-height()/2);
+
+			cr->set_line_width(0.8);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+
+			int l_width = width()-2;
+			int nth_row = 1;
+			int text_width = 0;
+			for (auto &row : m_rows) {
+				Cairo::TextExtents extents;
+				cr->get_text_extents(row.name, extents);
+				if (text_width < extents.width) text_width = extents.width;
+				cr->move_to(0, nth_row * m_rowHeight-4);
+				cr->show_text(row.name);
+				nth_row++;
+			}
+			if (text_width) text_width += 8;
+			cr->translate(text_width, 2);
+			l_width -= text_width;
+
+			nth_row = 0;
+			for (auto &row : m_rows) {
+				bool first = true;
+				double v = 0;
+
+				for (auto &pt: row.data) {
+					if (first) {
+						cr->move_to(pt.xratio * l_width, nth_row * m_rowHeight +  (1 - pt.dratio) * (m_rowHeight - 4));
+						v = pt.dratio;
+						first = false;
+					} else {
+						cr->line_to(pt.xratio * l_width, nth_row * m_rowHeight +  (1 - v) * (m_rowHeight - 4));
+						cr->line_to(pt.xratio * l_width, nth_row * m_rowHeight +  (1 - pt.dratio) * (m_rowHeight - 4));
+						v = pt.dratio;
+					}
+				}
+				if (nth_row % 2) CairoDrawing::black(cr); else CairoDrawing::blue(cr);
+				cr->stroke();
+				nth_row++;
+			}
+
+			cr->restore();
+		}
+
+
+	  public:
+		void clear_data() { m_rows.clear(); }
+		DataRow &add_data_row(const std::string &a_name) {
+			size_t s = m_rows.size();
+			m_rows.push_back(DataRow(a_name));
+			height(m_rowHeight * (s+1));
+			return m_rows[s];
+		}
+
+		void set_rowHeight(double rh) {
+			m_rowHeight = rh;
+			height(m_rowHeight * m_rows.size());
+		}
+
+		TraceSymbol(double x=0, double y=0, double w=100, double row_height=20) :
+			BlockSymbol(x, y, w, row_height),
+			m_rowHeight(row_height) {}
+
+	};
+
 
 	class GenericDiagram: public CairoDrawing {
 //		Point m_pos;
