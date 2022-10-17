@@ -50,6 +50,10 @@ namespace app {
  */
 
 
+	//________________________________________________________________
+	//  A point somewhere in a Cartesian coordinate system.
+	// ... on closer investigation, there's more to the point ...
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	struct Point {
 		double x;
 		double y;
@@ -126,6 +130,9 @@ namespace app {
 		}
 	};
 
+	//_________________________________________________
+	// A common rectangle object
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
 	struct Rect {
 		double x;
 		double y;
@@ -150,6 +157,10 @@ namespace app {
 			x(a_x), y(a_y), w(a_w), h(a_h) {}
 	};
 
+
+	//___________________________________________________________
+	// Describe something that a mouse pointer points at
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
 	struct WHATS_AT {
 		typedef enum {NOTHING, INPUT, OUTPUT, GATE, IN_OUT, START, END, SYMBOL, LINE, POINT, TEXT} ELEMENT;
 		typedef enum {WEST, SOUTH, EAST, NORTH} AFFINITY;
@@ -186,6 +197,9 @@ namespace app {
 
 	};
 
+	//___________________________________________________________________
+	// Common or interface functions for a CairoDrawing
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	class CairoDrawingBase: public Component {
 
 	  protected:
@@ -296,6 +310,9 @@ namespace app {
 		void draw_info(const Cairo::RefPtr<Cairo::Context>& cr, const std::string &a_info);
 	};
 
+	//_______________________________________________________________________
+	// Connections between CairoDrawing elements
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	struct InterConnection: public Component {
 		CairoDrawingBase *from;     		// source CairoDrawing for this connection
 		CairoDrawingBase *to;       		// destination CairoDrawing for this connection
@@ -312,6 +329,9 @@ namespace app {
 
 	};
 
+	//___________________________________________________________
+	//  Interactions with CairoDrawing elements
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	class Interaction : public Component {             // Proxy
 		std::vector<CairoDrawingBase *> m_drawings;
 
@@ -400,7 +420,10 @@ namespace app {
 		}
 	};
 
-
+	//_____________________________________________________________________
+	// CairoDrawing instances are visual representations of components
+	//   or groups of components
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
 	class CairoDrawing : public CairoDrawingBase {
 
 	  protected:
