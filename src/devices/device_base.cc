@@ -27,19 +27,35 @@ template <class T> class
 	void Slot::set_total_R(double a_total_R, double Gin, double Iin, double Idrop) {
 		Connection *c = dynamic_cast<Connection *>(connection);
 
-//		std::cout << connection->name() << " -> " << dev->name();
-//		std::cout << ": recalc_total_R();  G=" << a_conductance_precedents << ", R=" << a_total_R;
-		total_R = a_total_R + 1/Gin;
-//		std::cout << "; total_R = " << total_R << std::endl;
-		c->set_total_R();
 		double resistance_for = 1/Gin;
-		double resistance_ratio = total_R?(resistance_for / total_R):0;
-//		std::cout << connection->name() << " -> " << dev->name();
-//		std::cout << "; Vin=" << c->rd(false);
-//		std::cout << "; Ratio=" << resistance_ratio;
-		vdrop = -c->rd(false) * resistance_ratio;
-//		std::cout << "; Vdrop=" << vdrop  << std::endl;
+		double R = a_total_R + resistance_for;
+//		if (not float_equiv(total_R, R)) {
+			total_R = R;
+			c->set_total_R();
+			double resistance_ratio = total_R?(resistance_for / total_R):0;
+			double Vin = c->rd(false);
+			vdrop = -Vin * resistance_ratio;
+			c->set_vdrop();
+
+			std::cout << connection->name() << " -> " << dev->name();
+			std::cout << ": recalc_total_R();  G=" << Gin << ", R=" << a_total_R;
+			std::cout << "; total_R = " << total_R;
+			std::cout << "; Vin=" << Vin;
+			std::cout << "; Ratio=" << resistance_ratio;
+			std::cout << "; Vdrop=" << vdrop;
+			std::cout << std::endl;
+//		}
+	}
+
+	void Slot::set_impeded() {
+		Connection *c = dynamic_cast<Connection *>(connection);
+		total_R = 1e+12;
+		vdrop = 0;
 		c->set_vdrop();
+	}
+
+	bool Slot::impeded() {
+		return total_R >= 1e+12;
 	}
 
 	double Slot::calc_conductance() {
@@ -68,7 +84,7 @@ template <class T> class
 	Slot *Connection::slot(Device *d){
 		Slot *l_slot = new Slot(d, this);
 		m_slots.insert(l_slot);
-		queue_change();
+		queue_change(false, ": New slot");
 		return l_slot;
 	}
 
@@ -76,17 +92,14 @@ template <class T> class
 		if (m_slots.find(slot_id) == m_slots.end()) return false;
 		m_slots.erase(slot_id); delete slot_id;
 		reset_vdrop();
-//		propagate_R();
 		return true;
 	}
 
-	void Connection::queue_change(bool process_q){  // Add a voltage change event to the queue
-		eq.queue_event(new DeviceEvent<Connection>(*this, "Voltage Change"));
-//		if (debug() && process_q)
-//			std::cout << name() << ": processing events" << std::endl;
+	void Connection::queue_change(bool process_q, const std::string &a_comment){  // Add a voltage change event to the queue
+		std::string detail = name() + std::string(": Voltage Change") + a_comment;
+		eq.queue_event(new DeviceEvent<Connection>(*this, detail));
+		if (debug()) std::cout << detail << (process_q?": process_queue":"") << std::endl;
 //		if (process_q) eq.process_events();
-//		if (debug() && process_q)
-//			std::cout << name() << ": done processing events" << std::endl;
 	}
 
 	bool Connection::impeded_suppress_change(bool a_impeded) {
@@ -102,10 +115,11 @@ template <class T> class
 
 	void Connection::calc_conductance_antecedents(double &Gout, double &Iout) {
 		Gout = 0;  Iout = 0;
-		for (auto slot: m_slots) {
-			Iout +=  slot->vdrop * conductance();
-			Gout += conductance();
-		}
+		for (auto slot: m_slots)
+			if (not slot->impeded()) {
+				Iout +=  slot->vdrop * conductance();
+				Gout += conductance();
+			}
 	}
 
 	void Connection::set_total_R() {}   // at top of chain
@@ -124,7 +138,7 @@ template <class T> class
 			if (fabs(slot->vdrop) > fabs(m_vdrop))
 				m_vdrop = slot->vdrop;
 		if (not float_equiv(m_vdrop, old_vdrop, 1.0e-12)) {
-			queue_change(false);
+			queue_change(true, std::string(": Vdrop changed from ") + as_text(old_vdrop) + " to " + as_text(m_vdrop));
 		}
 	}
 
@@ -134,8 +148,8 @@ template <class T> class
 			changed = changed || slot->vdrop != 0;
 			slot->vdrop = 0;
 		}
-		if (changed)
-			queue_change(false);
+//		if (changed)
+//			queue_change(false);
 	}
 
 	Connection::Connection(const std::string &a_name):
@@ -168,7 +182,7 @@ template <class T> class
 	double Connection::vDrop() const { return m_vdrop; }
 
 	void Connection::impeded(bool a_impeded) {
-		if (impeded_suppress_change(a_impeded)) queue_change();
+		if (impeded_suppress_change(a_impeded)) queue_change(true, ": impeded status");
 	}
 
 	void Connection::determinate(bool on) {
@@ -221,14 +235,15 @@ template <class T> class
 	}
 
 	void Connection::set_value(double V, bool a_impeded) {
-		if (!float_equiv(m_V, V) || m_impeded != a_impeded || !determinate()) {
+		if (!float_equiv(m_V, V, 1e-4) || m_impeded != a_impeded || !determinate()) {
 			determinate(true);     // the moment we change the value of a connection the value is determined
 			impeded_suppress_change(a_impeded);
+//			m_V = V - vDrop();   // vOut = V + vDrop
 			m_V = V;
 			if (!impeded()) reset_vdrop();
 //			if (debug())
 //				std::cout << "Connection " << name() << ": set value V = " << V << std::endl;
-			queue_change();
+			queue_change(true, std::string(": set_value=") + as_text(V));
 		}
 	}
 
@@ -255,7 +270,6 @@ template <class T> class
 
 			double input_voltage = rd(false);
 			if (not m_terminal_impeded) {
-
 				if (false and debug()) {
 					std::cout << name() << ": Itotal=" << sum_v_over_R;
 					std::cout << "; Gtotal=" << sum_conductance;
@@ -289,12 +303,16 @@ template <class T> class
 		double Gout=0, Iout=0;
 		double Gin=0, Iin=0, Idrop=0;
 		calc_conductance_antecedents(Gout, Iout);
+		if (not Gout) m_terminal_impeded = true;
 
-		double total_R = R() + Gout?1/Gout:0;
-
-		calc_conductance_precedents(Gin, Iin, Idrop);
-		for (auto &c : m_connects ) {
-			c.second->set_total_R(total_R, Gin, Iin, Idrop);
+		if (impeded()) {
+			for (auto &c : m_connects )
+				c.second->set_impeded();
+		} else {
+			double total_R = R() + Gout?1/Gout:0;
+			calc_conductance_precedents(Gin, Iin, Idrop);
+			for (auto &c : m_connects )
+				c.second->set_total_R(total_R, Gin, Iin, Idrop);
 		}
 	}
 
@@ -303,7 +321,7 @@ template <class T> class
 	// For a voltage source, we can add or remove voltage here; for
 	// resistors, we can add conductance.
 	double Terminal::calculate_voltage(double Iin, double Idrop, double Gin) {
-		double V = (Iin + Idrop) / Gin;         // V = sum(Vi/Ri) * sum(1/Ri)  ; i = 1..n
+		double V = Iin / Gin;         // V = sum(Vi/Ri) * sum(1/Ri)  ; i = 1..n
 		return V;       // the calculated voltage becomes our input voltage
 	}
 
@@ -314,10 +332,15 @@ template <class T> class
 
 	bool Terminal::recalc_total_R() {
 		if (not Connection::recalc_total_R()) {  // no more outgoing; turn it around
-			double Gin, Iin, Idrop;
-			calc_conductance_precedents(Gin, Iin, Idrop);
-			for (auto &c : m_connects )    // last in chain
-				c.second->set_total_R(R(), Gin, Iin, Idrop);
+			if (impeded()) {
+				for (auto &c : m_connects )    // last in chain
+					c.second->set_impeded();
+			} else {
+				double Gin, Iin, Idrop;
+				calc_conductance_precedents(Gin, Iin, Idrop);
+				for (auto &c : m_connects )    // last in chain
+					c.second->set_total_R(R(), Gin, Iin, Idrop);
+			}
 		}
 		return true;
 	}
@@ -351,7 +374,6 @@ template <class T> class
 		if (m_connects.find(&c) == m_connects.end()) {
 			m_connects[&c] = c.slot(this);
 			DeviceEvent<Connection>::subscribe<Terminal>(this, &Terminal::on_change, &c);
-			c.queue_change();
 			return true;
 		} else {
 			disconnect(c);
@@ -373,12 +395,12 @@ template <class T> class
 		//       least one input, we cannot (should not) override the internal voltage by using
 		//       set_value().   We can achieve the same effect as set_value() by setting default
 		//       direction, and calling set_vdrop() instead.
-		if (m_connects.size() && !m_terminal_impeded) {
-//			Connection::impeded_suppress_change(a_impeded);
-//			double drop = vDrop();
+		if (!m_terminal_impeded) {
+			Connection::impeded_suppress_change(a_impeded);
+			double drop = vDrop();
 //			for (auto &conn: m_connects)
-//				conn.first->set_vdrop(V, conn.second);
-//			if (not float_equiv(drop, vDrop())) queue_change(false);
+//				conn.second->set_vdrop(V);
+			if (not float_equiv(drop, vDrop())) queue_change(false);
 		} else {
 			Connection::set_value(V, a_impeded);
 		}
@@ -642,7 +664,7 @@ template <class T> class
 	void Gate::recalc() {
 		std::vector<Connection *> &in = inputs();
 		if (!in.size()) return;
-		bool sig = in[0]->signal();
+		bool sig = in[0]?in[0]->signal():false;
 		rd().set_value((inverted() ^ sig) * Vdd, false);
 	}
 
@@ -656,27 +678,28 @@ template <class T> class
 	Gate::Gate(const std::vector<Connection *> &in, bool inverted, const std::string &a_name):
 		Device(a_name), m_in(in), m_out(Vdd), m_inverted(inverted) {
 		for (size_t n = 0; n < m_in.size(); ++n)
-			DeviceEvent<Connection>::subscribe<Gate>(this, &Gate::on_change, m_in[n]);
+			if (m_in[n]) DeviceEvent<Connection>::subscribe<Gate>(this, &Gate::on_change, m_in[n]);
 		recalc();
 	}
 
 	Gate::~Gate() {
 		for (size_t n = 0; n < m_in.size(); ++n)
-			DeviceEvent<Connection>::unsubscribe<Gate>(this, &Gate::on_change, m_in[n]);
+			if (m_in[n]) DeviceEvent<Connection>::unsubscribe<Gate>(this, &Gate::on_change, m_in[n]);
 	}
 	bool Gate::connect(size_t a_pos, Connection &in) {
 		if (a_pos+1 > m_in.size()) m_in.resize(a_pos+1);
-		if (m_in[a_pos])
-			DeviceEvent<Connection>::unsubscribe<Gate>(this, &Gate::on_change, m_in[a_pos]);
+		if (m_in[a_pos]) DeviceEvent<Connection>::unsubscribe<Gate>(this, &Gate::on_change, m_in[a_pos]);
 		m_in[a_pos] = &in;
-		DeviceEvent<Connection>::subscribe<Gate>(this, &Gate::on_change, m_in[a_pos]);
+		if (m_in[a_pos]) DeviceEvent<Connection>::subscribe<Gate>(this, &Gate::on_change, m_in[a_pos]);
+		recalc();
 		return true;
 	}
 
 	void Gate::disconnect(size_t a_pos) {
 		if (a_pos+1 > m_in.size()) return;
-		if (m_in[a_pos])
-			DeviceEvent<Connection>::unsubscribe<Gate>(this, &Gate::on_change, m_in[a_pos]);
+		if (m_in[a_pos]) DeviceEvent<Connection>::unsubscribe<Gate>(this, &Gate::on_change, m_in[a_pos]);
+		m_in[a_pos] = NULL;
+		recalc();
 	}
 
 	void Gate::inputs(const std::vector<Connection *> &in) { m_in = in; }
@@ -700,9 +723,9 @@ template <class T> class
 		std::vector<Connection *> &in = inputs();
 
 		if (!in.size()) return;
-		bool sig = in[0]->signal();
+		bool sig = in[0]?in[0]->signal():false;
 		for (size_t n = 1; n < in.size(); ++n) {
-			sig = sig & in[n]->signal();
+			if (in[n]) sig = sig && in[n]->signal();
 		}
 		rd().set_value((inverted() ^ sig) * Vdd, false);
 	}
@@ -718,10 +741,10 @@ template <class T> class
 		std::vector<Connection *> &in = inputs();
 		if (!in.size()) return;
 		if (debug()) std::cout << (inverted()?"N":"") << "OR." << name() << "(";
-		bool sig = in[0]->signal();
+		bool sig = in[0]?in[0]->signal():false;
 		if (debug()) std::cout << in[0]->name() << "[" << sig << "]";
 		for (size_t n = 1; n < in.size(); ++n) {
-			sig = sig | in[n]->signal();
+			if (in[n]) sig = sig || in[n]->signal();
 			if (debug()) std::cout << ", " << in[n]->name()  << "[" << in[n]->signal() << "]";
 		}
 		if (debug()) std::cout << ") = " << (inverted() ^ sig) << std::endl;
@@ -739,11 +762,11 @@ template <class T> class
 		std::vector<Connection *> &in = inputs();
 		if (!in.size()) return;
 
-		bool sig = in[0]->signal();
+		bool sig = in[0]?in[0]->signal():false;
 		if (debug()) std::cout << sig;
 		for (size_t n = 1; n < in.size(); ++n) {
 			if (debug()) std::cout << "^" << in[n]->signal();
-			sig = sig ^ in[n]->signal();
+			if (in[n]) sig = sig ^ in[n]->signal();
 		}
 		if (debug()) std::cout << " = " << sig << std::endl;
 		rd().set_value((inverted() ^ sig) * Vdd, false);
@@ -908,8 +931,8 @@ template <class T> class
 
 
 	void Tristate::recalc_output() {
-		bool impeded = !m_gate->signal();
-		bool out = m_in->signal();
+		bool impeded = m_gate?!m_gate->signal():false;
+		bool out = m_in?m_in->signal():false;
 		if (m_invert_output) out = !out;
 		if (m_invert_gate) impeded = !impeded;
 		if (impeded) out = false;
@@ -935,8 +958,8 @@ template <class T> class
 		recalc_output();
 	}
 	Tristate::~Tristate() {
-		DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_change, m_in);
-		DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_gate_change, m_gate);
+		if (m_in) DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_change, m_in);
+		if (m_gate) DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_gate_change, m_gate);
 	}
 	void Tristate::set_name(const std::string &a_name) {
 		name(a_name);
@@ -951,16 +974,16 @@ template <class T> class
 	Tristate& Tristate::gate_invert(bool v) { m_invert_gate = v; recalc_output(); return *this; }
 
 	void Tristate::wr(double in) { m_in->set_value(in, true); }
-	void Tristate::input(Connection &in) {
-		DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_change, m_in);
-		m_in = &in; recalc_output();
-		DeviceEvent<Connection>::subscribe<Tristate>(this, &Tristate::on_change, m_in);
+	void Tristate::input(Connection *in) {
+		if (m_in) DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_change, m_in);
+		m_in = in; recalc_output();
+		if (m_in) DeviceEvent<Connection>::subscribe<Tristate>(this, &Tristate::on_change, m_in);
 		if (debug()) pr_debug_info("input replaced");
 	}
-	void Tristate::gate(Connection &gate) {
-		DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_gate_change, m_gate);
-		m_gate = &gate;
-		DeviceEvent<Connection>::subscribe<Tristate>(this, &Tristate::on_gate_change, m_gate);
+	void Tristate::gate(Connection * gate) {
+		if (m_gate) DeviceEvent<Connection>::unsubscribe<Tristate>(this, &Tristate::on_gate_change, m_gate);
+		m_gate = gate;
+		if (m_gate) DeviceEvent<Connection>::subscribe<Tristate>(this, &Tristate::on_gate_change, m_gate);
 		recalc_output();
 		if (debug()) pr_debug_info("gate replaced");
 	}
@@ -1013,7 +1036,7 @@ template <class T> class
 			return;
 		bool impeded = !m_sw->signal(); // open circuit if not signal
 		double out = m_in->rd();
-		m_out.set_value(out, impeded);
+		m_out.set_value(impeded?0:out, impeded);
 	}
 
 	void Relay::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
@@ -1035,15 +1058,15 @@ template <class T> class
 		if (m_sw) DeviceEvent<Connection>::unsubscribe<Relay>(this, &Relay::on_sw_change, m_sw);
 	}
 	bool Relay::signal() { return m_out.signal(); }
-	void Relay::in(Connection &in) {
+	void Relay::in(Connection *in) {
 		if (m_in) DeviceEvent<Connection>::unsubscribe<Relay>(this, &Relay::on_change, m_in);
-		m_in = &in;
-		DeviceEvent<Connection>::subscribe<Relay>(this, &Relay::on_change, m_in);
+		m_in = in;
+		if (m_in)DeviceEvent<Connection>::subscribe<Relay>(this, &Relay::on_change, m_in);
 	}
-	void Relay::sw(Connection &sw) {
+	void Relay::sw(Connection *sw) {
 		if (m_sw) DeviceEvent<Connection>::unsubscribe<Relay>(this, &Relay::on_change, m_sw);
-		m_sw = &sw;
-		DeviceEvent<Connection>::subscribe<Relay>(this, &Relay::on_change, m_sw);
+		m_sw = sw;
+		if (m_sw) DeviceEvent<Connection>::subscribe<Relay>(this, &Relay::on_change, m_sw);
 	}
 
 	Connection& Relay::in() { return *m_in; }
@@ -1083,16 +1106,16 @@ template <class T> class
 			DeviceEvent<Connection>::unsubscribe<Latch>(this, &Latch::on_data_change, m_D);
 	}
 
-	void Latch::D(Connection &a_D) {
+	void Latch::D(Connection *a_D) {
 		if (!m_clocked && m_D != NULL)
 			DeviceEvent<Connection>::unsubscribe<Latch>(this, &Latch::on_data_change, m_D);
-		m_D = &a_D;
+		m_D = a_D;
 		if (!m_clocked)
 			DeviceEvent<Connection>::subscribe<Latch>(this, &Latch::on_data_change, m_D);
 	}
-	void Latch::Ck(Connection &a_Ck) {
+	void Latch::Ck(Connection *a_Ck) {
 		if (m_Ck) DeviceEvent<Connection>::unsubscribe<Latch>(this, &Latch::on_clock_change, m_Ck);
-		m_Ck = &a_Ck;
+		m_Ck = a_Ck;
 		DeviceEvent<Connection>::subscribe<Latch>(this, &Latch::on_clock_change, m_Ck);
 	}
 
@@ -1127,7 +1150,7 @@ template <class T> class
 		m_idx = 0;
 		for (int n = m_select.size()-1; n >= 0; --n) {
 			m_idx = m_idx << 1;
-			m_idx |= (m_select[n]->signal()?1:0);
+			m_idx |= (m_select[n] && m_select[n]->signal()?1:0);
 		}
 		if (m_select.size() > 1)
 			std::cout << "Select is " << (int)m_idx << "; size is " << m_select.size() << std::endl;
@@ -1135,7 +1158,7 @@ template <class T> class
 	}
 
 	void Mux::set_output() {
-		double value = m_in[m_idx]->rd();
+		double value = m_in[m_idx]?m_in[m_idx]->rd():0;
 		if (debug()) std::cout << "MUX." << name() << " sel(" << (int)m_idx << ") = " << value << std::endl;
 		m_out.set_value(value);
 	}
@@ -1150,27 +1173,54 @@ template <class T> class
 		set_output();
 	}
 
+	void Mux::in(int n, Connection *c) {
+		if (m_in[n]) DeviceEvent<Connection>::unsubscribe<Mux>(this, &Mux::on_change, m_in[n]);
+		m_in[n] = c;
+		if (m_in[n]) DeviceEvent<Connection>::subscribe<Mux>(this, &Mux::on_change, m_in[n]);
+	}
+
+	void Mux::select(int n, Connection *c) {
+		if (m_select[n]) DeviceEvent<Connection>::unsubscribe<Mux>(this, &Mux::on_select, m_select[n]);
+		m_select[n] = c;
+		if (m_select[n]) DeviceEvent<Connection>::subscribe<Mux>(this, &Mux::on_select, m_select[n]);
+	}
+
+	void Mux::configure(int input_count, int gate_count) {
+		unsubscribe_all();
+		m_in.resize(input_count);
+		m_select.resize(gate_count);
+		subscribe_all();
+		calculate_select();
+		set_output();
+	}
+
+	void Mux::subscribe_all() {
+		for (size_t n = 0; n < m_in.size(); ++n) {
+			if (m_in[n]) DeviceEvent<Connection>::subscribe<Mux>(this, &Mux::on_change, m_in[n]);
+		}
+		for (size_t n = 0; n < m_select.size(); ++n) {
+			if (m_select[n]) DeviceEvent<Connection>::subscribe<Mux>(this, &Mux::on_select, m_select[n]);
+		}
+	}
+
+	void Mux::unsubscribe_all() {
+		for (size_t n = 0; n < m_in.size(); ++n) {
+			if (m_in[n]) DeviceEvent<Connection>::unsubscribe<Mux>(this, &Mux::on_change, m_in[n]);
+		}
+		for (size_t n = 0; n < m_select.size(); ++n) {
+			if (m_select[n]) DeviceEvent<Connection>::unsubscribe<Mux>(this, &Mux::on_select, m_select[n]);
+		}
+	}
+
 	Mux::Mux(const std::vector<Connection *> &in, const std::vector<Connection *> &select, const std::string &a_name):
 		Device(a_name), m_in(in), m_select(select), m_out(Vdd),  m_idx(0) {
 		if (m_select.size() > 8) throw(name() + ": Mux supports a maximum of 8 bits, or 256 inputs");
-		for (size_t n = 0; n < m_in.size(); ++n) {
-			DeviceEvent<Connection>::subscribe<Mux>(this, &Mux::on_change, m_in[n]);
-		}
-		for (size_t n = 0; n < m_select.size(); ++n) {
-			DeviceEvent<Connection>::subscribe<Mux>(this, &Mux::on_select, m_select[n]);
-		}
+		subscribe_all();
 		m_out.name(a_name + "::out");
 		calculate_select();
 		set_output();
 	}
-	Mux::~Mux() {
-		for (size_t n = 0; n < m_in.size(); ++n) {
-			DeviceEvent<Connection>::unsubscribe<Mux>(this, &Mux::on_change, m_in[n]);
-		}
-		for (size_t n = 0; n < m_select.size(); ++n) {
-			DeviceEvent<Connection>::unsubscribe<Mux>(this, &Mux::on_select, m_select[n]);
-		}
-	}
+	Mux::~Mux() { unsubscribe_all(); }
 	Connection& Mux::in(int n) { return *m_in[n]; }
 	Connection& Mux::select(int n) { return *m_select[n]; }
 	Connection& Mux::rd() { return m_out; }
@@ -1244,12 +1294,12 @@ template <class T> class
 		//  1     0     1
 		//  1     1     0
 
-		bool enabled = m_gate_invert ^ m_enable->signal();
+		bool enabled = m_enable?m_gate_invert ^ m_enable->signal():false;
 		if (debug()) std::cout << "Schmitt: " << name() << ": enabled=" << (enabled?"true":"false");
 		double Vout = m_out.rd();
 		if (!enabled)     // high impedence
 			m_out.set_value(Vss, true);
-		else {
+		else if (m_in) {
 			double Vin = m_in->rd();
 			if ((Vin > m_hi && Vout < m_hi) || (Vin < m_lo && Vout > m_lo)) {
 				Vout = m_out_invert?(!m_in->signal())*Vdd:m_in->signal()*Vdd;
@@ -1267,6 +1317,10 @@ template <class T> class
 
 	void Schmitt::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
 		recalc();
+	}
+
+	Schmitt::Schmitt(): m_in(NULL), m_enable(NULL), m_out(Vss, false), m_gate_invert(false), m_out_invert(false) {
+		debug(true);
 	}
 
 	Schmitt::Schmitt(Connection &in, Connection &en, bool impeded, bool gate_invert, bool out_invert):
@@ -1290,15 +1344,15 @@ template <class T> class
 	void Schmitt::gate_invert(bool invert) { m_gate_invert = invert; recalc(); }
 	void Schmitt::out_invert(bool invert) { m_out_invert = invert; recalc(); }
 
-	void Schmitt::set_input(Connection &in) {
+	void Schmitt::set_input(Connection *in) {
 		if (m_in) DeviceEvent<Connection>::unsubscribe<Schmitt>(this, &Schmitt::on_change, m_in);
-		m_in = &in;
+		m_in = in;
 		if (m_in) DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, m_in);
 	};
 
-	void Schmitt::set_gate(Connection &en) {
+	void Schmitt::set_gate(Connection *en) {
 		if (m_enable) DeviceEvent<Connection>::unsubscribe<Schmitt>(this, &Schmitt::on_change, m_enable);
-		m_enable = &en;
+		m_enable = en;
 		if (m_enable) DeviceEvent<Connection>::subscribe<Schmitt>(this, &Schmitt::on_change, m_enable);
 	};
 
@@ -1326,10 +1380,19 @@ template <class T> class
 		}
 	}
 
-	void SignalTrace::add_trace(Connection *c) {
-		m_values.push_back(c);
+	bool SignalTrace::add_trace(Connection *c, int a_posn) {
+		if ((size_t)a_posn > m_values.size()) return false;
+		m_values.insert(m_values.begin()+a_posn, c);
 		m_initial[c] = c->rd();
 		DeviceEvent<Connection>::subscribe<SignalTrace>(this, &SignalTrace::on_connection_change, c);
+		return true;
+	}
+
+	bool SignalTrace::has_trace(Connection *c) {
+		for (size_t n=0; n < m_values.size(); ++n)
+			if (m_values[n] == c)
+				return true;
+		return false;
 	}
 
 	void SignalTrace::remove_trace(Connection *c) {
@@ -1340,6 +1403,14 @@ template <class T> class
 				m_initial.erase(c);
 				m_times.erase(c);
 			}
+	}
+
+	int SignalTrace::slot_id(int a_id) {
+		return a_id;
+	}
+
+	bool SignalTrace::unslot(void *slot_id) {
+		return false;
 	}
 
 	void SignalTrace::clear_traces() {
@@ -1469,32 +1540,41 @@ template <class T> class
 	}
 
 	Counter::Counter(unsigned int nbits, unsigned long a_value): Device(),
-			m_in(m_dummy), m_clock(NULL), m_rising(true), m_ripple(true), m_signal(true) {
+			m_in(NULL), m_clock(NULL), m_rising(true), m_ripple(true), m_signal(true) {
 		if (m_rising) m_ripple = false;
 		assert(nbits < sizeof(a_value) * 8);
 		m_bits.resize(nbits);
 		set_value(a_value);
 	}
 
-	Counter::Counter(const Connection &a_in, bool rising, size_t nbits, unsigned long a_value, const Connection *a_clock):
-		Device(), m_in(a_in), m_clock(a_clock), m_rising(rising), m_ripple(true), m_signal(true) {
+	Counter::Counter(Connection &a_in, bool rising, size_t nbits, unsigned long a_value, Connection *a_clock):
+		Device(), m_in(&a_in), m_clock(a_clock), m_rising(rising), m_ripple(true), m_signal(true) {
 		if (m_rising) m_ripple = false;
 		assert(nbits < sizeof(a_value) * 8);
 		m_bits.resize(nbits);
 		set_value(a_value);
 
-		DeviceEvent<Connection>::subscribe<Counter>(this, &Counter::on_signal, &m_in);
+		DeviceEvent<Connection>::subscribe<Counter>(this, &Counter::on_signal, m_in);
 		if (m_clock) {
 			DeviceEvent<Connection>::subscribe<Counter>(this, &Counter::on_clock, m_clock);
 		}
 	}
 
 	Counter::~Counter() {
-		if (&m_in != &m_dummy)
-			DeviceEvent<Connection>::unsubscribe<Counter>(this, &Counter::on_signal, &m_in);
-		if (m_clock) {
-			DeviceEvent<Connection>::unsubscribe<Counter>(this, &Counter::on_clock, m_clock);
-		}
+		if (m_in) DeviceEvent<Connection>::unsubscribe<Counter>(this, &Counter::on_signal, m_in);
+		if (m_clock) DeviceEvent<Connection>::unsubscribe<Counter>(this, &Counter::on_clock, m_clock);
+	}
+
+	void Counter::set_input(Connection *c) {
+		if (m_in) DeviceEvent<Connection>::unsubscribe<Counter>(this, &Counter::on_signal, m_in);
+		m_in = c;
+		if (m_in) DeviceEvent<Connection>::subscribe<Counter>(this, &Counter::on_signal, m_in);
+	}
+
+	void Counter::set_clock(Connection *c) {
+		if (m_clock) DeviceEvent<Connection>::unsubscribe<Counter>(this, &Counter::on_clock, m_clock);
+		m_clock = c;
+		if (m_clock) DeviceEvent<Connection>::subscribe<Counter>(this, &Counter::on_clock, m_clock);
 	}
 
 	void Counter::set_name(const std::string &a_name) {

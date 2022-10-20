@@ -66,6 +66,15 @@ namespace app {
 			void inputs(int a_inputs) { m_inputs = a_inputs; }
 		};
 
+//		class Gates: virtual public Configurable {
+//			int m_gates = 0;
+//			virtual bool needs_gates(int &a_gates){a_gates = gates(); return true; }
+//			virtual void set_gates(int a_gates){ gates(a_gates); }
+//		  public:
+//			int gates() const { return m_gates; }
+//			void gates(int a_gates) { m_gates = a_gates; }
+//		};
+
 		class Xor: virtual public Configurable {
 			bool m_xor = false;
 

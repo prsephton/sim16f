@@ -8,6 +8,8 @@
 #include <cmath>
 
 std::mutex LockUI::mtx;
+int LockUI::semaphore = 0;
+std::thread::id LockUI::tid;
 
 const std::string int_to_string(int i)  {
 	char buf[32];

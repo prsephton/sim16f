@@ -143,6 +143,7 @@ class DeviceEventQueue {
 				return NULL;
 			}
 			auto event = events.front(); events.pop();
+			while (not events.empty() && event == events.front()) events.pop();
 			mtx.unlock();
 			m_ui_lock.acquire();
 //			std::cout << "dev acquired lock" << std::endl;
@@ -255,9 +256,9 @@ template <class T> class DeviceEvent: public QueueableEvent {
 					if (debug)
 						std::cout << "Event returned" << std::endl;
 				} catch (const std::string &e) {
-					std::cout << "An error occurred whle processing a device event: " << e << "\n";
+					std::cout << "An error occurred while processing a device event: " << e << "\n";
 				} catch (std::exception &e) {
-					std::cout << "Exception raised whle processing a device event: " << e.what() << "\n";
+					std::cout << "Exception raised while processing a device event: " << e.what() << "\n";
 				}
 			}
 		}
@@ -318,6 +319,8 @@ struct Slot {
 //		if (dev) dev->unslot(this);
 	}  // automatically unslot from targets
 
+	void set_impeded();
+	bool impeded();
 	double calc_conductance();
 	void set_total_R(double a_total_R, double Gin, double Iin, double Idrop);
 	void recalc_total_R();
@@ -364,7 +367,7 @@ class Connection: public Device {
 //	void zero_point(double &sum_conductance);
 //	virtual void propagate_R();
 
-	void queue_change(bool process_q = true);
+	void queue_change(bool process_q = true, const std::string &a_comment="");
 	virtual double rd(bool include_vdrop=false) const;
 
 	void calc_conductance_antecedents(double &Gout, double &Iout);
@@ -634,7 +637,8 @@ class ABuffer: public Gate {
   public:
 	ABuffer(): Gate({}, false) {};
 	ABuffer(Connection &in, const std::string &a_name="");
-	virtual bool connect(Connection &in) { Gate::connect(0, in); return true; }
+	virtual bool connect(size_t a_pos, Connection &in) { return Gate::connect(a_pos, in); }
+	virtual bool connect(Connection &in) { return Gate::connect(0, in); }
 };
 
 //___________________________________________________________________________________
@@ -644,7 +648,8 @@ class Inverter: public Gate {
   public:
 	Inverter(): Gate({}, true) {};
 	Inverter(Connection &in, const std::string &a_name="");
-	virtual bool connect(Connection &in) { Gate::connect(0, in); return true; }
+	virtual bool connect(size_t a_pos, Connection &in) { return Gate::connect(a_pos, in); }
+	virtual bool connect(Connection &in) { return Gate::connect(0, in); }
 };
 
 //___________________________________________________________________________________
@@ -759,8 +764,8 @@ class Tristate: public Device {
 	Tristate &gate_invert(bool v);
 
 	void wr(double in);
-	void input(Connection &in);
-	void gate(Connection &gate);
+	void input(Connection *in);
+	void gate(Connection *gate);
 
 	Connection &input();
 	Connection &gate();
@@ -803,8 +808,8 @@ class Relay: public Device {
 	Relay(Connection &in, Connection &sw, const std::string &a_name="sw");
 	virtual ~Relay();
 	bool signal();
-	void in(Connection &in);
-	void sw(Connection &sw);
+	void in(Connection *in);
+	void sw(Connection *sw);
 
 	Connection &in();
 	Connection &sw();
@@ -830,8 +835,8 @@ class Latch: public Device {
 	Latch(Connection &D, Connection &Ck, bool positive=false, bool clocked=true);
 	virtual ~Latch();
 
-	void D(Connection &a_D);
-	void Ck(Connection &a_Ck);
+	void D(Connection *a_D);
+	void Ck(Connection *a_Ck);
 	void positive(bool a_positive);
 	void clocked(bool a_clocked);
 	bool positive();
@@ -857,10 +862,16 @@ class Mux: public Device {
 	void set_output();
 	virtual void on_change(Connection *D, const std::string &name);
 	virtual void on_select(Connection *D, const std::string &name);
+	void subscribe_all();
+	void unsubscribe_all();
 
   public:
 	Mux(const std::vector<Connection *> &in, const std::vector<Connection *> &select, const std::string &a_name="mux");
 	virtual ~Mux();
+
+	void in(int n, Connection *c);
+	void select(int n, Connection *c);
+	void configure(int input_count, int gate_count);
 	Connection &in(int n);
 	Connection &select(int n);
 	Connection &rd();
@@ -908,6 +919,7 @@ class Schmitt: public Device {
 	void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:
+	Schmitt();
 	Schmitt(Connection &in, Connection &en, bool impeded=false, bool gate_invert=true, bool out_invert=false);
 	Schmitt(Connection &in, bool impeded=false, bool out_invert=false);
 	virtual ~Schmitt();
@@ -917,8 +929,8 @@ class Schmitt: public Device {
 	void out_invert(bool invert);
 	bool out_invert() const { return m_out_invert; }
 
-	void set_input(Connection &in);
-	void set_gate(Connection &en);
+	void set_input(Connection *in);
+	void set_gate(Connection *en);
 
 	Connection &in();
 	Connection &en();
@@ -956,7 +968,11 @@ class SignalTrace: public Device {
 	SignalTrace(const std::vector<Connection *> &in, const std::string &a_name="");
 	~SignalTrace();
 
-	void add_trace(Connection *c);
+	virtual int slot_id(int a_id);
+	virtual bool unslot(void *slot_id);
+
+	bool add_trace(Connection *c, int a_posn);
+	bool has_trace(Connection *c);
 	void remove_trace(Connection *c);
 	void clear_traces();
 
@@ -972,8 +988,8 @@ class SignalTrace: public Device {
 //___________________________________________________________________________________
 // A binary counter.  If clock is set, it is synchronous, otherwise asynch ripple.
 class Counter: public Device {
-	const Connection &m_in;
-	const Connection *m_clock;   // Synchronous counter
+	Connection *m_in;
+	Connection *m_clock;   // Synchronous counter
 	bool m_rising;
 	bool m_ripple;
 	bool m_signal;
@@ -990,14 +1006,18 @@ class Counter: public Device {
 
   public:
 	Counter(unsigned int nbits, unsigned long a_value=0);
-	Counter(const Connection &a_in, bool rising, size_t nbits, unsigned long a_value=0, const Connection *a_clock = NULL);
+	Counter(Connection &a_in, bool rising, size_t nbits, unsigned long a_value=0, Connection *a_clock = NULL);
 	~Counter();
 
 	Connection &bit(size_t n);
 	std::vector<Connection *> databits();
 
+	void set_input(Connection *c);
+	void set_clock(Connection *c);
 	void set_name(const std::string &a_name);
 	void set_value(unsigned long a_value);
+	Connection *get_input() { return m_in; }
+	Connection *get_clock() { return m_clock; }
 	void asynch(bool a_ripple) { m_ripple = a_ripple; }  // first bit follows input
 	bool is_sync() const { return (m_clock != NULL); }
 	bool overflow() const { return m_overflow; }

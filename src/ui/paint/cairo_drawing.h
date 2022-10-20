@@ -7,6 +7,7 @@
 #include <map>
 #include <cmath>
 #include <limits>
+#include "dlg_context.h"
 #include "../application.h"
 #include "../dispatch.h"
 
@@ -123,7 +124,7 @@ namespace app {
 		}
 
 		bool close_to(const Point &b) const {
-			const double npix = 3;
+			const double npix = 4;
 			double dx = b.x - x;
 			double dy = b.y - y;
 			return (dx * dx + dy * dy) < npix * npix;
@@ -162,22 +163,20 @@ namespace app {
 	// Describe something that a mouse pointer points at
 	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
 	struct WHATS_AT {
-		typedef enum {NOTHING, INPUT, OUTPUT, GATE, IN_OUT, START, END, SYMBOL, LINE, POINT, TEXT} ELEMENT;
-		typedef enum {WEST, SOUTH, EAST, NORTH} AFFINITY;
+		typedef enum {NOTHING, INPUT, OUTPUT, GATE, IN_OUT, CLOCK, START, END, SYMBOL, LINE, POINT, TEXT} ELEMENT;
+		typedef enum {EAST, SOUTH, WEST, NORTH} AFFINITY;
 
-		void *pt;
+		Configurable *pt;
 		ELEMENT what;
 		int id;
-		AFFINITY dir = WEST;
+		AFFINITY dir = EAST;
 
-		WHATS_AT &rotate_affinity(double a_rotation) {
-			a_rotation = a_rotation + M_PI * 2;
+		int rotate_affinity(double a_rotation) {
 			int quad = round(a_rotation*2 / M_PI);        // a number with which to rotate affinity
-			dir = (AFFINITY)(((int)dir + quad) % 4);
-			return *this;
+			return (int) (AFFINITY)(((int)dir + quad) % 4);
 		}
 
-		WHATS_AT(void *a_pt, ELEMENT a_element, int a_id, AFFINITY d=WEST): pt(a_pt), what(a_element), id(a_id), dir(d) {}
+		WHATS_AT(Configurable *a_pt, ELEMENT a_element, int a_id, AFFINITY d=EAST): pt(a_pt), what(a_element), id(a_id), dir(d) {}
 		bool match(void *a_pt, ELEMENT a_what, int a_id) const {
 			return (pt == a_pt && what == a_what && id == a_id);
 		}
@@ -219,7 +218,7 @@ namespace app {
 
 
 		virtual WHATS_AT location(Point p, bool for_input=false) {
-			return WHATS_AT(this, WHATS_AT::NOTHING, 0);
+			return WHATS_AT(NULL, WHATS_AT::NOTHING, 0);
 		}
 
 		virtual const Point *point_at(const WHATS_AT &w) const {
@@ -233,14 +232,23 @@ namespace app {
 		const Point &position() const { return m_pos; }
 		virtual bool deleting(CairoDrawingBase *drawing) { return false; }
 
+		// This is overridden in CairoDrawing::slot, and not in specializations of CairoDrawing
 		virtual void slot(CairoDrawingBase *source, const WHATS_AT &source_info, const WHATS_AT &target_info) {};
-		// Attempt to slot output from source into input at target.
+
+		//________________________________________________________________________________
+		//  These two methods are overridden in specialization diagrams (see diagrams.h)
+		//    to support connecting drawing elements to one another.
+		//
+		// Attempt to slot output from source into input at target.  Return false if we could not do it, or if
+		// an existing slot was removed.  Otherwise, if a valid connection was slotted, return true.
 		virtual bool slot(const WHATS_AT &w, Connection *source) { return false; };
-		// Return the connection at the indicatewd location
+
+		// Return the source connection at the indicated location
 		virtual Connection *slot(const WHATS_AT &w) { return NULL; };
 
 		// context editor for item at target
 		virtual void context(const WHATS_AT &target_info) {};
+
 		// move the indicated item to requested location.  with move_dia=true, move the whole diagram, else the symbol
 		virtual void move(const WHATS_AT &target_info, const Point &destination, bool move_dia = false) {
 			if (destination.y < 0) return;
@@ -470,7 +478,6 @@ namespace app {
 			bool ok = on_draw(cr);
 			cr->restore();
 //			std::cout << "dwg releasing lock" << std::endl;
-			mtx.release();
 			return ok;
 		}
 

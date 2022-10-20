@@ -8,7 +8,8 @@
 #include <iostream>
 #include <fstream>
 #include <mutex>
-
+#include <thread>
+#include <chrono>
 
 const std::string int_to_string(int i);
 const std::string int_to_hex(int i, const char *prefix="0x", const char *suffix="");
@@ -23,13 +24,15 @@ bool float_equiv(double a, double b, double limit=1.0e-12);
 //_____________________________________________________________________________________________________________
 // A convenience class to deal with values that have a unit.  Return a value and a magnitude.
 double value_and_unit(double a_value, int &a_mag);
+const std::chrono::microseconds wait_interval(100);
 //_____________________________________________________________________________________________________________
 // Return properly formatted numbers with units
 const std::string unit_text(double a_value, const std::string &unit);
 
 class LockUI {
 	static std::mutex mtx;
-	int semaphore = 0;
+	static int semaphore;
+	static std::thread::id tid;
 
   public:
 	LockUI(bool lock=true) {
@@ -39,12 +42,21 @@ class LockUI {
 		if (semaphore) release();
 	}
 	void acquire() {
-		if (!semaphore) mtx.lock();
+		if (tid == std::this_thread::get_id()) {
+			++semaphore;
+			return;
+		}
+		while (not mtx.try_lock())
+			std::this_thread::sleep_for(wait_interval);
 		++semaphore;
+		tid =  std::this_thread::get_id();
 	}
+
 	void release() {
-		if (semaphore > 0 && --semaphore == 0)
+		if (semaphore > 0 && --semaphore == 0) {
 			mtx.unlock();
+			tid = std::thread::id();   // does not represent a thread
+		}
 	}
 };
 

@@ -14,6 +14,7 @@ namespace app{
 
   void CairoDrawingBase::draw_info(const Cairo::RefPtr<Cairo::Context>& cr, const std::string &a_info) {
 		std::vector<std::string> l_lines;
+		LockUI mtx;
 		cr->save();
 		cr->translate(10, 10);
 		double dx=0, dy=0;
@@ -51,11 +52,21 @@ namespace app{
 		Point *p1 = const_cast<Point *>(from->point_at(src_index));
 		Point *p2 = const_cast<Point *>(to->point_at(dst_index));
 		Point *s;
+		if (not p1) {
+			std::cout << "InterConnection::draw::No point found for source\n";
+			return;
+		}
+		if (not p2) {
+			std::cout << "InterConnection::draw::No point found for target\n";
+			return;
+		}
 		double dx = p1->x - p2->x;
 		double dy = p1->y - p2->y;
 
-		double leeway = 30;
+		double leeway = 20;
+		double min_space = 5;
 		float horz, vert;
+		LockUI mtx;
 
 		cr->save();
 		if (not connection->determinate()) {
@@ -65,14 +76,21 @@ namespace app{
 		} else {
 			CairoDrawingBase::gray(cr);
 		}
-		int q = (int)src_index.dir * 10 + dst_index.dir;
+
+		double src_rot, dst_rot;
+		src_index.pt->needs_orientation(src_rot);
+		dst_index.pt->needs_orientation(dst_rot);
+
+		int q = src_index.rotate_affinity(src_rot) * 10 + dst_index.rotate_affinity(dst_rot);
+//		std::cout << "Code: " << std::dec << q << std::endl;
+
 		switch (q) {
-		  case 00:     // w - w
-		  case 22:     // e - e
+		  case 00:     // e - e
+		  case 22:     // w - w
 			  if (q == 0)
-			  	vert = p1->x > p2->x ? p2->x - leeway : p1->x - leeway;
+			  	vert = p1->x - min_space < p2->x ? p2->x + leeway : p1->x + leeway;
 			  else
-			  	vert = p1->x > p2->x ? p1->x + leeway : p2->x + leeway;
+			  	vert = p1->x + min_space > p2->x ? p2->x - leeway : p1->x - leeway;
 			  cr->move_to(p1->x, p1->y);
 			  cr->line_to(vert, p1->y);
 			  cr->line_to(vert, p2->y);
@@ -81,98 +99,97 @@ namespace app{
 		  case 11:     // s - s
 		  case 33:     // n - n
 			  if (q == 11)
-			  	horz = p1->y > p2->y ? p2->y - leeway : p1->y - leeway;
+			  	horz = p2->y + min_space > p1->y ? p2->y + leeway : p1->y + leeway;
 			  else
-			  	horz = p1->y > p2->y ? p1->y + leeway : p2->y + leeway;
+			  	horz = p2->y + min_space > p1->y ? p1->y - leeway : p2->y - leeway;
 			  cr->move_to(p1->x, p1->y);
 			  cr->line_to(p1->x, horz);
 			  cr->line_to(p2->x, horz);
 			  cr->line_to(p2->x,  p2->y);
 			  break;
-		  case 01:     // w - s
-			  s = p1; p1 = p2; p2 = s;
+		  case 01:     // e - s
+			  s = p1; p1 = p2; p2 = s;  dx = -dx; dy = -dy;
 			  // no break
-		  case 10:     // s - w
-			  cr->move_to(p1->x, p1->y);
+		  case 10:     // s - e
 			  vert = p1->x - dx / 2;
 			  horz = p2->y;
-			  if (horz < p1->y + leeway) horz = p1->y + leeway;
-			  if (vert - leeway < p1->x) vert = p1->x + leeway;
-			  if (vert > p2->x) {
-				  vert = p2->x - leeway;
+			  if (horz < p1->y + min_space) horz = p1->y + leeway;
+			  if (vert < p2->x + leeway) {
+				  vert = (p1->x > p2->x)?p1->x + leeway:p2->x + leeway;
 				  horz = p1->y - dy / 2;
-				  if (horz < p1->y + leeway) horz = p1->y + leeway;
+				  if (horz < p1->y + leeway) horz = (p1->y > p2->y)?p1->y + leeway:p2->y + leeway;
 			  }
+			  cr->move_to(p1->x, p1->y);
 			  cr->line_to(p1->x, horz);
 			  cr->line_to(vert, horz);
 			  cr->line_to(vert, p2->y);
 			  cr->line_to(p2->x, p2->y);
 			  break;
-		  case 03:     // w - n
-			  s = p1; p1 = p2; p2 = s;
+		  case 03:     // e - n
+			  s = p1; p1 = p2; p2 = s;  dx = -dx; dy = -dy;
 			  // no break
-		  case 30:     // n - w
-			  cr->move_to(p1->x, p1->y);
+		  case 30:     // n - e
 			  vert = p1->x - dx / 2;
 			  horz = p2->y;
-			  if (horz > p1->y - leeway) horz = p1->y - leeway;
-			  if (vert - leeway < p1->x) vert = p1->x + leeway;
-			  if (vert > p2->x) {
-				  vert = p2->x - leeway;
-				  horz = p1->y + dy / 2;
-				  if (horz > p1->y - leeway) horz = p1->y - leeway;
-			  }
-			  cr->line_to(p1->x, horz);
-			  cr->line_to(vert, horz);
-			  cr->line_to(vert, p2->y);
-			  cr->line_to(p2->x, p2->y);
-			  break;
-		  case 21:     // e - s
-			  s = p1; p1 = p2; p2 = s;
-			  // no break
-		  case 12:     // s - e
-			  cr->move_to(p1->x, p1->y);
-			  vert = p1->x + dx / 2;
-			  horz = p2->y;
-			  if (horz < p1->y + leeway) horz = p1->y + leeway;
-			  if (vert + leeway > p1->x) vert = p1->x - leeway;
-			  if (vert < p2->x) {
-				  vert = p2->x + leeway;
+			  if (horz > p1->y - min_space) horz = p1->y - leeway;
+			  if (vert < p2->x + leeway) {
+				  vert = (p1->x > p2->x)?p1->x + leeway:p2->x + leeway;
 				  horz = p1->y - dy / 2;
-				  if (horz < p1->y + leeway) horz = p1->y + leeway;
+				  if (horz > p1->y - leeway) horz = (p1->y > p2->y)?p2->y - leeway:p1->y - leeway;
 			  }
-			  cr->line_to(p1->x, horz);
-			  cr->line_to(vert, horz);
-			  cr->line_to(vert, p2->y);
-			  cr->line_to(p2->x, p2->y);
-			  break;
-		  case 23:     // e - n
-			  s = p1; p1 = p2; p2 = s;
-			  // no break
-		  case 32:     // n - e
 			  cr->move_to(p1->x, p1->y);
-			  vert = p1->x + dx / 2;
-			  horz = p2->y;
-			  if (horz > p1->y - leeway) horz = p1->y - leeway;
-			  if (vert + leeway > p1->x) vert = p1->x - leeway;
-			  if (vert < p2->x) {
-				  vert = p2->x + leeway;
-				  horz = p1->y + dy / 2;
-				  if (horz > p1->y - leeway) horz = p1->y - leeway;
-			  }
 			  cr->line_to(p1->x, horz);
 			  cr->line_to(vert, horz);
 			  cr->line_to(vert, p2->y);
 			  cr->line_to(p2->x, p2->y);
 			  break;
-		  case 02:     // w - e
-			  s = p1; p1 = p2; p2 = s;
+		  case 21:     // w - s
+			  s = p1; p1 = p2; p2 = s;  dx = -dx; dy = -dy;
 			  // no break
-		  case 20:     // e - w
-			  if (dx > 0) {
+		  case 12:     // s - w
+			  vert = p2->x + dx / 2;
+			  horz = p2->y;
+
+			  if (horz < p1->y + min_space) horz = p1->y + leeway;
+			  if (vert > p2->x - leeway) {
+				  vert = (p1->x < p2->x)?p1->x - leeway:p2->x - leeway;
+				  horz = p1->y - dy / 2;
+				  if (horz < p1->y + leeway) horz = (p1->y > p2->y)?p1->y + leeway:p2->y + leeway;
+			  }
+
+			  cr->move_to(p1->x, p1->y);
+			  cr->line_to(p1->x, horz);
+			  cr->line_to(vert, horz);
+			  cr->line_to(vert, p2->y);
+			  cr->line_to(p2->x, p2->y);
+			  break;
+		  case 23:     // w - n
+			  s = p1; p1 = p2; p2 = s; dx = -dx; dy = -dy;
+			  // no break
+		  case 32:     // n - w
+			  vert = p1->x - dx / 2;
+			  horz = p2->y;
+			  if (horz > p1->y - min_space) horz = p1->y - leeway;
+			  if (vert > p2->x - leeway) {
+				  vert = (p1->x > p2->x)?p2->x - leeway:p1->x - leeway;
+				  horz = p1->y - dy / 2;
+				  if (horz > p1->y - leeway) horz = (p1->y > p2->y)?p2->y - leeway:p1->y - leeway;
+			  }
+			  cr->move_to(p1->x, p1->y);
+			  cr->line_to(p1->x, horz);
+			  cr->line_to(vert, horz);
+			  cr->line_to(vert, p2->y);
+			  cr->line_to(p2->x, p2->y);
+			  break;
+		  case 02:     // e - w
+			  s = p1; p1 = p2; p2 = s;  dx = -dx; dy = -dy;
+			  // no break
+		  case 20:     // w - e
+			  if (dx < min_space) {
 				  horz = p2->y + dy/2;
-				  float vert1 = p1->x + leeway;
-				  float vert2 = p2->x - leeway;
+				  if (fabs(dy) < leeway) horz = dy<0?p1->y - leeway:p1->y + leeway;
+				  float vert1 = p1->x - leeway;
+				  float vert2 = p2->x + leeway;
 
 				  cr->move_to(p1->x, p1->y);
 				  cr->line_to(vert1, p1->y);
@@ -189,10 +206,10 @@ namespace app{
 			  }
 			  break;
 		  case 31:     // n - s
-			  s = p1; p1 = p2; p2 = s;
+			  s = p1; p1 = p2; p2 = s;  dx = -dx; dy = -dy;
 			  // no break
 		  case 13:     // s - n
-			if (dy > 0) {
+			if (dy > min_space) {
 				float vert = p2->x + dx/2;
 				if (fabs(dx) < leeway) vert = dx>0?p2->x - leeway:p2->x + leeway;
 				cr->move_to(p1->x, p1->y);
@@ -230,11 +247,13 @@ namespace app{
 			connection = from->slot(src_index);
 			if (connection)
 				connected = to->slot(dst_index, connection);
-			if (connected)
+			if (connected) {
 				std::cout << "Connected from " << source_info.asText("") << " to " << target_info.asText("") << std::endl;
+				connection->queue_change(true, ":  Connect");
+				connection->set_vdrop();
+			}
 		}
 	}
-
 
 
 	void Interaction::select_source_cursor(const Glib::RefPtr<Gdk::Window> &win, WHATS_AT::ELEMENT what) {
@@ -367,7 +386,6 @@ namespace app{
 		} else {
 			win->set_cursor(m_cursor_arrow);
 		}
-		mtx.release();
 		return true;   // there can be only one!
 	}
 

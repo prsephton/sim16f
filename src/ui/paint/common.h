@@ -63,13 +63,13 @@ namespace app {
 				cr->get_text_extents(text, extents);
 
 				switch (((int)round(2*(get_rotation() + 2*M_PI)/M_PI)) % 4) {
-				  case WHATS_AT::WEST:
+				  case WHATS_AT::EAST:
 					  cr->move_to(x, y);
 					  break;
 				  case WHATS_AT::SOUTH:
 					  cr->move_to(x + extents.height, y);
 					  break;
-				  case WHATS_AT::EAST:
+				  case WHATS_AT::WEST:
 					  cr->move_to(x+extents.width, y-extents.height);
 					  break;
 				  case WHATS_AT::NORTH:
@@ -248,11 +248,13 @@ namespace app {
 	};
 
 	class PinSymbol: public Symbol {
+		bool m_indeterminate = false;
+		bool m_signal = false;
 	  public:
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::IN_OUT, 0).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 0, WHATS_AT::WEST);
 			return Symbol::location(p);
 		}
 
@@ -262,6 +264,9 @@ namespace app {
 			return NULL;
 		}
 
+		void signal( bool a_signal) { m_signal = a_signal; }
+		void indeterminate( bool a_indeterminate) { m_indeterminate = a_indeterminate; }
+
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			draw_label(cr, 25, 0);
 			cr->save();
@@ -269,9 +274,16 @@ namespace app {
 			rotate(cr); scale(cr);
 			bounding_rect(cr, Rect(0, -10, 20, 20));
 			hotspot(cr, 0, Point(0, 0));
+			if (m_indeterminate)
+				CairoDrawing::indeterminate(cr);
+			else if (m_signal)
+				CairoDrawing::green(cr);
+			else CairoDrawing::gray(cr);
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 			cr->rectangle(0,-10,20,20);
+			cr->fill_preserve();
+			CairoDrawing::black(cr);
 			cr->stroke();
 			cr->move_to( 0,-10);
 			cr->line_to(20, 10);
@@ -292,7 +304,7 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::SOUTH).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::SOUTH);
 			return Symbol::location(p);
 		}
 
@@ -306,6 +318,7 @@ namespace app {
 			cr->save();
 			cr->translate(m_x, m_y);
 			rotate(cr); scale(cr);
+
 			bounding_rect(cr, Rect(-10, -20, 20, 20));
 			hotspot(cr, 0, Point(0, 0));
 
@@ -334,7 +347,7 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::NORTH).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::NORTH);
 			return Symbol::location(p);
 		}
 
@@ -369,7 +382,7 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::IN_OUT, 0, WHATS_AT::WEST).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 0, WHATS_AT::WEST);
 			if (hotspot(1).close_to(p))
 				return WHATS_AT(this, WHATS_AT::IN_OUT, 1, WHATS_AT::EAST);
 			return Symbol::location(p);
@@ -424,7 +437,7 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::WEST);
 			return Symbol::location(p);
 		}
 
@@ -469,7 +482,7 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::WEST);
 			return Symbol::location(p);
 		}
 
@@ -513,9 +526,9 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::IN_OUT, 0).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 0, WHATS_AT::WEST);
 			if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::IN_OUT, 1, WHATS_AT::EAST).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 1, WHATS_AT::EAST);
 			return Symbol::location(p);
 		}
 
@@ -565,9 +578,9 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::IN_OUT, 0, WHATS_AT::NORTH).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 0, WHATS_AT::NORTH);
 			if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::IN_OUT, 1, WHATS_AT::SOUTH).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 1, WHATS_AT::SOUTH);
 			return Symbol::location(p);
 		}
 
@@ -617,9 +630,9 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::IN_OUT, 0, WHATS_AT::WEST).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 0, WHATS_AT::WEST);
 			if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::IN_OUT, 1, WHATS_AT::EAST).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::IN_OUT, 1, WHATS_AT::EAST);
 			return Symbol::location(p);
 		}
 
@@ -671,7 +684,7 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::SOUTH).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::SOUTH);
 			return Symbol::location(p);
 		}
 
@@ -705,9 +718,9 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::WEST);
 			if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST);
 			return Symbol::location(p);
 		}
 
@@ -749,11 +762,11 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::NORTH).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::NORTH);
 			if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::SOUTH).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::SOUTH);
 			if (hotspot(2).close_to(p))
-				return WHATS_AT(this, WHATS_AT::GATE, 0).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::GATE, 0, WHATS_AT::WEST);
 			return Symbol::location(p);
 		}
 
@@ -816,9 +829,9 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::WEST);
 			if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST);
 			return Symbol::location(p);
 		}
 
@@ -904,11 +917,11 @@ namespace app {
 	public:
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::WEST);
 			if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 1).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::INPUT, 1, WHATS_AT::WEST);
 			if (hotspot(2).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST);
 			return Symbol::location(p);
 		}
 
@@ -934,10 +947,10 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			for (int n=0; n<inputs(); ++n)
-				if (hotspot(n).close_to(p))
-					return WHATS_AT(this, WHATS_AT::INPUT, n).rotate_affinity(get_rotation());
-			if (hotspot(inputs()).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, inputs(), WHATS_AT::EAST).rotate_affinity(get_rotation());
+				if (hotspot(n+1).close_to(p))
+					return WHATS_AT(this, WHATS_AT::INPUT, n, WHATS_AT::WEST);
+			if (hotspot(0).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST);
 
 			return Symbol::location(p);
 		}
@@ -945,27 +958,30 @@ namespace app {
 		virtual const Point *hotspot_at(const WHATS_AT &what) const {
 			for (int n=0; n<inputs(); ++n)
 				if (what.match((void *)this, WHATS_AT::INPUT, n))
-					return &hotspot(n);
+					return &hotspot(n+1);
 			if (what.match((void *)this, WHATS_AT::OUTPUT, 0))
-				return &hotspot(inputs());
+				return &hotspot(0);
 			return NULL;
 		}
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			draw_label(cr, 8, -17);
+
 			double h = 30;
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(get_rotation());
+			cr->scale(get_scale(), get_scale());
 			cr->set_line_width(1.2);
 			bounding_rect(cr, Rect(0, -h/2, h, h));
 			for (int n=1; n<=inputs(); ++n) {
 				double y = -h/2+n*h/(inputs()+1);
-				hotspot(cr, n-1, Point(0, y));
+				hotspot(cr, n, Point(0, y));
 				cr->move_to(-3.5, y);
 				cr->line_to(0, y);
 				cr->stroke();
 			}
-			hotspot(cr, inputs(), Point(h, 0));
+			hotspot(cr, 0, Point(h, 0));  // output is hotspot with id=0
 
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 
@@ -998,10 +1014,10 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			for (int n=0; n<inputs(); ++n)
-				if (hotspot(n).close_to(p))
-					return WHATS_AT(this, WHATS_AT::INPUT, n).rotate_affinity(get_rotation());
-			if (hotspot(inputs()).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, inputs(), WHATS_AT::EAST).rotate_affinity(get_rotation());
+				if (hotspot(n+1).close_to(p))
+					return WHATS_AT(this, WHATS_AT::INPUT, n, WHATS_AT::WEST);
+			if (hotspot(0).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST);
 
 			return Symbol::location(p);
 		}
@@ -1009,28 +1025,30 @@ namespace app {
 		virtual const Point *hotspot_at(const WHATS_AT &what) const {
 			for (int n=0; n<inputs(); ++n)
 				if (what.match((void *)this, WHATS_AT::INPUT, n))
-					return &hotspot(n);
+					return &hotspot(n+1);
 			if (what.match((void *)this, WHATS_AT::OUTPUT, 0))
-				return &hotspot(inputs());
+				return &hotspot(0);
 			return NULL;
 		}
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			draw_label(cr, 8, -17);
 			double h   = 30.0;
 			double ofs = h/8;
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(get_rotation());
+			cr->scale(get_scale(), get_scale());
 			cr->set_line_width(1.2);
 			bounding_rect(cr, Rect(0, -h/2, h, h));
 			for (int n=1; n<=inputs(); ++n) {
 				double y = -h/2+n*h/(inputs()+1);
-				hotspot(cr, n-1, Point(0, -h/2+n*h/(inputs()+1)));
+				hotspot(cr, n, Point(0, -h/2+n*h/(inputs()+1)));
 				cr->move_to(-3.5, y);
 				cr->line_to(0, y);
 				cr->stroke();
 			}
-			hotspot(cr, inputs(), Point(h, 0));
+			hotspot(cr, 0, Point(h, 0));  // output is hotspot with id=0
 
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 			cr->save();
@@ -1082,13 +1100,13 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::WEST);
 			if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST);
 			if (hotspot(2).close_to(p))
-				return WHATS_AT(this, WHATS_AT::GATE, 0, WHATS_AT::SOUTH).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::GATE, 0, WHATS_AT::SOUTH);
 			if (hotspot(3).close_to(p))
-				return WHATS_AT(this, WHATS_AT::GATE, 1, WHATS_AT::NORTH).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::GATE, 1, WHATS_AT::NORTH);
 
 			return BufferSymbol::location(p);
 		}
@@ -1140,17 +1158,18 @@ namespace app {
 	class LatchSymbol: public Symbol {
 		bool m_point_right;
 		bool D, Ck, Q;
+		bool m_clocked;
 	  public:
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::INPUT, 0).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::WEST);
 			else if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::GATE, 0).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::GATE, 0, WHATS_AT::WEST);
 			else if (hotspot(2).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST);
 			else if (hotspot(3).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 1, WHATS_AT::EAST).rotate_affinity(get_rotation());
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 1, WHATS_AT::EAST);
 			return Symbol::location(p);
 		}
 
@@ -1190,17 +1209,17 @@ namespace app {
 
 			cr->set_line_width(0.2);
 			if (m_point_right) {
-				cr->move_to(10, 17); cr->text_path("D");
+				cr->move_to(10, 17); cr->text_path(m_clocked?"D":"S");
 				cr->move_to(50, 17); cr->text_path("Q");
 
-				cr->move_to(10, 59); cr->text_path("Ck");
+				cr->move_to(10, 59); cr->text_path(m_clocked?"Ck":"R");
 				cr->move_to(50, 59); cr->text_path("Q");
 			} else {
 				cr->move_to(10, 17); cr->text_path("Q");
-				cr->move_to(50, 17); cr->text_path("D");
+				cr->move_to(50, 17); cr->text_path(m_clocked?"D":"S");
 
 				cr->move_to(10, 59); cr->text_path("Q");
-				cr->move_to(50, 59); cr->text_path("Ck");
+				cr->move_to(50, 59); cr->text_path(m_clocked?"Ck":"R");
 			}
 			cr->fill_preserve(), cr->stroke();
 			cr->set_line_width(0.8);
@@ -1216,15 +1235,15 @@ namespace app {
 
 			cr->rectangle(0, 10, 5, 8);
 			CairoDrawing::draw_indicator(cr, m_point_right?D:Q);
-			if (m_point_right) {
-				cr->move_to(0, 50); cr->line_to(7,56); cr->line_to(0, 62); cr->close_path();
-			} else {
+			if (not m_point_right or not m_clocked) {
 				cr->rectangle(0, 52, 5, 8);
+			} else {
+				cr->move_to(0, 50); cr->line_to(7,56); cr->line_to(0, 62); cr->close_path();
 			}
 			CairoDrawing::draw_indicator(cr, m_point_right?Ck:(!Q));
 			cr->rectangle(65, 10, 5, 8);
 			CairoDrawing::draw_indicator(cr, m_point_right?Q:D);
-			if (m_point_right) {
+			if (m_point_right or not m_clocked) {
 				cr->rectangle(65,52, 5, 8);
 			} else {
 				cr->move_to(70, 50); cr->line_to(63,56); cr->line_to(70, 62); cr->close_path();
@@ -1232,28 +1251,32 @@ namespace app {
 			CairoDrawing::draw_indicator(cr, m_point_right?(!Q):Ck);
 		}
 
-		LatchSymbol(double x=0, double y=0, double rotation=0, bool backward=false):
-			Symbol(x, y, rotation), m_point_right(!backward), D(false), Ck(false), Q(false) {
+		void clocked(bool a_clocked) { m_clocked = a_clocked; }  // SR vs D flip-flop
+		LatchSymbol(double x=0, double y=0, double rotation=0, bool backward=false, bool clocked=true):
+			Symbol(x, y, rotation), m_point_right(!backward), D(false), Ck(false), Q(false), m_clocked(clocked) {
 			name("U");
 		}
 	};
 
 
-	class MuxSymbol: public Symbol  {
-		int m_gates, m_inputs;
+	class MuxSymbol: public Symbol, public prop::Inputs  {
+		int m_gates;
+		int m_ninputs;
 		bool m_forward;
 		int m_flipped = 1;
+		double log2 = log(2);
+
 	  public:
 
 		virtual WHATS_AT location(Point p) {
 			for (int n=0; n<m_gates; ++n)
 				if (hotspot(n).close_to(p))
-					return WHATS_AT(this, WHATS_AT::GATE, n, WHATS_AT::SOUTH).rotate_affinity(get_rotation());
-			for (int n=0; n<m_inputs; ++n)
+					return WHATS_AT(this, WHATS_AT::GATE, n, WHATS_AT::SOUTH);
+			for (int n=0; n<m_ninputs; ++n)
 				if (hotspot(m_gates+n).close_to(p))
-					return WHATS_AT(this, WHATS_AT::INPUT, n).rotate_affinity(get_rotation());
-			if (hotspot(m_gates+m_inputs).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST).rotate_affinity(get_rotation());
+					return WHATS_AT(this, WHATS_AT::INPUT, n, WHATS_AT::WEST);
+			if (hotspot(m_gates+m_ninputs).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST);
 			return Symbol::location(p);
 		}
 
@@ -1261,14 +1284,26 @@ namespace app {
 			for (int n=0; n<m_gates; ++n)
 				if (what.match((void *)this, WHATS_AT::GATE, n))
 					return &hotspot(n);
-			for (int n=0; n<m_inputs; ++n)
+			for (int n=0; n<m_ninputs; ++n)
 				if (what.match((void *)this, WHATS_AT::INPUT, n))
 					return &hotspot(m_gates+n);
 			if (what.match((void *)this, WHATS_AT::OUTPUT, 0))
-				return &hotspot(m_inputs+m_gates);
+				return &hotspot(m_ninputs+m_gates);
 			return NULL;
 		}
 
+		int gate_count() {   // log_2 (inputs)
+			m_gates = (int)rint(log(m_ninputs) / log2);
+			m_ninputs = (int)(pow(2, m_gates));
+			return m_gates;
+		}
+
+		virtual void set_inputs(int a_inputs){
+			inputs(a_inputs);
+			m_ninputs = a_inputs;
+			gate_count();    // recalculate counts for valid numbers
+			inputs(m_ninputs);
+		}
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
@@ -1279,8 +1314,8 @@ namespace app {
 
 			int cw = 5, ch = 14;
 			int width = cw * (m_gates+1);
-			int height0 = ch * (m_inputs+1) + width*2;
-			int height1 = ch * (m_inputs+1);
+			int height0 = ch * (m_ninputs+1) + width*2;
+			int height1 = ch * (m_ninputs+1);
 			bounding_rect(cr, Rect(0, -height0/2, width, height0));
 
 			for (int n=1; n<=m_gates; ++n) {
@@ -1291,14 +1326,14 @@ namespace app {
 				cr->line_to(x, y - m_flipped * (x + 3.5));
 				cr->stroke();
 			}
-			for (int n=1; n<=m_inputs; ++n) {
-				double y=-height0/2+height0*n/(m_inputs+1);
+			for (int n=1; n<=m_ninputs; ++n) {
+				double y=-height0/2+height0*n/(m_ninputs+1);
 				hotspot(cr, m_gates+n-1, Point(0, y));
 				cr->move_to(-3.5, y);
 				cr->line_to(0, y);
 				cr->stroke();
 			}
-			hotspot(cr, m_gates+m_inputs, Point(width, 0));
+			hotspot(cr, m_gates+m_ninputs, Point(width, 0));
 
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 			cr->move_to(0, -height0/2); cr->line_to(0, height0/2);
@@ -1308,13 +1343,13 @@ namespace app {
 			cr->stroke();
 
 			cr->set_line_width(0.2);
-			double h = (height0) / (m_inputs+1);
+			double h = (height0) / (m_ninputs+1);
 			cr->save();
 			cr->rotate(-get_rotation());
 			cr->scale(1/get_scale(), 1/get_scale());
 			cr->set_font_size(8);
-			for (int r=0; r < m_inputs; ++r) {
-				std::string txt = int_to_hex(m_forward?r:(m_inputs-r-1), "", "");
+			for (int r=0; r < m_ninputs; ++r) {
+				std::string txt = int_to_hex(m_forward?r:(m_ninputs-r-1), "", "");
 				draw_label(cr, width/2-3, height0/2.0 - (r+1) * h, txt);
 			}
 			cr->restore();
@@ -1322,8 +1357,9 @@ namespace app {
 		}
 		void flipped(bool a_flipped) { m_flipped = a_flipped?-1:1; }
 		void draw_forward(bool a_forward){ m_forward = a_forward; }
-		MuxSymbol(double x=0, double y=0, double rotation=0, int gates=1, int inputs=2):
-			Symbol(x, y, rotation), m_gates(gates), m_inputs(inputs), m_forward(true) {
+		MuxSymbol(double x=0, double y=0, double rotation=0, int gates=1, int a_inputs=2):
+			Symbol(x, y, rotation), m_gates(gates), m_ninputs(a_inputs), m_forward(true) {
+			inputs(m_ninputs);
 			name("U");
 		}
 	};
@@ -1332,6 +1368,7 @@ namespace app {
 	  public:
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			draw_label(cr, 8, -15);
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(get_rotation());
@@ -1371,28 +1408,28 @@ namespace app {
 	  public:
 
 		virtual WHATS_AT location(Point p) {
-			int n_inputs = m_dual?2:1;
-
-			for (int n=0; n<n_inputs; ++n)
-				if (hotspot(n).close_to(p))
-					return WHATS_AT(this, WHATS_AT::INPUT, n).rotate_affinity(get_rotation());
-			if (hotspot(n_inputs).close_to(p))
-				return WHATS_AT(this, WHATS_AT::OUTPUT, n_inputs, WHATS_AT::EAST).rotate_affinity(get_rotation());
+			if (hotspot(0).close_to(p))
+				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::WEST);
+			if (m_dual && hotspot(1).close_to(p))
+				return WHATS_AT(this, WHATS_AT::GATE, 0, WHATS_AT::WEST);
+			if (hotspot(m_dual?2:1).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST);
 
 			return Symbol::location(p);
 		}
 
 		virtual const Point *hotspot_at(const WHATS_AT &what) const {
-			int n_inputs = m_dual?2:1;
-			for (int n=0; n<n_inputs; ++n)
-				if (what.match((void *)this, WHATS_AT::INPUT, n))
-					return &hotspot(n);
+			if (what.match((void *)this, WHATS_AT::INPUT, 0))
+				return &hotspot(0);
+			if (m_dual && what.match((void *)this, WHATS_AT::GATE, 0))
+				return &hotspot(1);
 			if (what.match((void *)this, WHATS_AT::OUTPUT, 0))
-				return &hotspot(n_inputs);
+				return &hotspot(m_dual?2:1);
 			return NULL;
 		}
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			draw_label(cr, 8, -17);
 			cr->save();
 			cr->translate(m_x, m_y);
 			cr->rotate(get_rotation());
@@ -1443,6 +1480,29 @@ namespace app {
 		bool m_flipped;
 		bool m_closed;
 	  public:
+		virtual WHATS_AT location(Point p) {
+			if (hotspot(0).close_to(p))
+				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::WEST);
+			if (hotspot(1).close_to(p))
+				return WHATS_AT(this, WHATS_AT::GATE, 0, WHATS_AT::WEST);
+			if (hotspot(2).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST);
+
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			if (what.match((void *)this, WHATS_AT::INPUT, 0))
+				return &hotspot(0);
+			if (what.match((void *)this, WHATS_AT::GATE, 0))
+				return &hotspot(1);
+			if (what.match((void *)this, WHATS_AT::OUTPUT, 0))
+				return &hotspot(2);
+			return NULL;
+		}
+
+		void closed(bool a_closed) { m_closed = a_closed; }
+		void flipped(bool a_flipped) { m_flipped = a_flipped; }
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			double sz = 20.0;
@@ -1453,6 +1513,10 @@ namespace app {
 			bounding_rect(cr, Rect(0, 0, sz*4, -sz));
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+
+			hotspot(cr, 0, Point(0, 0));     // Input
+			hotspot(cr, 1, Point(0, -sz));   // Switch
+			hotspot(cr, 2, Point(sz*4, 0));  // Output
 
 			cr->move_to(   0,  0); cr->line_to(  sz, 0);
 			cr->move_to(sz*3,  0); cr->line_to(sz*4, 0);
@@ -1536,8 +1600,24 @@ namespace app {
 			}
 		};
 
+		virtual WHATS_AT location(Point p) {
+			for (size_t row = 0; row <= m_rows.size(); ++row)
+				if (hotspot(row).close_to(p))
+					return WHATS_AT(this, WHATS_AT::INPUT, row, WHATS_AT::WEST);
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			for (size_t row = 0; row <= m_rows.size(); ++row)
+				if (what.match((void *)this, WHATS_AT::INPUT, row))
+					return &hotspot(row);
+			return NULL;
+		}
+
 	  protected:
 		std::vector<DataRow> m_rows;
+
+
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			BlockSymbol::draw(cr);
@@ -1559,13 +1639,20 @@ namespace app {
 				nth_row++;
 			}
 			if (text_width) text_width += 8;
-			cr->translate(text_width, 2);
 			l_width -= text_width;
 
+			for (size_t n=0; n <= m_rows.size(); ++n) {
+				hotspot(cr, n, Point(0, n * m_rowHeight + m_rowHeight/2));
+			}
+
 			nth_row = 0;
+
+			cr->translate(text_width, 2);
+
 			for (auto &row : m_rows) {
 				bool first = true;
 				double v = 0;
+
 
 				for (auto &pt: row.data) {
 					if (first) {
@@ -1606,6 +1693,97 @@ namespace app {
 			m_rowHeight(row_height) {}
 
 	};
+
+
+	class CounterSymbol: public BlockSymbol {
+		unsigned long m_value = 0;
+		int m_nBits = 8;
+		bool m_is_sync = false;
+
+	  public:
+
+		virtual WHATS_AT location(Point p) {
+			if (hotspot(0).close_to(p))
+				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::WEST);
+			if (hotspot(1).close_to(p))
+				return WHATS_AT(this, WHATS_AT::CLOCK, 0, WHATS_AT::EAST);
+			for (int n = 0; n < m_nBits; ++n) {
+				if (hotspot(2+n).close_to(p))
+					return WHATS_AT(this, WHATS_AT::OUTPUT, n, WHATS_AT::SOUTH);
+			}
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			if (what.match((void *)this, WHATS_AT::INPUT, 0))
+				return &hotspot(0);
+			if (what.match((void *)this, WHATS_AT::CLOCK, 0))
+				return &hotspot(1);
+			for (int n = 0; n < m_nBits; ++n) {
+				if (what.match((void *)this, WHATS_AT::OUTPUT, n))
+					return &hotspot(2+n);
+			}
+			return NULL;
+		}
+
+		void set_value(unsigned long v) { m_value = v; }
+		void set_synch(bool synch) { m_is_sync = synch; }
+		void set_nbits(int nbits) { m_nBits = nbits; }
+
+	  protected:
+
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			BlockSymbol::draw(cr);
+			cr->save();
+			cr->translate(2+m_x-width()/2, m_y-height()/2);
+			hotspot(cr, 0, Point(0, height()/2));         // input
+			hotspot(cr, 1, Point(width()/2, 0));          // clock
+
+			cr->set_line_width(0.8);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+
+			std::string bits="";
+			for (int n=0; n < m_nBits; ++n){
+				bits.insert(0, (m_value & 1 << n)?"1":"0");
+			}
+			bits += " [" + int_to_hex(m_value, "0x") + "]";
+
+			cr->move_to(10, height() - 10);
+			cr->text_path(bits);
+			cr->set_line_width(0.6);
+
+			CairoDrawing::black(cr); cr->fill_preserve(); cr->stroke();
+
+			cr->save();
+			cr->set_font_size(7);
+			for (int n = 0; n < m_nBits; ++n) {           // outputs
+				double x = (n+1) * width()/(m_nBits+2);
+				int bit_no = (m_nBits-1-n);
+				hotspot(cr, 2+bit_no, Point(x, height()));
+				cr->move_to(x, height()-2);
+				cr->show_text(int_to_string(bit_no));
+			}
+			cr->restore();
+
+			if (m_is_sync) {
+				auto mid = width() / 2;
+				cr->move_to(mid - 10, 0);
+				cr->line_to(mid, 15);
+				cr->line_to(mid+10, 0);
+				cr->set_line_width(0.9);
+				cr->stroke();
+			}
+			cr->restore();
+		}
+
+	  public:
+		CounterSymbol(double x=0, double y=0, double w=100, double row_height=20) :
+			BlockSymbol(x, y, w, row_height){}
+
+	};
+
+
+
 
 
 	class GenericDiagram: public CairoDrawing {
@@ -1727,14 +1905,14 @@ namespace app {
 				auto &p2 = m_points[n+1];
 
 				if (p.close_to(p1.dev)) {
-					return WHATS_AT(&p1, WHATS_AT::POINT, n);
+					return WHATS_AT(&p1, WHATS_AT::POINT, n, WHATS_AT::WEST);
 				} else if (p.close_to(p2.dev)) {
-					return WHATS_AT(&p2, WHATS_AT::POINT, n+1);
+					return WHATS_AT(&p2, WHATS_AT::POINT, n+1, WHATS_AT::WEST);
 				} else if (p.close_to_line_with(p1.dev, p2.dev)) {
 					p1.segstart = true;
 					p2.hilight = true;
 					m_area->queue_draw();
-					return WHATS_AT(this, WHATS_AT::LINE, n);
+					return WHATS_AT(NULL, WHATS_AT::LINE, n, WHATS_AT::WEST);
 				} else if (p2.hilight) {
 					p1.segstart = false;
 					p2.hilight = false;
@@ -1754,7 +1932,8 @@ namespace app {
 		// Context menu for various things
 		virtual void context(const WHATS_AT &target_info) {
 			if (target_info.what == WHATS_AT::SYMBOL) {
-				ContextDialogFactory().popup_context(*(Symbol *)target_info.pt);
+				Symbol *sym = dynamic_cast<Symbol *>(target_info.pt);
+				ContextDialogFactory().popup_context(*sym);
 				m_area->queue_draw();
 			}
 			if (target_info.what == WHATS_AT::POINT) {
@@ -1766,12 +1945,12 @@ namespace app {
 		virtual void move(const WHATS_AT &target_info, const Point &destination, bool move_dia = false) {
 			if (move_dia) {
 				if (target_info.what == WHATS_AT::SYMBOL) {
-					Symbol *sym = (Symbol *)target_info.pt;
+					Symbol *sym = dynamic_cast<Symbol *>(target_info.pt);
 					position(destination.diff(sym->origin()));
 				}
 			} else {
 				if (target_info.what == WHATS_AT::SYMBOL) {
-					Symbol *sym = (Symbol *)target_info.pt;
+					Symbol *sym = dynamic_cast<Symbol *>(target_info.pt);
 					sym->move(destination.diff(position()));
 				}
 			}

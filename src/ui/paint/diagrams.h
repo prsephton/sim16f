@@ -234,6 +234,28 @@ namespace app {
 			return false;
 		}
 
+		// Attempt to slot output from source into input at target.
+		// If source is already connected, disconnect instead.
+		virtual bool slot(const WHATS_AT &w, Connection *source) {
+			if (w.what == WHATS_AT::INPUT) {
+				auto &inputs = m_gate.inputs();
+				if ((size_t)w.id >= inputs.size() || not inputs[w.id])
+					return m_gate.connect(w.id, *source);
+				else {
+					m_gate.disconnect(w.id);
+					return false;
+				}
+			}
+			return false;
+		};
+
+		// Return the connection at the indicated location
+		virtual Connection *slot(const WHATS_AT &w) {
+			if (w.what == WHATS_AT::OUTPUT)
+				return &m_gate.rd();
+			return NULL;
+		};
+
 
 		// Context menu for m_symbol
 		virtual void context(const WHATS_AT &target_info) {
@@ -295,6 +317,27 @@ namespace app {
 			return m_symbol.hotspot_at(w);
 		}
 
+
+		// Attempt to slot output from source into input at target.
+		// If source is already connected, disconnect instead.
+		virtual bool slot(const WHATS_AT &w, Connection *source) {
+			return m_pin.connect(*source);  // should work for terminals
+		};
+
+		// Return the connection at the indicated location
+		virtual Connection *slot(const WHATS_AT &w) {
+			return &m_pin;
+		};
+
+		// Context menu for m_symbol
+		virtual void context(const WHATS_AT &target_info) {
+			ContextDialogFactory().popup_context(m_symbol);
+			m_pin.name(m_symbol.name());
+			m_area->queue_draw();
+		};
+
+
+
 	  public:
 
 		virtual bool on_motion(double x, double y, guint state) {
@@ -308,26 +351,13 @@ namespace app {
 		}
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
-			bool signal = m_pin.signal();
-			bool indeterminate = !m_pin.determinate();
+			m_symbol.signal(m_pin.signal());
+			m_symbol.indeterminate(!m_pin.determinate());
 
 			cr->save();
 			position().cairo_translate(cr);
-			if (indeterminate) this->indeterminate(cr); else if (signal) this->green(cr); else this->gray(cr);
-
-			cr->save();
-			cr->rotate(m_rotation);
-			cr->scale(m_scale, m_scale);
-			cr->rectangle(0,-10,20,20);
-			cr->fill();
-			cr->restore();
-
-			this->black(cr);
 			m_symbol.draw_symbol(cr, m_dev_origin);
 			cr->restore();
-
-//			PinSymbol(m_x, m_y, m_rotation, m_scale).draw_symbol(cr, Point(m_xofs, m_yofs));
-
 
 			return false;
 		}
@@ -414,18 +444,20 @@ namespace app {
 		}
 
 		virtual Connection *slot(const WHATS_AT &w) {
-			if (w.what == WHATS_AT::OUTPUT) return &m_schmitt.rd();
+			if (w.what == WHATS_AT::OUTPUT)
+				return &m_schmitt.rd();
 			return NULL;
 		}
 
 		virtual bool slot(const WHATS_AT &w, Connection *source) {
-			if (w.what == WHATS_AT::INPUT)
-				m_schmitt.set_input(*source);
-			else if (w.what == WHATS_AT::GATE)
-				m_schmitt.set_gate(*source);
-			else
+			if (w.what == WHATS_AT::INPUT) {
+				m_schmitt.set_input((&m_schmitt.in())?NULL:source);
+				return (&m_schmitt.in() != NULL);
+			} else if (w.what == WHATS_AT::GATE) {
+				m_schmitt.set_gate((&m_schmitt.en())?NULL:source);
+				return (&m_schmitt.en() != NULL);
+			} else
 				return false;
-			return true;
 		}
 
 
@@ -528,6 +560,27 @@ namespace app {
 			m_symbol.show_name(true);
 		}
 
+		virtual bool slot(const WHATS_AT &w, Connection *source) {
+			if (w.what == WHATS_AT::INPUT) {
+				m_tris.input((&m_tris.input())?NULL:source);
+				return (&m_tris.input() != NULL);
+			} else if (w.what == WHATS_AT::GATE) {
+				m_tris.gate((&m_tris.gate())?NULL:source);
+				return (&m_tris.gate() != NULL);
+			} else
+				return false;
+		}
+
+		// Return the connection at the indicated location
+		virtual Connection *slot(const WHATS_AT &w) {
+			if (w.what == WHATS_AT::OUTPUT) {
+				if (w.id == 0) return &m_tris.rd();
+			}
+			return NULL;
+		};
+
+
+
 		TristateDiagram(Tristate &a_tris, bool point_right, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area, Point(x,y)), m_tris(a_tris), m_point_right(point_right)
 		{
@@ -565,12 +618,32 @@ namespace app {
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			position().cairo_translate(cr);
-
+			bool closed = ((&m_relay.sw())?m_relay.sw().signal():false);
+			m_symbol.closed(closed);
 			m_symbol.draw_symbol(cr, m_dev_origin);
 
 			cr->restore();
 			return false;
 		}
+
+		virtual bool slot(const WHATS_AT &w, Connection *source) {
+			if (w.what == WHATS_AT::INPUT) {
+				m_relay.in((&m_relay.in())?NULL:source);
+				return (&m_relay.in() != NULL);
+			} else if (w.what == WHATS_AT::GATE) {
+				m_relay.sw((&m_relay.sw())?NULL:source);
+				return (&m_relay.sw() != NULL);
+			} else
+				return false;
+		}
+
+		// Return the connection at the indicated location
+		virtual Connection *slot(const WHATS_AT &w) {
+			if (w.what == WHATS_AT::OUTPUT) {
+				if (w.id == 0) return &m_relay.rd();
+			}
+			return NULL;
+		};
 
 		virtual void show_name(bool a_show) {
 			m_symbol.show_name(true);
@@ -578,7 +651,8 @@ namespace app {
 
 		RelayDiagram(Relay &a_relay, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area, Point(x,y)), m_relay(a_relay) {
-			m_symbol = RelaySymbol(0,0,0,m_relay.sw().signal());
+			bool closed = ((&m_relay.sw())?m_relay.sw().signal():false);
+			m_symbol = RelaySymbol(0,0,0,closed);
 			Counters::rename(&m_symbol, &a_relay);
 		}
 
@@ -619,6 +693,34 @@ namespace app {
 			cr->restore();
 			return false;
 		}
+
+		virtual bool slot(const WHATS_AT &w, Connection *source) {
+			if (w.what == WHATS_AT::INPUT) {
+				m_mux.in(w.id, (&m_mux.in(w.id))?NULL:source);
+				return (&m_mux.in(w.id) != NULL);
+			} else if (w.what == WHATS_AT::GATE) {
+				m_mux.select(w.id, (&m_mux.select(w.id))?NULL:source);
+				return (&m_mux.select(w.id) != NULL);
+			} else
+				return false;
+		}
+
+		// Return the connection at the indicated location
+		virtual Connection *slot(const WHATS_AT &w) {
+			if (w.what == WHATS_AT::OUTPUT) {
+				return &m_mux.rd();
+			}
+			return NULL;
+		};
+
+		// Context menu for m_symbol
+		virtual void context(const WHATS_AT &target_info) {
+			ContextDialogFactory().popup_context(m_symbol);
+			m_mux.name(m_symbol.name());
+			m_mux.configure(m_symbol.inputs(), m_symbol.gate_count());
+			m_area->queue_draw();
+		};
+
 		void set_scale(double a_scale) {m_symbol.set_scale(a_scale); }
 		void flipped(bool a_flipped) { m_symbol.flipped(a_flipped); }
 
@@ -680,11 +782,32 @@ namespace app {
 			m_latchsym.show_name(true);
 		}
 
+		virtual bool slot(const WHATS_AT &w, Connection *source) {
+			if (w.what == WHATS_AT::INPUT) {
+				m_latch.D((&m_latch.D())?NULL:source);
+				return (&m_latch.D() != NULL);
+			} else if (w.what == WHATS_AT::GATE) {
+				m_latch.Ck((&m_latch.Ck())?NULL:source);
+				return (&m_latch.Ck() != NULL);
+			} else
+				return false;
+		}
+
+		// Return the connection at the indicated location
+		virtual Connection *slot(const WHATS_AT &w) {
+			if (w.what == WHATS_AT::OUTPUT) {
+				if (w.id == 0) return &m_latch.Q();
+				if (w.id == 1) return &m_latch.Qc();
+			}
+			return NULL;
+		};
+
+
 		LatchDiagram(Latch &a_latch, bool point_right, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area, Point(x,y)), m_latch(a_latch), m_point_right(point_right), m_size(70, 70)
 		{
 			m_basic = BlockSymbol(m_size.x/2, m_size.y/2, m_size.x, m_size.y);
-			m_latchsym = LatchSymbol(0, 0, 0, !m_point_right);
+			m_latchsym = LatchSymbol(0, 0, 0, !m_point_right, a_latch.clocked());
 			Counters::rename(&m_latchsym, &a_latch);
 		}
 	};
@@ -693,20 +816,20 @@ namespace app {
 	class CounterDiagram: public CairoDrawing {
 		Counter &m_counter;
 		Point m_size;
-		BlockSymbol m_basic;
+		CounterSymbol m_symbol;
 
 		virtual WHATS_AT location(Point p, bool for_input=false) {
-			return m_basic.location(p);
+			return m_symbol.location(p);
 		}
 		virtual const Point *point_at(const WHATS_AT &w) const {
-			return m_basic.hotspot_at(w);
+			return m_symbol.hotspot_at(w);
 		}
 
 		virtual bool on_motion(double x, double y, guint state) {
-			Rect r = m_basic.bounding_rect();
-			bool selected = m_basic.selected();
-			m_basic.selected() = r.inside(Point(x, y));
-			if (selected != m_basic.selected()) {
+			Rect r = m_symbol.bounding_rect();
+			bool selected = m_symbol.selected();
+			m_symbol.selected() = r.inside(Point(x, y));
+			if (selected != m_symbol.selected()) {
 				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
 			}
 			return false;
@@ -718,47 +841,56 @@ namespace app {
 
 			cr->save();
 			position().cairo_translate(cr);
-			m_basic.draw_symbol(cr, m_dev_origin);
 
-			cr->set_line_width(0.8);
-			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
-
-			std::string bits="";
-			unsigned long value = m_counter.get();
-			for (size_t n=0; n < m_counter.nbits(); ++n){
-				bits.insert(0, (value & 1 << n)?"1":"0");
-			}
-			bits += " [" + int_to_hex(value, "0x") + "]";
-
-			cr->move_to(10, m_size.y - 10);
-			cr->text_path(bits);
-			cr->set_line_width(0.6);
-
-			black(cr); cr->fill_preserve(); cr->stroke();
-
-			if (m_counter.is_sync()) {
-				auto mid = m_size.x / 2;
-				cr->move_to(mid - 10, 0);
-				cr->line_to(mid, 15);
-				cr->line_to(mid+10, 0);
-				cr->set_line_width(0.9);
-				cr->stroke();
-			}
+			m_symbol.set_value(m_counter.get());
+			m_symbol.set_synch(m_counter.is_sync());
+			m_symbol.set_nbits(m_counter.nbits());
+			m_symbol.draw_symbol(cr, m_dev_origin);
 
 			cr->restore();
 			return false;
 		}
 
+		// Attempt to slot output from source into input at target.
+		// If source is already connected, disconnect instead.
+		virtual bool slot(const WHATS_AT &w, Connection *source) {
+			if (w.what == WHATS_AT::INPUT) {
+				if (m_counter.get_input() == source) {
+					m_counter.set_input(NULL);
+					return false;
+				}
+				m_counter.set_input(source);
+				return true;
+			} else if (w.what == WHATS_AT::CLOCK) {
+				if (m_counter.get_clock() == source) {
+					m_counter.set_clock(NULL);
+					return false;
+				}
+				m_counter.set_clock(source);
+				return true;
+			}
+			return false;
+		};
+
+		// Return the connection at the indicated location
+		virtual Connection *slot(const WHATS_AT &w) {
+			if (w.what == WHATS_AT::OUTPUT) {
+				return &m_counter.bit(w.id);
+			}
+			return NULL;
+		};
+
+
 		virtual void show_name(bool a_show) {
-			m_basic.show_name(true);
+			m_symbol.show_name(true);
 		}
 
 		CounterDiagram(Counter &a_counter, Glib::RefPtr<Gtk::DrawingArea>a_area, double x, double y):
 			CairoDrawing(a_area, Point(x,y)), m_counter(a_counter),
 			m_size(a_counter.nbits() * 7 + 50, 30 + 20 * a_counter.is_sync())
 		{
-			m_basic = BlockSymbol(m_size.x/2, m_size.y/2, m_size.x, m_size.y);
-			Counters::rename(&m_basic, &a_counter);
+			m_symbol = CounterSymbol(m_size.x/2, m_size.y/2, m_size.x, m_size.y);
+			Counters::rename(&m_symbol, &a_counter);
 		}
 	};
 
@@ -808,6 +940,25 @@ namespace app {
 			}
 		}
 
+
+		// Attempt to slot output from source into input at target.
+		// If source is already connected, disconnect instead.
+		virtual bool slot(const WHATS_AT &w, Connection *source) {
+			if (w.what == WHATS_AT::INPUT) {
+				if (m_trace.has_trace(source)) {
+					m_trace.remove_trace(source);
+					set_names();
+					return false;
+				}
+				if (m_trace.add_trace(source, w.id)) {
+					set_names();
+					return true;
+				}
+			}
+			return false;
+		};
+
+
 	  public:
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
@@ -829,16 +980,18 @@ namespace app {
 			m_rowHeight = rh;
 		}
 
-		void add_trace(Connection *c) {
-			m_trace.add_trace(c);
-		}
-
-		void remove_trace(Connection *c) {
-			m_trace.remove_trace(c);
-		}
-
 		void clear_traces() {
 			m_trace.clear_traces();
+			set_names();
+		}
+
+		void set_names() {
+			m_names.resize(m_trace.traced().size());
+			for (size_t n=0; n < m_names.size(); ++n) {
+				m_names[n] = m_trace.traced()[n]->name();
+				if (not m_names[n].length())
+					m_names[n] = std::string("S") + int_to_hex(n, ".");
+			}
 		}
 
 
@@ -848,12 +1001,7 @@ namespace app {
 			m_size(m_width, a_trace.traced().size() * m_rowHeight)
 		{
 			m_symbol = TraceSymbol(m_size.x/2, m_size.y/2, m_size.x, row_height);
-			m_names.resize(a_trace.traced().size());
-			for (size_t n=0; n < m_names.size(); ++n) {
-				m_names[n] = m_trace.traced()[n]->name();
-				if (not m_names[n].length())
-					m_names[n] = std::string("S") + int_to_hex(n, ".");
-			}
+			set_names();
 			Counters::rename(&m_symbol, &a_trace);
 		}
 	};

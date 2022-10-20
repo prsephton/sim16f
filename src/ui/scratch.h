@@ -15,7 +15,8 @@ namespace app {
 	  public:
 		virtual const Glib::RefPtr<Gtk::Builder>& glade()=0;
 		virtual Glib::RefPtr<Gtk::DrawingArea> area()=0;
-		virtual void add_diagram(CairoDrawingBase *a_drawing, Device *dev)=0;
+		virtual void add_diagram(CairoDrawingBase *a_drawing, SmartPtr<Device> dev)=0;
+		virtual CPU_DATA &cpu()=0;
 
 		Scratch() {}
 		virtual ~Scratch() {}
@@ -63,7 +64,7 @@ namespace app {
 				const Glib::ustring l_label = item->get_label();
 				if (l_label == "Vdd") {
 					Voltage *l_dev = new Voltage(5, "Vdd");
-//					l_dev->debug(true);
+					l_dev->debug(true);
 					auto dia = new VddDiagram(scratch->area(), *l_dev, 0, 0);
 					scratch->add_diagram(dia, l_dev);
 				} else if (l_label == "Vss") {
@@ -101,7 +102,7 @@ namespace app {
 				const Glib::ustring l_label = item->get_label();
 				if (l_label == "Resistor") {
 					Terminal *l_dev = new Terminal();
-//					l_dev->debug(true);
+					l_dev->debug(true);
 					auto dia = new ResistorDiagram(scratch->area(), *l_dev, 0, 0);
 					scratch->add_diagram(dia, l_dev);
 				} else if (l_label == "Capacitor") {
@@ -122,12 +123,151 @@ namespace app {
 				const Glib::ustring l_label = item->get_label();
 				if (l_label == "Trace") {
 					SignalTrace *l_dev = new SignalTrace({});
-					l_dev->debug(true);
 					auto dia = new TraceDiagram(*l_dev, scratch->area(), 0, 0);
+					scratch->add_diagram(dia, l_dev);
+				} else if (l_label == "Schmitt Trigger") {
+					Schmitt *l_dev = new Schmitt();
+					auto dia = new SchmittDiagram(*l_dev, 0, 0, 0, true, scratch->area());
+					scratch->add_diagram(dia, l_dev);
+				} else if (l_label == "TriState") {
+					Tristate *l_dev = new Tristate();
+					auto dia = new TristateDiagram(*l_dev, true, 0, 0, scratch->area());
+					scratch->add_diagram(dia, l_dev);
+				} else if (l_label == "D-Latch") {
+					Latch *l_dev = new Latch(); l_dev->clocked(true);
+					auto dia = new LatchDiagram(*l_dev, true, 0, 0, scratch->area());
+					scratch->add_diagram(dia, l_dev);
+				} else if (l_label == "SR-Latch") {
+					Latch *l_dev = new Latch(); l_dev->clocked(false);
+					auto dia = new LatchDiagram(*l_dev, true, 0, 0, scratch->area());
+					scratch->add_diagram(dia, l_dev);
+				} else if (l_label == "MUX") {
+					Mux *l_dev = new Mux(std::vector<Connection *>({NULL,NULL}), std::vector<Connection *>({NULL}));
+					auto dia = new MuxDiagram(*l_dev, 0, 0, 0, scratch->area());
+					scratch->add_diagram(dia, l_dev);
+				} else if (l_label == "Counter") {
+					Counter *l_dev = new Counter(8);
+					auto dia = new CounterDiagram(*l_dev, scratch->area(), 0, 0);
+					scratch->add_diagram(dia, l_dev);
+				} else if (l_label == "Shift Register") {
+
+				} else if (l_label == "Clock") {
+
+				}
+			}
+
+
+			void on_menu_physical() {
+				auto item = physical->get_active();
+				const Glib::ustring l_label = item->get_label();
+				if (l_label == "Relay") {
+					Relay *l_dev = new Relay({});
+					auto dia = new RelayDiagram(*l_dev, 0, 0, scratch->area());
 					scratch->add_diagram(dia, l_dev);
 				}
 			}
 
+			void on_menu_gates() {
+				auto item = gates->get_active();
+				const Glib::ustring l_label = item->get_label();
+				if (l_label == "Buffer") {
+					ABuffer *l_dev = new ABuffer({});
+					auto dia = new BufferDiagram(*l_dev, 0, 0, 0, scratch->area());
+					scratch->add_diagram(dia, l_dev);
+				} else if (l_label == "Inverter") {
+					Inverter *l_dev = new Inverter({});
+					auto dia = new InverterDiagram(*l_dev, 0, 0, 0, scratch->area());
+					scratch->add_diagram(dia, l_dev);
+				} else if (l_label == "And") {
+					AndGate *l_dev = new AndGate(std::vector<Connection *>({NULL, NULL}));
+					l_dev->debug(true);
+					auto dia = new AndDiagram(*l_dev, 0, 0, 0, scratch->area());
+					scratch->add_diagram(dia, l_dev);
+				} else if (l_label == "Nand") {
+					AndGate *l_dev = new AndGate(std::vector<Connection *>({NULL, NULL}), true);
+					auto dia = new NandDiagram(*l_dev, 0, 0, 0, scratch->area());
+					scratch->add_diagram(dia, l_dev);
+				} else if (l_label == "Or") {
+					OrGate *l_dev = new OrGate(std::vector<Connection *>({NULL, NULL}));
+					auto dia = new OrDiagram(*l_dev, 0, 0, 0, scratch->area());
+					scratch->add_diagram(dia, l_dev);
+				} else if (l_label == "Nor") {
+					OrGate *l_dev = new OrGate(std::vector<Connection *>({NULL, NULL}), true);
+					auto dia = new NorDiagram(*l_dev, 0, 0, 0, scratch->area());
+					scratch->add_diagram(dia, l_dev);
+				} else if (l_label == "Xor") {
+					XOrGate *l_dev = new XOrGate(std::vector<Connection *>({NULL, NULL}));
+					auto dia = new XOrDiagram(*l_dev, 0, 0, 0, scratch->area());
+					scratch->add_diagram(dia, l_dev);
+				} else if (l_label == "NXor") {
+					XOrGate *l_dev = new XOrGate(std::vector<Connection *>({NULL, NULL}), true);
+					auto dia = new XNorDiagram(*l_dev, 0, 0, 0, scratch->area());
+					scratch->add_diagram(dia, l_dev);
+				}
+			}
+
+
+			void on_menu_porta() {
+
+				auto add_pinDiagram = [&](Connection &c){
+					SmartPtr<Device>pin = &c;
+					c.debug(true);
+					pin.incRef();   // prevent pointer disposal when out of scope
+					auto dia = new PinDiagram(c, 0, 0, 0, 1, scratch->area());
+					scratch->add_diagram(dia, pin);
+				};
+
+				auto item = porta->get_active();
+				const Glib::ustring l_label = item->get_label();
+				if (l_label == "RA0/AN0") {
+					add_pinDiagram(dynamic_cast<SinglePortA_Analog &>(*(scratch->cpu().porta.RA[0])).pin());
+				} else if (l_label == "RA1/AN1") {
+					add_pinDiagram(dynamic_cast<SinglePortA_Analog &>(*(scratch->cpu().porta.RA[1])).pin());
+				} else if (l_label == "RA2/AN2/Vref") {
+					add_pinDiagram(dynamic_cast<SinglePortA_Analog_RA2 &>(*(scratch->cpu().porta.RA[2])).pin());
+				} else if (l_label == "RA3/AN3/CMP1") {
+					add_pinDiagram(dynamic_cast<SinglePortA_Analog_RA3 &>(*(scratch->cpu().porta.RA[3])).pin());
+				} else if (l_label == "RA4/TOCKI/CMP2") {
+					add_pinDiagram(dynamic_cast<SinglePortA_Analog_RA4 &>(*(scratch->cpu().porta.RA[4])).pin());
+				} else if (l_label == "RA5/MCLR/Vpp") {
+					add_pinDiagram(dynamic_cast<SinglePortA_MCLR_RA5 &>(*(scratch->cpu().porta.RA[5])).pin());
+				} else if (l_label == "RA6/OSC2/CLKOUT") {
+					add_pinDiagram(dynamic_cast<SinglePortA_RA6_CLKOUT &>(*(scratch->cpu().porta.RA[6])).pin());
+				} else if (l_label == "RA7/OSC1/CLKIN") {
+					add_pinDiagram(dynamic_cast<PortA_RA7 &>(*(scratch->cpu().porta.RA[7])).pin());
+				}
+			}
+
+
+			void on_menu_portb() {
+
+				auto add_pinDiagram = [&](Connection &c){
+					SmartPtr<Device>pin = &c;
+					pin.incRef();     // prevent pointer disposal when out of scope
+					auto dia = new PinDiagram(c, 0, 0, 0, 1, scratch->area());
+					scratch->add_diagram(dia, pin);
+				};
+
+				auto item = portb->get_active();
+				const Glib::ustring l_label = item->get_label();
+				if (l_label == "RB0/INT") {
+					add_pinDiagram(dynamic_cast<PortB_RB0 &>(*(scratch->cpu().portb.RB[0])).pin());
+				} else if (l_label == "RB1/RX/DT") {
+					add_pinDiagram(dynamic_cast<PortB_RB1 &>(*(scratch->cpu().portb.RB[1])).pin());
+				} else if (l_label == "RB2/TX/CK") {
+					add_pinDiagram(dynamic_cast<PortB_RB2 &>(*(scratch->cpu().portb.RB[2])).pin());
+				} else if (l_label == "RB3/CCP1") {
+					add_pinDiagram(dynamic_cast<PortB_RB3 &>(*(scratch->cpu().portb.RB[3])).pin());
+				} else if (l_label == "RB4/PGM") {
+					add_pinDiagram(dynamic_cast<PortB_RB4 &>(*(scratch->cpu().portb.RB[4])).pin());
+				} else if (l_label == "RB5") {
+					add_pinDiagram(dynamic_cast<PortB_RB5 &>(*(scratch->cpu().portb.RB[5])).pin());
+				} else if (l_label == "RB6/T1OSO/T1CKI/PGC") {
+					add_pinDiagram(dynamic_cast<PortB_RB6 &>(*(scratch->cpu().portb.RB[6])).pin());
+				} else if (l_label == "RB7/T1OSI/PGD") {
+					add_pinDiagram(dynamic_cast<PortB_RB7 &>(*(scratch->cpu().portb.RB[7])).pin());
+				}
+			}
 
 			void connect_children(Gtk::Menu * a_menu, Glib::SignalProxy<void>::SlotType a_slot) {
 				auto children = a_menu->get_children();
@@ -153,8 +293,12 @@ namespace app {
 				portb = Glib::RefPtr<Gtk::Menu>::cast_dynamic(scratch->glade()->get_object("mn_portb"));
 
 				connect_children(rails.operator ->(), sigc::mem_fun(*this, &Menu::on_menu_rails));
+				connect_children(gates.operator ->(), sigc::mem_fun(*this, &Menu::on_menu_gates));
 				connect_children(analog.operator ->(), sigc::mem_fun(*this, &Menu::on_menu_analog));
 				connect_children(functions.operator ->(), sigc::mem_fun(*this, &Menu::on_menu_functions));
+				connect_children(physical.operator ->(), sigc::mem_fun(*this, &Menu::on_menu_physical));
+				connect_children(porta.operator ->(), sigc::mem_fun(*this, &Menu::on_menu_porta));
+				connect_children(portb.operator ->(), sigc::mem_fun(*this, &Menu::on_menu_portb));
 
 			}
 		};
@@ -168,7 +312,7 @@ namespace app {
 			std::map<std::string, SmartPtr<Component> > &components;
 			int &comp_id;
 
-			DeviceDiagram(CairoDrawingBase *a_drawing, Device *a_dev,
+			DeviceDiagram(CairoDrawingBase *a_drawing, SmartPtr<Device> a_dev,
 					std::map<std::string, SmartPtr<Component> > &a_components,
 					int &a_comp_id):
 				drawing(a_drawing), dev(a_dev), components(a_components), comp_id(a_comp_id) {
@@ -202,9 +346,10 @@ namespace app {
 			sleep_for_us(100);
 		}
 
+		virtual CPU_DATA &cpu() { return m_cpu; }
 		virtual const Glib::RefPtr<Gtk::Builder>& glade() { return m_refGlade; }
 		virtual Glib::RefPtr<Gtk::DrawingArea> area() { return m_area; }
-		virtual void add_diagram(CairoDrawingBase *a_drawing, Device *a_dev) {
+		virtual void add_diagram(CairoDrawingBase *a_drawing, SmartPtr<Device> a_dev) {
 			m_devices[a_drawing] = new DeviceDiagram(a_drawing, a_dev, m_components, m_comp_id);
 
 			a_drawing->interactive(true);
