@@ -42,6 +42,7 @@ template < class T > class SmartPtr
     }
 
 
+    void incRef() { reference->AddRef(); }   // prevent disposal when out of scope
     const T& operator* () const { return *pData; }
     T& operator* () { return *pData; }
     T* operator-> () { return pData; }
