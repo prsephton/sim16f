@@ -22,7 +22,7 @@ template<class T> class DeviceEvent<T>::registry DeviceEvent<T>::subscribers;   
 
 void BasicPort::queue_change(){  // Add a voltage change event to the queue
 	eq.queue_event(new DeviceEvent<BasicPort>(*this, "Port Changed"));
-	eq.process_events();
+//	eq.process_events();
 }
 
 void BasicPort::complete_read() {
@@ -577,7 +577,7 @@ Connection &SinglePortA_Analog_RA4::TMR0() {
 				}
 				if (getval) {
 					eq.queue_event(new DeviceEvent<SinglePortA_MCLR_RA5>(*this, "Port Changed"));
-					eq.process_events();
+//					eq.process_events();
 					bool signal = Data.signal();
 					BYTE d = r->get_value();
 					BYTE o = d;
@@ -905,10 +905,10 @@ PortB_RB1::PortB_RB1(Terminal &a_Pin, const std::string &a_name):
 	Schmitt *trigger = new Schmitt(PinOut(), true, false);
 	Wire *USART_RECWire = new Wire(trigger->rd(), m_USART_Receive, "USART receive input");
 	Mux *dmux = new Mux({&DataLatch.Q(), &m_USART_Data_Out}, {&m_SPEN}, "Data Mux");
-	TS1.input(dmux->rd());
+	TS1.input(&dmux->rd());
 
 	AndGate *Out_en = new AndGate({&TrisLatch.Q(), &m_Peripheral_OE});
-	TS1.gate(Out_en->rd());
+	TS1.gate(&Out_en->rd());
 
 	c["USART_TRIGGER"] = trigger;
 	c["USART_REC_WIRE"] = USART_RECWire;
@@ -943,10 +943,10 @@ PortB_RB2::PortB_RB2(Terminal &a_Pin, const std::string &a_name):
 	Schmitt *trigger = new Schmitt(PinOut(), true, false);
 	Wire *USART_RECWire = new Wire(trigger->rd(), m_USART_TX_CK_Out, "USART_Slave_Clock_in");
 	Mux *dmux = new Mux({&DataLatch.Q(), &m_USART_TX_CK_Out}, {&m_SPEN}, "Data Mux");
-	TS1.input(dmux->rd());
+	TS1.input(&dmux->rd());
 
 	AndGate *Out_en = new AndGate({&TrisLatch.Q(), &m_Peripheral_OE});
-	TS1.gate(Out_en->rd());
+	TS1.gate(&Out_en->rd());
 
 	c["USART_TRIGGER"] = trigger;
 	c["USART_REC_WIRE"] = USART_RECWire;
@@ -986,10 +986,10 @@ PortB_RB3::PortB_RB3(Terminal &a_Pin, const std::string &a_name):
 	Schmitt *trigger = new Schmitt(PinOut(), false, false);
 	Wire *CCP_RECWire = new Wire(trigger->rd(), m_CCP_Out, "CCP_in");
 	Mux *dmux = new Mux({&DataLatch.Q(), &m_CCP_Out}, {&m_CCP1CON}, "Data Mux");
-	TS1.input(dmux->rd());
+	TS1.input(&dmux->rd());
 
 	AndGate *Out_en = new AndGate({&TrisLatch.Q(), &m_Peripheral_OE});
-	TS1.gate(Out_en->rd());
+	TS1.gate(&Out_en->rd());
 
 	c["TRIGGER"] = trigger;
 	c["CCP_REC_WIRE"] = CCP_RECWire;
@@ -1057,10 +1057,10 @@ PortB_RB4::PortB_RB4(Terminal &a_Pin, const std::string &a_name):
 	Schmitt *trigger = new Schmitt(PinOut(), true, false);
 	c["TRIGGER"] = trigger;
 	c["PGM_RECWire"] = new Wire(trigger->rd(), m_PGM, "PGM input");
-	TS1.input(DataLatch.Q());
+	TS1.input(&DataLatch.Q());
 
 	OrGate *Out_en = new OrGate({&TrisLatch.Q(), &m_LVP});
-	TS1.gate(Out_en->rd());
+	TS1.gate(&Out_en->rd());
 
 	c["OR(TrisLatch.Q, LVP)"] = Out_en;
 
@@ -1074,7 +1074,7 @@ PortB_RB4::PortB_RB4(Terminal &a_Pin, const std::string &a_name):
 	Latch &SR1 = dynamic_cast<Latch &>(*c["SR1"]);
 	Latch &SR2 = dynamic_cast<Latch &>(*c["SR2"]);
 
-	TS2.input(SR1.Q());
+	TS2.input(&SR1.Q());
 
 	SR1.set_name(a_name+"::Q1");
 	SR2.set_name(a_name+"::Q3");
@@ -1135,8 +1135,8 @@ PortB_RB5::PortB_RB5(Terminal &a_Pin, const std::string &a_name):
 	AndGate &PU_en = dynamic_cast<AndGate &>(*c["RBPU_NAND"]);
 	PU_en.inputs({&iRBPU(), &TrisLatch.Q()});
 
-	TS1.input(DataLatch.Q());
-	TS1.gate(TrisLatch.Q());
+	TS1.input(&DataLatch.Q());
+	TS1.gate(&TrisLatch.Q());
 
 	c.erase("Inverter1");  // smart pointer will clean up
 	c["AND(Q3,rdPort)"] = new AndGate({&rdPort, &Q3()});
@@ -1148,7 +1148,7 @@ PortB_RB5::PortB_RB5(Terminal &a_Pin, const std::string &a_name):
 	Latch &SR1 = dynamic_cast<Latch &>(*c["SR1"]);
 	Latch &SR2 = dynamic_cast<Latch &>(*c["SR2"]);
 
-	TS2.input(SR1.Q()); // reallocates TS2.output as well
+	TS2.input(&SR1.Q()); // reallocates TS2.output as well
 
 	SR1.set_name(a_name+"::Q1");
 	SR2.set_name(a_name+"::Q3");
@@ -1228,10 +1228,10 @@ PortB_RB6::PortB_RB6(Terminal &a_Pin, const std::string &a_name):
 	Schmitt *trigger = new Schmitt(PinOut(), true, false);
 	c["TRIGGER"] = trigger;
 	c["TMR1_CkWire"] = new Wire(trigger->rd(), m_TMR1_Clock, "TMR1 Clock input");
-	TS1.input(DataLatch.Q());
+	TS1.input(&DataLatch.Q());
 
 	OrGate *Out_en = new OrGate({&TrisLatch.Q(), &m_T1OSCEN});
-	TS1.gate(Out_en->rd());
+	TS1.gate(&Out_en->rd());
 
 	c["OR(TrisLatch.Q, T1OSCEN)"] = Out_en;
 
@@ -1245,7 +1245,7 @@ PortB_RB6::PortB_RB6(Terminal &a_Pin, const std::string &a_name):
 	Latch &SR1 = dynamic_cast<Latch &>(*c["SR1"]);
 	Latch &SR2 = dynamic_cast<Latch &>(*c["SR2"]);
 
-	TS2.input(SR1.Q());
+	TS2.input(&SR1.Q());
 
 	SR1.set_name(a_name+"::Q1");
 	SR2.set_name(a_name+"::Q3");
@@ -1335,7 +1335,7 @@ PortB_RB7::PortB_RB7(Terminal &a_Pin, const std::string &a_name):
 
 	OrGate *Out_en = new OrGate({&TrisLatch.Q(), &m_T1OSCEN});
 	c["OR(TrisLatch.Q, T1OSCEN)"] = Out_en;
-	TS1.gate(Out_en->rd());
+	TS1.gate(&Out_en->rd());
 
 	c.erase("Inverter1");  // smart pointer will clean up
 	c["AND(Q3,rdPort)"] = new AndGate({&rdPort, &Q3()});
@@ -1347,7 +1347,7 @@ PortB_RB7::PortB_RB7(Terminal &a_Pin, const std::string &a_name):
 	Latch &SR1 = dynamic_cast<Latch &>(*c["SR1"]);
 	Latch &SR2 = dynamic_cast<Latch &>(*c["SR2"]);
 
-	TS2.input(SR1.Q());
+	TS2.input(&SR1.Q());
 
 	SR1.set_name(a_name+"::Q1");
 	SR2.set_name(a_name+"::Q3");
