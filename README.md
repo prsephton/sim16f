@@ -119,3 +119,13 @@ Apologies if you find that the code does not always adhere to many accepted codi
 # Building and installation
 
 The source comes with a Makefile which should work.  Most of the time.  Once the source settles down, and if there is external interest in the project we will make sure that the Makefile always works!
+
+# News
+
+## Scratchpad is coming along!
+
+The scratchpad is an area where one can define some rudimentary peripheral circuitry, such as switches, LED's and so forth.  This enables interaction & feedback to the PIC to be defined, enough to test PIC programs which expect to read signals from various ports.
+
+![](docs/scratchpad.ogg) 
+
+An example which uses the output from the CLKOUT pin to drive a counter
