@@ -561,7 +561,6 @@ namespace app {
 
 		void on_status_change(const CpuEvent &e) {
 			// CpuEvent(data.execPC, data.SP, data.W, disassembled);
-//			LockUI mtx;
 
 			std::string no_file("CALL;GOTO;RETURN;SLEEP;RETFIE;CLRWDT;MOVLW;RETLW;ADDLW;SUBLW;XORLW;IORLW;ANDLW");
 
@@ -570,7 +569,6 @@ namespace app {
 			m_idx = e.OPCODE & 0x7f;
 			m_file = (no_file.find(m_assembly.substr(0,m_assembly.find("\t"))) == std::string::npos);
 			m_area->queue_draw();
-//			mtx.release();
 		}
 
 		void clock(const std::string &name) {
