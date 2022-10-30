@@ -47,8 +47,8 @@ template <class T> class
 	// use a Connection_Node to determine I & voltage drops
 	void Connection::query_voltage() {
 //		if (debug()) std::cout << name() << ": Top of chain\n";
-		Connection_Node node(m_slots, this);
-		node.process_model();
+		Connection_Node node(m_slots, this);   // @suppress("Type cannot be resolved")
+		node.process_model();                  // @suppress("Method cannot be resolved")
 		if (m_slots.size()) {
 			for (auto slot: m_slots)
 				slot->recalculate();
@@ -83,7 +83,7 @@ template <class T> class
 	}
 
 	SmartPtr<Node> Connection::get_targets(Node *parent) {
-		return new Connection_Node(m_slots, this, parent);
+		return new Connection_Node(m_slots, this, parent);         // @suppress("Type cannot be resolved")
 	}
 
 	// Add a voltage change event to the queue
