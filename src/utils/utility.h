@@ -19,6 +19,7 @@ bool is_hex(const std::string &in);
 bool FileExists(const std::string &s);
 int as_int(const std::string &a_val);
 const std::string as_text(double a_value, int a_precision=4);
+const std::string as_text(void *a_val);
 bool float_equiv(double a, double b, double limit=1.0e-12);
 
 //_____________________________________________________________________________________________________________

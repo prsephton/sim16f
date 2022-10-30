@@ -58,6 +58,12 @@ bool float_equiv(double a, double b, double limit) {
 	return fabs(a - b) < limit;
 }
 
+const std::string as_text(void *a_val) {
+	std::ostringstream s;
+	s << std::hex << a_val;
+	return s.str();
+}
+
 const std::string as_text(double a_value, int a_precision) {
 	std::ostringstream s;
 	s << std::fixed << std::setprecision(a_precision) << std::defaultfloat << a_value;
