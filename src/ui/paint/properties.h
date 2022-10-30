@@ -139,5 +139,15 @@ namespace app {
 			void gate_inverted(bool a_invert) { m_gate_inverted = a_invert; }
 			bool gate_inverted() const { return m_gate_inverted; }
 		};
+
+		class Switch : virtual public Configurable {
+			bool m_closed;
+			// context menu integration
+			virtual bool needs_switch(bool &on){ on = closed(); return true; }
+			virtual void set_switch(bool on){ closed(on); }
+		  public:
+			void closed(bool a_closed) { m_closed = a_closed; }
+			bool closed() const { return m_closed; }
+		};
 	}
 }
