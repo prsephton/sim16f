@@ -119,6 +119,15 @@ namespace app {
 			return m_hotspots[id];
 		}
 		void hotspot(const Cairo::RefPtr<Cairo::Context>& cr, size_t id, Point p) {
+			cr->save();
+			cr->begin_new_sub_path();
+			cr->set_line_width(0.4);
+			cr->arc(p.x, p.y, 2, 0, 2*M_PI);
+			CairoDrawing::brightred(cr);
+			cr->fill_preserve();
+			CairoDrawing::black(cr);
+			cr->stroke();
+			cr->restore();
 			cr->user_to_device(p.x, p.y);
 			p.x -= m_ofs.x; p.y -= m_ofs.y;
 			if (id >= m_hotspots.size())
@@ -315,6 +324,7 @@ namespace app {
 		}
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			draw_label(cr, -8, -24);
 			cr->save();
 			cr->translate(m_x, m_y);
 			rotate(cr); scale(cr);
@@ -328,10 +338,6 @@ namespace app {
 			cr->line_to( 0,   0);
 			cr->move_to(-10,-20);
 			cr->line_to( 10,-20);
-			cr->stroke();
-			cr->move_to(-8, -24);
-			cr->text_path(name());
-			cr->fill_preserve();
 			cr->stroke();
 			cr->restore();
 		}
@@ -397,6 +403,7 @@ namespace app {
 		}
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			draw_label(cr, 3, -5);
 			cr->save();
 			cr->translate(m_x, m_y);
 
@@ -415,11 +422,6 @@ namespace app {
 			cr->move_to(25,-5);
 			cr->line_to(30, 0);
 			cr->line_to(25, 5);
-			cr->stroke();
-
-			cr->move_to( 3, -3);
-			cr->text_path(name());
-			cr->fill_preserve();
 			cr->stroke();
 
 			cr->restore();
@@ -448,6 +450,7 @@ namespace app {
 		}
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			draw_label(cr, 3, -5);
 			cr->save();
 			cr->translate(m_x, m_y);
 			rotate(cr); scale(cr);
@@ -461,10 +464,6 @@ namespace app {
 			cr->move_to(30,-5);
 			cr->line_to(25, 0);
 			cr->line_to(30, 5);
-			cr->stroke();
-			cr->move_to( 3, -3);
-			cr->text_path(name());
-			cr->fill_preserve();
 			cr->stroke();
 
 			cr->restore();
@@ -493,6 +492,7 @@ namespace app {
 		}
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			draw_label(cr, 3, -5);
 			cr->save();
 			cr->translate(m_x, m_y);
 			rotate(cr); scale(cr);
@@ -506,10 +506,6 @@ namespace app {
 			cr->move_to(25,-5);
 			cr->line_to(30, 0);
 			cr->line_to(25, 5);
-			cr->stroke();
-			cr->move_to(3, -3);
-			cr->text_path(name());
-			cr->fill_preserve();
 			cr->stroke();
 
 			cr->restore();
@@ -1560,9 +1556,91 @@ namespace app {
 		}
 		RelaySymbol(double x=0, double y=0, double rotation=0, bool closed=false, bool flipped=false):
 			Symbol(x, y, rotation), m_flipped(flipped), m_closed(closed) {
-			name("U");
+			name("S");
 		}
 	};
+
+	class ToggleSwitchSymbol: public Symbol  {
+		bool m_flipped;
+		bool m_closed;
+	  public:
+		virtual WHATS_AT location(Point p) {
+			if (hotspot(0).close_to(p))
+				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::WEST);
+			if (hotspot(1).close_to(p))
+				return WHATS_AT(this, WHATS_AT::CLICK, 0, WHATS_AT::WEST);
+			if (hotspot(2).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 0, WHATS_AT::EAST);
+
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			if (what.match((void *)this, WHATS_AT::INPUT, 0))
+				return &hotspot(0);
+			if (what.match((void *)this, WHATS_AT::CLICK, 0))
+				return &hotspot(1);
+			if (what.match((void *)this, WHATS_AT::OUTPUT, 0))
+				return &hotspot(2);
+			return NULL;
+		}
+
+		void closed(bool a_closed) { m_closed = a_closed; }
+		void flipped(bool a_flipped) { m_flipped = a_flipped; }
+
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			double sz = 20.0;
+
+			cr->save();
+			cr->translate(m_x, m_y);
+			cr->rotate(get_rotation());
+			if (m_flipped) {
+				cairo_matrix_t x_reflection_matrix;
+				cairo_matrix_init_identity(&x_reflection_matrix);
+				x_reflection_matrix.yy = -1.0;
+				cr->set_matrix(x_reflection_matrix);
+//				cr->translate(0, ?);
+			}
+ 			bounding_rect(cr, Rect(0, 0, sz*4, -sz));
+			cr->set_line_width(1.2);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+
+			hotspot(cr, 0, Point(0, 0));     // Input
+			hotspot(cr, 1, Point(sz*2, sz/2));  // Switch
+			hotspot(cr, 2, Point(sz*4, 0));  // Output
+
+			cr->move_to(   0,  0); cr->line_to(  sz, 0);
+			cr->move_to(sz*3,  0); cr->line_to(sz*4, 0);
+			cr->stroke();
+
+			cr->save();
+			cr->set_source_rgba(0.0, 0.0, 0.0, 1.0);
+			if (m_closed) {
+				cr->set_line_width(0.8);
+				cr->move_to(sz, 0); cr->line_to(sz*3, 0);
+			} else {
+				cr->arc(sz, 0, sz*2, 0, M_PI*2);
+				cr->clip();
+				cr->move_to(sz,0); cr->line_to(sz*3,-sz);
+			}
+			cr->stroke();
+			cr->restore();
+
+			cr->set_line_width(0.8);
+			cr->set_source_rgba(0.0, 0.0, 0.0, 1.0);
+			cr->arc(sz,   0, 2.5, 0, 2*M_PI);
+			cr->fill_preserve(); cr->stroke();
+			cr->arc(sz*3, 0, 2.5, 0, 2*M_PI);
+			cr->fill_preserve(); cr->stroke();
+			cr->restore();
+		}
+
+		ToggleSwitchSymbol(double x=0, double y=0, double rotation=0, bool closed=false, bool flipped=false):
+			Symbol(x, y, rotation), m_flipped(flipped), m_closed(closed) {
+			name("S");
+		}
+	};
+
 
 	class BlockSymbol: public Symbol, public prop::Dimensions  {
 
@@ -1706,7 +1784,7 @@ namespace app {
 			if (hotspot(0).close_to(p))
 				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::WEST);
 			if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::CLOCK, 0, WHATS_AT::EAST);
+				return WHATS_AT(this, WHATS_AT::CLOCK, 0, WHATS_AT::NORTH);
 			for (int n = 0; n < m_nBits; ++n) {
 				if (hotspot(2+n).close_to(p))
 					return WHATS_AT(this, WHATS_AT::OUTPUT, n, WHATS_AT::SOUTH);
@@ -1778,7 +1856,106 @@ namespace app {
 
 	  public:
 		CounterSymbol(double x=0, double y=0, double w=100, double row_height=20) :
-			BlockSymbol(x, y, w, row_height){}
+			BlockSymbol(x, y, w, row_height){
+			name("Counter");
+		}
+
+	};
+
+
+	class ShiftRegisterSymbol: public BlockSymbol {
+		unsigned long m_value = 0;
+		int m_nBits = 8;
+
+	  public:
+
+		virtual WHATS_AT location(Point p) {
+			if (hotspot(0).close_to(p))
+				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::WEST);
+			if (hotspot(1).close_to(p))
+				return WHATS_AT(this, WHATS_AT::CLOCK, 0, WHATS_AT::NORTH);
+			if (hotspot(2).close_to(p))
+				return WHATS_AT(this, WHATS_AT::GATE, 0, WHATS_AT::WEST);
+			if (hotspot(3).close_to(p))
+				return WHATS_AT(this, WHATS_AT::INPUT, 1, WHATS_AT::WEST);
+			for (int n = 0; n < m_nBits; ++n) {
+				if (hotspot(4+n).close_to(p))
+					return WHATS_AT(this, WHATS_AT::OUTPUT, n, WHATS_AT::SOUTH);
+			}
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			if (what.match((void *)this, WHATS_AT::INPUT, 0))
+				return &hotspot(0);
+			if (what.match((void *)this, WHATS_AT::CLOCK, 0))
+				return &hotspot(1);
+			if (what.match((void *)this, WHATS_AT::GATE, 0))
+				return &hotspot(2);
+			if (what.match((void *)this, WHATS_AT::INPUT, 1))
+				return &hotspot(3);
+			for (int n = 0; n < m_nBits; ++n) {
+				if (what.match((void *)this, WHATS_AT::OUTPUT, n))
+					return &hotspot(4+n);
+			}
+			return NULL;
+		}
+
+		void set_value(unsigned long v) { m_value = v; }
+		void set_nbits(int nbits) { m_nBits = nbits; }
+
+	  protected:
+
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			BlockSymbol::draw(cr);
+			cr->save();
+			cr->translate(2+m_x-width()/2, m_y-height()/2);
+			hotspot(cr, 0, Point(0, height()/2));         // input
+			hotspot(cr, 1, Point(width()/2, 0));          // clock
+			hotspot(cr, 2, Point(0, 5));                  // enable
+			hotspot(cr, 3, Point(0, height()-5));         // shift right
+
+			cr->set_line_width(0.8);
+			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
+
+			std::string bits="";
+			for (int n=0; n < m_nBits; ++n){
+				bits.insert(0, (m_value & 1 << n)?"1":"0");
+			}
+			bits += " [" + int_to_hex(m_value, "0x") + "]";
+
+			cr->move_to(10, height() - 10);
+			cr->text_path(bits);
+			cr->set_line_width(0.6);
+
+			CairoDrawing::black(cr); cr->fill_preserve(); cr->stroke();
+
+			cr->save();
+			cr->set_font_size(7);
+			for (int n = 0; n < m_nBits; ++n) {           // outputs
+				double x = (n+1) * width()/(m_nBits+2);
+				int bit_no = (m_nBits-1-n);
+				hotspot(cr, 4+bit_no, Point(x, height()));
+				cr->move_to(x, height()-2);
+				cr->show_text(int_to_string(bit_no));
+			}
+			cr->restore();
+
+			auto mid = width() / 2;
+			cr->move_to(mid - 10, 0);
+			cr->line_to(mid, 15);
+			cr->line_to(mid+10, 0);
+			cr->set_line_width(0.9);
+			cr->stroke();
+
+			cr->restore();
+		}
+
+	  public:
+		ShiftRegisterSymbol(double x=0, double y=0, double w=100, double row_height=20) :
+			BlockSymbol(x, y, w, row_height){
+			name("Shift");
+		}
 
 	};
 
