@@ -160,7 +160,11 @@ namespace app {
 			void on_menu_physical() {
 				auto item = physical->get_active();
 				const Glib::ustring l_label = item->get_label();
-				if (l_label == "Relay") {
+				if (l_label == "Switch") {
+					ToggleSwitch *l_dev = new ToggleSwitch({});
+					auto dia = new ToggleSwitchDiagram(*l_dev, 0, 0, scratch->area());
+					scratch->add_diagram(dia, l_dev);
+				} else if (l_label == "Relay") {
 					Relay *l_dev = new Relay({});
 					auto dia = new RelayDiagram(*l_dev, 0, 0, scratch->area());
 					scratch->add_diagram(dia, l_dev);
