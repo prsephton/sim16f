@@ -163,7 +163,7 @@ namespace app {
 	// Describe something that a mouse pointer points at
 	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
 	struct WHATS_AT {
-		typedef enum {NOTHING, INPUT, OUTPUT, GATE, IN_OUT, CLOCK, START, END, SYMBOL, LINE, POINT, TEXT} ELEMENT;
+		typedef enum {NOTHING, INPUT, OUTPUT, GATE, IN_OUT, CLOCK, CLICK, START, END, SYMBOL, LINE, POINT, TEXT} ELEMENT;
 		typedef enum {EAST, SOUTH, WEST, NORTH} AFFINITY;
 
 		Configurable *pt;
@@ -249,6 +249,9 @@ namespace app {
 		// context editor for item at target
 		virtual void context(const WHATS_AT &target_info) {};
 
+		// click action for item at target
+		virtual void click_action(const WHATS_AT &target_info) {};
+
 		// move the indicated item to requested location.  with move_dia=true, move the whole diagram, else the symbol
 		virtual void move(const WHATS_AT &target_info, const Point &destination, bool move_dia = false) {
 			if (destination.y < 0) return;
@@ -264,6 +267,10 @@ namespace app {
 		}
 		static void black(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->set_source_rgba(0.0, 0.0, 0.0, 1.0);
+		}
+
+		static void brightred(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->set_source_rgba(1.0, 0.5, 0.5, 1.0);
 		}
 
 		static void darkblue(const Cairo::RefPtr<Cairo::Context>& cr) {
@@ -350,6 +357,7 @@ namespace app {
 		Glib::RefPtr<Gdk::Cursor> m_cursor_output;
 		Glib::RefPtr<Gdk::Cursor> m_cursor_start;
 		Glib::RefPtr<Gdk::Cursor> m_cursor_end;
+		Glib::RefPtr<Gdk::Cursor> m_cursor_click;
 		Glib::RefPtr<Gdk::Cursor> m_cursor_symbol;
 		Glib::RefPtr<Gdk::Cursor> m_cursor_line;
 		Glib::RefPtr<Gdk::Cursor> m_cursor_point;

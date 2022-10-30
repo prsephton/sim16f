@@ -250,7 +250,6 @@ namespace app{
 			if (connected) {
 				std::cout << "Connected from " << source_info.asText("") << " to " << target_info.asText("") << std::endl;
 				connection->queue_change(true, ":  Connect");
-				connection->set_vdrop();
 			}
 		}
 	}
@@ -263,6 +262,8 @@ namespace app{
 			win->set_cursor(m_cursor_output);
 		} else if (what==WHATS_AT::START) {
 			win->set_cursor(m_cursor_start);
+		} else if (what==WHATS_AT::CLICK) {
+			win->set_cursor(m_cursor_click);
 		} else if (what==WHATS_AT::SYMBOL) {
 			win->set_cursor(m_cursor_symbol);
 		} else if (what==WHATS_AT::LINE) {
@@ -317,8 +318,13 @@ namespace app{
 					auto &target = l_term.top();
 					switch (button_event->button) {
 					case 1:          // left button released
-						target.dwg->slot(source.dwg, source.what, target.what);
-						m_area->queue_draw();
+						if (source.dwg == target.dwg && target.what.what == WHATS_AT::CLICK) {
+							target.dwg->click_action(target.what);
+							m_area->queue_draw();
+						} else {
+							target.dwg->slot(source.dwg, source.what, target.what);
+							m_area->queue_draw();
+						}
 						break;
 					case 2:          // middle button released
 						break;
@@ -430,6 +436,7 @@ namespace app{
 		m_cursor_start = Gdk::Cursor::create(Gdk::CursorType::LEFT_SIDE);
 		m_cursor_end = Gdk::Cursor::create(Gdk::CursorType::RIGHT_SIDE);
 		m_cursor_symbol = Gdk::Cursor::create(Gdk::CursorType::TCROSS);
+		m_cursor_click = Gdk::Cursor::create(Gdk::CursorType::HAND1);
 		m_cursor_line = Gdk::Cursor::create(Gdk::CursorType::HAND2);
 		m_cursor_point = Gdk::Cursor::create(Gdk::CursorType::PENCIL);
 		m_cursor_text = Gdk::Cursor::create(Gdk::CursorType::DRAFT_LARGE);
