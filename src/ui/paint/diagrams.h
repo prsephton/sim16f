@@ -143,7 +143,7 @@ namespace app {
 			ContextDialogFactory().popup_context(m_symbol);
 			m_device.name(m_symbol.name());
 			m_device.R(m_symbol.resistance());
-			m_device.recalc();
+//			m_device.recalc();
 			m_area->queue_draw();
 		}
 
@@ -657,6 +657,89 @@ namespace app {
 		}
 
 	};
+
+	class ToggleSwitchDiagram: public CairoDrawing, public prop::Switch {
+		ToggleSwitch &m_switch;
+		ToggleSwitchSymbol m_symbol;
+
+		virtual WHATS_AT location(Point p, bool for_input=false) {
+			return m_symbol.location(p);
+		}
+		virtual const Point *point_at(const WHATS_AT &w) const {
+			return m_symbol.hotspot_at(w);
+		}
+
+	  public:
+
+		virtual bool on_motion(double x, double y, guint state) {
+			Rect r = m_symbol.bounding_rect();
+			bool selected = m_symbol.selected();
+			m_symbol.selected() = r.inside(Point(x, y));
+			if (selected != m_symbol.selected()) {
+				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+			}
+			return false;
+		}
+
+		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			cr->save();
+			position().cairo_translate(cr);
+			bool closed = m_switch.closed();
+			m_symbol.closed(closed);
+			m_symbol.draw_symbol(cr, m_dev_origin);
+
+			cr->restore();
+			return false;
+		}
+
+		virtual bool slot(const WHATS_AT &w, Connection *source) {
+			if (w.what == WHATS_AT::INPUT) {
+				m_switch.in((&m_switch.in())?NULL:source);
+				return (&m_switch.in() != NULL);
+			} else
+				return false;
+		}
+
+		// Context menu for m_symbol
+		virtual void context(const WHATS_AT &target_info) {
+			ContextDialogFactory().popup_context(m_symbol);
+			m_switch.name(m_symbol.name());
+
+			m_area->queue_draw();
+		};
+
+		void closed(bool a_closed) {
+			prop::Switch::closed(a_closed);
+			m_switch.closed(prop::Switch::closed());
+			m_symbol.closed(prop::Switch::closed());
+		}
+
+		// click action for item at target
+		virtual void click_action(const WHATS_AT &target_info) {
+			closed(not prop::Switch::closed());
+		};
+
+		// Return the connection at the indicated location
+		virtual Connection *slot(const WHATS_AT &w) {
+			if (w.what == WHATS_AT::OUTPUT) {
+				if (w.id == 0) return &m_switch.rd();
+			}
+			return NULL;
+		};
+
+		virtual void show_name(bool a_show) {
+			m_symbol.show_name(true);
+		}
+
+		ToggleSwitchDiagram(ToggleSwitch &a_switch, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
+			CairoDrawing(a_area, Point(x,y)), m_switch(a_switch) {
+			bool closed = a_switch.closed();
+			m_symbol = ToggleSwitchSymbol(0,0,0,closed);
+			Counters::rename(&m_symbol, &a_switch);
+		}
+
+	};
+
 
 	class MuxDiagram: public CairoDrawing {
 		Mux &m_mux;
