@@ -40,6 +40,23 @@ inline void sleep_for_us(unsigned long us) {
 	std::this_thread::sleep_for(std::chrono::duration<unsigned long, std::micro>(us));
 }
 
+
+//__________________________________________________________________________________________________
+//   A node represents a connection point between electrical components
+class Node {
+
+  protected:
+	virtual Node *get_parent() = 0;
+
+  public:
+	virtual ~Node() {}
+	virtual void process_model() = 0;
+};
+
+
+#define min_R (1.0e-12)
+#define max_R (1.0e+12)
+
 //__________________________________________________________________________________________________
 // Device definitions.  A basic device may be named and have a debug flag.
 class Device {
@@ -54,22 +71,33 @@ class Device {
 		name(d.name());
 	}
 	Device(const std::string name): m_name(name), m_debug(false) {}
+	virtual ~Device() {}
 
 	Device &operator=(const Device &d) {
 		name(d.name());
 		return *this;
 	}
 
-	virtual double resistance_for() { return 1e-12; }
-	virtual void calc_conductance_precedents(double &Gin, double &Iin, double &Idrop) {
-		Gin = 1e+12;
-		Iin = -1e-12;
-		Idrop = 0;
+	virtual SmartPtr<Node> get_targets(Node *parent) {
+		return NULL;
 	}
-	virtual bool recalc_total_R() { return false; }
+
+	virtual void update_voltage(double v) {};
+
+//	virtual double resistance_for() { return 1e-12; }
+//	void calc_conductance_antecedents(double &Gout, double &Iout) { Gout = Iout = 0; }
+//	virtual int calc_conductance_precedents(double &Gin, double &Iin, double &Idrop) {
+//		Gin = max_R;
+//		Iin = -min_R;
+//		Idrop = 0;
+//		return 0;
+//	}
+//	virtual bool recalc_total_R() { return false; }
+//	virtual double get_total_R() { return 0; };
+//	virtual void set_total_R() { };
+	virtual double rd(bool include_vdrop=true) const { return 0; }
 
 	virtual std::string info() { return "Name: " + name(); }
-	virtual ~Device() {}
 	void debug(bool flag) { m_debug = flag; }
 	bool debug() const { return m_debug; }
 	const std::string &name() const { return m_name; }
@@ -127,7 +155,7 @@ class DeviceEventQueue {
 			if (!event->compare(d)) tmp.push(event);
 		}
 		while (!tmp.empty()) {
-			auto event = tmp.front(); tmp.pop(); events.push(event);
+			auto ev = tmp.front(); tmp.pop(); events.push(ev);
 		}
 
 		mtx.unlock();
@@ -309,27 +337,22 @@ template <class T> class DeviceEvent: public QueueableEvent {
 // Not all components need slots- only those passive ones which affect
 // a voltage at input.  Terminals, for example.
 struct Slot {
-	Device *dev;          // target device
-	Device *connection;   // this connection containing the slot
-	double vdrop = 0;     // voltage drop between this connection and the device
-	double total_R = 0;   // total resistance after this connection
+	Device *dev;                  // target device
+	Device *connection;           // this connection containing the slot
+//	double vdrop = 0;     	      // voltage drop between this connection and the device
+	double total_R = 0;           // total resistance after this connection
+	double precedents_G = 0;      // conductance for precedents, this slot.
+	double resistance_ratio = 0;  // calculated resistance ratio
 
 	Slot(Device *a_dev, Device *a_connection);
 	~Slot() {
 //		if (dev) dev->unslot(this);
 	}  // automatically unslot from targets
 
-	void set_impeded();
-	bool impeded();
-	double calc_conductance();
-	void set_total_R(double a_total_R, double Gin, double Iin, double Idrop);
-	void recalc_total_R();
-	double calc_resistance_ratio();
-	double resistance_for();
-
+	void recalculate();
 	void unslot() { dev = NULL; }
-//	void calculate_vdrop(double out_voltage);
 };
+
 
 class Connection: public Device {
 	double m_V;                   //  A voltage on the connection
@@ -337,11 +360,8 @@ class Connection: public Device {
 	bool   m_impeded;             //  The connection has an infinite resistance
 	bool   m_determinate;         //  We know what the value of the voltage is
 	std::set<Slot *> m_slots;     //  The set of target slots for this connection.
-//	double m_vDrop;               //  The voltage drop over this connection
 	DeviceEventQueue eq;
 	double m_vdrop = 0;
-	const double min_R = 1.0e-12;
-	const double max_R = 1.0e+12;
 
   protected:
 	bool impeded_suppress_change(bool a_impeded);
@@ -356,23 +376,20 @@ class Connection: public Device {
 	virtual Slot *slot(Device *d);
 	virtual bool unslot(Slot *slot_id);
 
+	bool add_connection_slots(std::set<Slot *> &slots);
+	virtual SmartPtr<Node> get_targets(Node *parent);
+
+	virtual void query_voltage();
+	virtual void update_voltage(double v);
+
 	Connection(const std::string &a_name="");
 	Connection(double V, bool impeded=true, const std::string &a_name="");
 	virtual	~Connection();
 
-	void set_vdrop();
-	void reset_vdrop();
-//	double total_R();
-
-//	void zero_point(double &sum_conductance);
-//	virtual void propagate_R();
+	void set_vdrop(double drop);
 
 	void queue_change(bool process_q = true, const std::string &a_comment="");
-	virtual double rd(bool include_vdrop=false) const;
-
-	void calc_conductance_antecedents(double &Gout, double &Iout);
-	virtual bool recalc_total_R();
-	virtual void set_total_R();
+	virtual double rd(bool include_vdrop=true) const;
 
 	virtual bool connect(Connection &c) { return false; }
 	virtual void disconnect(Connection &c) {}
@@ -427,19 +444,18 @@ class Terminal: public Connection {
 	Terminal(const std::string name="");
 	Terminal(double V, const std::string name="");
 	virtual ~Terminal();
-	void recalc();
-//	virtual void propagate_R();
 
-	virtual void calc_conductance_precedents(double &Gin, double &Iin, double &Idrop);
+	bool add_slots(std::set<Slot *> &slots);
 
-	virtual bool recalc_total_R();
-	virtual void set_total_R();
-	virtual double calculate_voltage(double Vc, double VdropV, double Ci);
+	virtual void input_changed();
+	virtual void query_voltage();
+	void update_voltage(double v);
+	void calc_conductance_precedents(double &Gin, double &Iin, double &Idrop);
+
 	virtual bool connect(Connection &c);
 	virtual void disconnect(Connection &c);
 	virtual int slot_id(int a_id) { return m_nslots++; }
 	virtual bool unslot(void *slot_id);
-	virtual void set_value(double V, bool a_impeded);
 	void impeded(bool a_impeded);
 	virtual bool impeded() const;
 	virtual double rd(bool include_vdrop=true) const;
@@ -460,7 +476,7 @@ class Capacitor: public Terminal {
 	time_stamp m_T;   // last time stamp
 
   protected:
-	double calculate_voltage(double Vc,double VdropC, double Ci);
+	virtual void input_changed();
 	void on_clock(Connection *c, const std::string &a_name, const std::vector<BYTE>&a_data);
 
   public:
@@ -485,7 +501,7 @@ class Inductor: public Terminal {
 	double m_R = 0;
 
   protected:
-	double calculate_voltage(double Vc, double VdropC, double Ci);
+	virtual void input_changed();
 	void on_clock(Connection *c, const std::string &a_name, const std::vector<BYTE>&a_data);
 
   public:
@@ -505,11 +521,16 @@ class Inductor: public Terminal {
 // Voltage source.   Always constant, no matter what.  Overrides connection V.
 class Voltage: public Terminal {
 //	double m_voltage;
-public:
+  public:
 	Voltage(double V, const std::string name="Vin");
 
-	void voltage(double a_voltage) { Connection::set_value(a_voltage, false); }
+	void voltage(double a_voltage) {
+		Connection::set_value(a_voltage, false);
+		query_voltage();
+	}
 	virtual bool impeded() const;
+	virtual bool determinate() const { return true; }
+
 //	virtual double rd(bool include_vdrop=true) const;
 };
 
@@ -517,18 +538,21 @@ public:
 // A Weak Voltage source.  If there are any unimpeded connections, we calculate the
 // lowest unimpeded, otherwise the highest impeded connection as the voltage
 class PullUp: public Connection {
-public:
+  public:
 	PullUp(double V, const std::string name="Vin");
 	virtual bool impeded() const;
+	virtual bool determinate() const { return true; }
 };
 
 //___________________________________________________________________________________
 // Ground.  Always zero.
 class Ground: public Voltage {
-public:
+  public:
 	Ground();
 	virtual bool impeded() const;
 	virtual double rd(bool include_vdrop=true) const;
+	virtual bool determinate() const { return true; }
+	virtual double get_total_R() { return R(); }
 };
 
 
@@ -792,7 +816,7 @@ class Clamp: public Device {
 
 //___________________________________________________________________________________
 // A relay, such as a reed relay.  A signal applied closes the relay.  Functionally,
-// this is almost identical to a Tristate.
+// this is almost identical to a TriState.
 class Relay: public Device {
   protected:
 	Connection *m_in;
@@ -813,6 +837,36 @@ class Relay: public Device {
 
 	Connection &in();
 	Connection &sw();
+	Connection &rd();
+};
+
+
+//___________________________________________________________________________________
+// A toggle switch.  A really simple device
+class ToggleSwitch: public Device {
+  protected:
+	Connection *m_in;
+	Connection m_out;
+	bool m_closed;
+
+	void recalc_output();
+	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
+
+  public:
+	ToggleSwitch() : Device(), m_in(NULL), m_closed(false) { m_out.name(name()); }
+	ToggleSwitch(Connection &in, const std::string &a_name="sw");
+	virtual ~ToggleSwitch();
+	bool signal();
+	void in(Connection *in);
+
+	virtual void input_changed();
+
+//	virtual bool recalc_total_R();
+//	virtual void set_total_R();
+
+	bool closed();
+	void closed(bool a_closed);
+	Connection &in();
 	Connection &rd();
 };
 

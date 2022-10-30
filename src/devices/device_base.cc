@@ -1,5 +1,7 @@
 #include <sstream>
+#include <deque>
 #include "device_base.h"
+#include "connection_node.h"
 #include "../utils/utility.h"
 //_______________________________________________________________________________________________
 //  Event queue static definitions
@@ -14,88 +16,78 @@ LockUI DeviceEventQueue::m_ui_lock(false);
 template <class T> class
 	DeviceEvent<T>::registry  DeviceEvent<T>::subscribers;
 
-// The hardware architecture uses several sequential logic components.  It would be
-// really nice to be able to emulate the way the hardware works by stringing together
-// elements and reacting to events that cause status to change.
-//
-// Here's a basic connection.  Changes to connection values always spawn and
-// process device events.
-//
-// Note:  Store conductance (1/R) instead of R, because we use it way more often.
-//
 
-	void Slot::set_total_R(double a_total_R, double Gin, double Iin, double Idrop) {
+  // The hardware architecture uses several sequential logic components.  It would be
+  // really nice to be able to emulate the way the hardware works by stringing together
+  // elements and reacting to events that cause status to change.
+  //
+  // Here's a basic connection.  Changes to connection values always spawn and
+  // process device events.
+  //
+  // Note:  Store conductance (1/R) instead of R, because we use it way more often.
+  //
+
+	void Slot::recalculate() {
 		Connection *c = dynamic_cast<Connection *>(connection);
-
-		double resistance_for = 1/Gin;
-		double R = a_total_R + resistance_for;
-//		if (not float_equiv(total_R, R)) {
-			total_R = R;
-			c->set_total_R();
-			double resistance_ratio = total_R?(resistance_for / total_R):0;
-			double Vin = c->rd(false);
-			vdrop = -Vin * resistance_ratio;
-			c->set_vdrop();
-
-			std::cout << connection->name() << " -> " << dev->name();
-			std::cout << ": recalc_total_R();  G=" << Gin << ", R=" << a_total_R;
-			std::cout << "; total_R = " << total_R;
-			std::cout << "; Vin=" << Vin;
-			std::cout << "; Ratio=" << resistance_ratio;
-			std::cout << "; Vdrop=" << vdrop;
-			std::cout << std::endl;
-//		}
-	}
-
-	void Slot::set_impeded() {
-		Connection *c = dynamic_cast<Connection *>(connection);
-		total_R = 1e+12;
-		vdrop = 0;
-		c->set_vdrop();
-	}
-
-	bool Slot::impeded() {
-		return total_R >= 1e+12;
-	}
-
-	double Slot::calc_conductance() {
-		double Gin, Iin, Idrop;
-		dev->calc_conductance_precedents(Gin, Iin, Idrop);
-		return Gin;
-	}
-
-	double Slot::calc_resistance_ratio() {
-		Connection *c = dynamic_cast<Connection *>(connection);
-		recalc_total_R();
-		return c->R() / total_R;
-	}
-
-	double Slot::resistance_for() {
-		double G = calc_conductance();
-		return 1/G;
-	}
-
-	void Slot::recalc_total_R() {
-		dev->recalc_total_R();
+		dev->update_voltage(c->rd());
 	}
 
 	Slot::Slot(Device *a_dev, Device *a_connection): dev(a_dev), connection(a_connection) {}
 
 	Slot *Connection::slot(Device *d){
+		for (auto slot: m_slots)
+			if (slot->dev == d)
+				return slot;
 		Slot *l_slot = new Slot(d, this);
 		m_slots.insert(l_slot);
-		queue_change(false, ": New slot");
+		query_voltage();
 		return l_slot;
+	}
+
+	// use a Connection_Node to determine I & voltage drops
+	void Connection::query_voltage() {
+//		if (debug()) std::cout << name() << ": Top of chain\n";
+		Connection_Node node(m_slots, this);
+		node.process_model();
+		if (m_slots.size()) {
+			for (auto slot: m_slots)
+				slot->recalculate();
+		}
+	}
+
+	// Called from the Connection_Node to update voltages
+	void Connection::update_voltage(double v) {
+		set_value(v, m_impeded);
+		if (m_slots.size()) {
+			for (auto slot: m_slots)
+				slot->recalculate();
+		}
 	}
 
 	bool Connection::unslot(Slot *slot_id){
 		if (m_slots.find(slot_id) == m_slots.end()) return false;
 		m_slots.erase(slot_id); delete slot_id;
-		reset_vdrop();
+//		recalc_total_R();
 		return true;
 	}
 
-	void Connection::queue_change(bool process_q, const std::string &a_comment){  // Add a voltage change event to the queue
+	bool Connection::add_connection_slots(std::set<Slot *> &slots) {
+		bool added = false;
+		for (auto c: m_slots) {
+			if (slots.find(c) == slots.end()) {
+				slots.insert(c);
+				added = true;
+			}
+		}
+		return added;
+	}
+
+	SmartPtr<Node> Connection::get_targets(Node *parent) {
+		return new Connection_Node(m_slots, this, parent);
+	}
+
+	// Add a voltage change event to the queue
+	void Connection::queue_change(bool process_q, const std::string &a_comment){
 		std::string detail = name() + std::string(": Voltage Change") + a_comment;
 		eq.queue_event(new DeviceEvent<Connection>(*this, detail));
 		if (debug()) std::cout << detail << (process_q?": process_queue":"") << std::endl;
@@ -107,49 +99,13 @@ template <class T> class
 			if (debug())
 				std::cout << "Connection " << name() << ": impeded " << m_impeded << " -> " << a_impeded << std::endl;
 			m_impeded = a_impeded;
-			if (m_impeded) reset_vdrop();
 			return true;
 		}
 		return false;
 	}
 
-	void Connection::calc_conductance_antecedents(double &Gout, double &Iout) {
-		Gout = 0;  Iout = 0;
-		for (auto slot: m_slots)
-			if (not slot->impeded()) {
-				Iout +=  slot->vdrop * conductance();
-				Gout += conductance();
-			}
-	}
-
-	void Connection::set_total_R() {}   // at top of chain
-
-	bool Connection::recalc_total_R() {  // traverses all chains to end, then does set_total_R
-		if (not m_slots.size()) return false;
-		for (auto &slot: m_slots)
-			slot->recalc_total_R();
-		return true;
-	}
-
-	void Connection::set_vdrop() {
-		double old_vdrop = m_vdrop;
-		m_vdrop = 0;
-		for (auto slot: m_slots)
-			if (fabs(slot->vdrop) > fabs(m_vdrop))
-				m_vdrop = slot->vdrop;
-		if (not float_equiv(m_vdrop, old_vdrop, 1.0e-12)) {
-			queue_change(true, std::string(": Vdrop changed from ") + as_text(old_vdrop) + " to " + as_text(m_vdrop));
-		}
-	}
-
-	void Connection::reset_vdrop() {
-		bool changed = false;
-		for (auto slot: m_slots) {
-			changed = changed || slot->vdrop != 0;
-			slot->vdrop = 0;
-		}
-//		if (changed)
-//			queue_change(false);
+	void Connection::set_vdrop(double drop) {
+		m_vdrop = drop;
 	}
 
 	Connection::Connection(const std::string &a_name):
@@ -179,21 +135,24 @@ template <class T> class
 	bool Connection::signal() const { return rd(true) > Vdd/2.0; }
 	bool Connection::impeded() const { return m_impeded; }
 	bool Connection::determinate() const { return m_determinate || !impeded(); }
-	double Connection::vDrop() const { return m_vdrop; }
+	double Connection::vDrop() const {
+		return m_vdrop;
+	}
 
 	void Connection::impeded(bool a_impeded) {
 		if (impeded_suppress_change(a_impeded)) queue_change(true, ": impeded status");
 	}
 
 	void Connection::determinate(bool on) {
-//		if (debug())
-//			std::cout << name() << ": determinate " << m_determinate << " -> " << on << std::endl;
 		m_determinate = on;
 	}
 
-	void Connection::conductance(double iR) {  // set internal resistanve
+	void Connection::conductance(double iR) {  // set internal resistance
 		if (iR >= min_R && iR <= max_R) {
-			m_conductance = iR;
+			if (not float_equiv(m_conductance, iR)) {
+				query_voltage();
+				m_conductance = iR;
+			}
 		} else if (iR < min_R) {
 			impeded(true);
 		}
@@ -208,8 +167,8 @@ template <class T> class
 	}
 
 	double Connection::R() const {  // internal resistanve
-		double c = conductance();
-		return  c>0?1/c:max_R;
+		double g = conductance();
+		return  g>0?1/g:max_R;
 	}
 
 	double Connection::I() const {  // maximum current given V & R
@@ -238,11 +197,7 @@ template <class T> class
 		if (!float_equiv(m_V, V, 1e-4) || m_impeded != a_impeded || !determinate()) {
 			determinate(true);     // the moment we change the value of a connection the value is determined
 			impeded_suppress_change(a_impeded);
-//			m_V = V - vDrop();   // vOut = V + vDrop
 			m_V = V;
-			if (!impeded()) reset_vdrop();
-//			if (debug())
-//				std::cout << "Connection " << name() << ": set value V = " << V << std::endl;
 			queue_change(true, std::string(": set_value=") + as_text(V));
 		}
 	}
@@ -254,40 +209,29 @@ template <class T> class
 // it is also itself a "connection".
 //   A terminal without connections is always impeded (treated as an output).
 
-	void Terminal::recalc() {
-		if (m_connects.size()) {   // don't change value unless at least one connection
-			double sum_conductance = 0;
-			double sum_v_over_R = 0;
-			double sum_vdrop_over_R = 0;
-
-			calc_conductance_precedents(sum_conductance, sum_v_over_R, sum_vdrop_over_R);
-
-			m_terminal_impeded =
-					std::isnan(sum_v_over_R) or
-					std::isnan(sum_vdrop_over_R) or
-					std::isnan(sum_conductance) or
-					(sum_conductance == 0);
-
-			double input_voltage = rd(false);
-			if (not m_terminal_impeded) {
-				if (false and debug()) {
-					std::cout << name() << ": Itotal=" << sum_v_over_R;
-					std::cout << "; Gtotal=" << sum_conductance;
-					std::cout << "; VdropTotalI=" << sum_vdrop_over_R;
-					std::cout << std::endl;
-				}
-
-				input_voltage = calculate_voltage(sum_v_over_R, sum_vdrop_over_R, sum_conductance);
-				Connection::set_value(input_voltage, Connection::impeded());
-			}
-
-//			if (debug()) std::cout << name() << ": input_voltage=" << input_voltage << std::endl;
-			for (auto &c : m_connects ) {
-				if (c.first->impeded()) {           // set voltage on outputs
-					c.first->set_value(input_voltage, true);
-				}
+	bool Terminal::add_slots(std::set<Slot *> &slots) {
+		bool added = false;
+		for (auto &c : m_connects ) {
+			if (slots.find(c.second) == slots.end()) {
+				added = c.first->add_connection_slots(slots);
 			}
 		}
+		return added;
+	}
+
+	void Terminal::update_voltage(double v) {
+		m_terminal_impeded = true;
+		for (auto &c : m_connects ) {
+			if (!c.first->impeded()) {
+				m_terminal_impeded = false;
+				break;   // at least one unimpeded terminal connection
+			}
+		}
+		Connection::update_voltage(v);
+	}
+
+	void Terminal::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+		input_changed();
 	}
 
 	void Terminal::calc_conductance_precedents(double &Gin, double &Iin, double &Idrop) {
@@ -295,54 +239,21 @@ template <class T> class
 		for (auto &c : m_connects ) {
 			Gin += c.first->conductance();
 			Iin += c.first->rd(false) * c.first->conductance();
-			Idrop += c.second->vdrop * c.first->conductance();
+			Idrop += c.first->vDrop() * c.first->conductance();
 		}
 	}
 
-	void Terminal::set_total_R() {
-		double Gout=0, Iout=0;
-		double Gin=0, Iin=0, Idrop=0;
-		calc_conductance_antecedents(Gout, Iout);
-		if (not Gout) m_terminal_impeded = true;
-
-		if (impeded()) {
-			for (auto &c : m_connects )
-				c.second->set_impeded();
-		} else {
-			double total_R = R() + Gout?1/Gout:0;
-			calc_conductance_precedents(Gin, Iin, Idrop);
-			for (auto &c : m_connects )
-				c.second->set_total_R(total_R, Gin, Iin, Idrop);
-		}
+	void Terminal::input_changed() {
 	}
 
-	// Vc is sum(V/R).  Ci is total conductance.
-	//
-	// For a voltage source, we can add or remove voltage here; for
-	// resistors, we can add conductance.
-	double Terminal::calculate_voltage(double Iin, double Idrop, double Gin) {
-		double V = Iin / Gin;         // V = sum(Vi/Ri) * sum(1/Ri)  ; i = 1..n
-		return V;       // the calculated voltage becomes our input voltage
-	}
-
-	void Terminal::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		recalc();
-		recalc_total_R();
-	}
-
-	bool Terminal::recalc_total_R() {
-		if (not Connection::recalc_total_R()) {  // no more outgoing; turn it around
-			if (impeded()) {
-				for (auto &c : m_connects )    // last in chain
-					c.second->set_impeded();
-			} else {
-				double Gin, Iin, Idrop;
-				calc_conductance_precedents(Gin, Iin, Idrop);
-				for (auto &c : m_connects )    // last in chain
-					c.second->set_total_R(R(), Gin, Iin, Idrop);
+	void Terminal::query_voltage() {
+		if (m_connects.size()) {
+			for (auto &c : m_connects ) {
+				c.first->query_voltage();   // walk the chain until we find a reference
 			}
+		} else {   // top of chain
+			Connection::query_voltage();
 		}
-		return true;
 	}
 
 	bool Terminal::unslot(void *slot_id){
@@ -350,7 +261,7 @@ template <class T> class
 			if (c.second == (Slot *)slot_id) {
 				DeviceEvent<Connection>::unsubscribe<Terminal>(this, &Terminal::on_change, c.first);
 				m_connects.erase(c.first);
-				recalc_total_R();
+				query_voltage();
 				return true;
 			}
 		}
@@ -360,9 +271,11 @@ template <class T> class
 	Terminal::Terminal(const std::string name): Connection(name), m_connects(),
 			m_terminal_impeded(true) {
 	}
+
 	Terminal::Terminal(double V, const std::string name): Connection(V, true, name), m_connects(),
 			m_terminal_impeded(true) {
 	}
+
 	Terminal::~Terminal() {
 		for (auto &c : m_connects ) {
 			DeviceEvent<Connection>::unsubscribe<Terminal>(this, &Terminal::on_change, c.first);
@@ -374,6 +287,7 @@ template <class T> class
 		if (m_connects.find(&c) == m_connects.end()) {
 			m_connects[&c] = c.slot(this);
 			DeviceEvent<Connection>::subscribe<Terminal>(this, &Terminal::on_change, &c);
+			query_voltage();
 			return true;
 		} else {
 			disconnect(c);
@@ -386,23 +300,7 @@ template <class T> class
 			DeviceEvent<Connection>::unsubscribe<Terminal>(this, &Terminal::on_change, &c);
 			if (c.unslot(m_connects[&c]))
 				m_connects.erase(&c);
-			recalc_total_R();
-		}
-	}
-
-	void Terminal::set_value(double V, bool a_impeded) {
-		// NOTE: When our actual internal voltage is being determined by a pool of connections with at
-		//       least one input, we cannot (should not) override the internal voltage by using
-		//       set_value().   We can achieve the same effect as set_value() by setting default
-		//       direction, and calling set_vdrop() instead.
-		if (!m_terminal_impeded) {
-			Connection::impeded_suppress_change(a_impeded);
-			double drop = vDrop();
-//			for (auto &conn: m_connects)
-//				conn.second->set_vdrop(V);
-			if (not float_equiv(drop, vDrop())) queue_change(false);
-		} else {
-			Connection::set_value(V, a_impeded);
+			query_voltage();
 		}
 	}
 
@@ -418,34 +316,38 @@ template <class T> class
 	// from Simulation::clock().
 
 	// Vc is sum(V/R).  Ci is total conductance.
-	double Capacitor::calculate_voltage(double Ic, double IdropC, double Ci) {
+
+//	double Capacitor::calculate_voltage(double Ic, double IdropC, double Ci) {
+	void Capacitor::input_changed() {
 		auto ts = current_time_us();
 		auto dT = ((ts - m_T).count() / 1000000.0) * Simulation::speed();   // dT in seconds
 		if (dT > 0.01)  { // 10 ms steps.  We don't want to flood the message queue!
-			double R = 1/Ci;          // Resistance into Cap
-			double tau = R * m_F;     // Time constant  RC
-			double dI = IdropC * (1 - exp(-dT / tau));     //  Current in over time period
+			double Gin, Iin, Idrop;
+			calc_conductance_precedents(Gin, Iin, Idrop);
 
-			if (not float_equiv(dI, 0, Ic / 10000)) {
-				double Vc = Ic * R;       // Voltage at input when fully charged
-				double Vr = rd(false);    // voltage drop
-				double dV = -dI * R;      // IR = V - qR / RC:  V = IR + qR/RC
+			double R = 1/Gin;          // Resistance into Cap
+			double tau = R * m_F;      // Time constant  RC
+			double dI = Idrop * (1 - exp(-dT / tau));     //  Current in over time period
+
+			if (not float_equiv(dI, 0, 1e-5)) {
+				double Vc = Iin * R;       // Voltage at input when fully charged
+				double Vr = rd(false);     // voltage drop
+				double dV = -dI * R;       // IR = V - qR / RC:  V = IR + qR/RC
 				m_T = ts;
 				double V = dV + Vr;
-				m_R = V / (dI - IdropC);
+				m_R = V / (dI - Idrop);
 
-				if (debug()) {
+				if (true or debug()) {
 					std::cout << "R=" << R+Connection::R();
 					std::cout << "; dT=" << dT;
 					std::cout << "; tau=" << tau;
 					std::cout << "; I=" << m_I;
-					std::cout << "; Idrop=" << IdropC;
+					std::cout << "; Idrop=" << Idrop;
 					std::cout << "; Vc=" << Vc << "; Cap dV=" << dV << "[" << rd(false) + dV << "]" << std::endl;
 				}
-				return V;
+				query_voltage();
 			}
 		}
-		return rd(false);
 	}
 
 	void Capacitor::reset() {
@@ -460,8 +362,7 @@ template <class T> class
 	}
 
 	void Capacitor::on_clock(Connection *c, const std::string &a_name, const std::vector<BYTE>&a_data) {
-		recalc();
-		recalc_total_R();
+		input_changed();
 	}
 	double Capacitor::F() { return m_F; }
 	void Capacitor::F(double a_F) { m_F = a_F; }
@@ -484,22 +385,25 @@ template <class T> class
 	// An Inductor.  A time frequency driven analog component.
 
 	// Vc is sum(V/R).  Ci is total conductivity.
-	double Inductor::calculate_voltage(double Ic, double IdropC, double Ci) {
+//	double Inductor::calculate_voltage(double Ic, double IdropC, double Ci) {
+	void Inductor::input_changed() {
 		auto ts = current_time_us();
 		auto dT = ((ts - m_T).count() / 1000000.0) * Simulation::speed();   // dT in seconds
 		if (dT > 0.01)  { // 10 ms steps.  We don't want to flood the message queue!
-			double R = 1/Ci;
+			double Gin, Iin, Idrop;
+			calc_conductance_precedents(Gin, Iin, Idrop);
+
+			double R = 1/Gin;
 			double tau =  m_H / R;                  // time constant L/R
-			double Vc = Ic * R;                     // Voltage at input of R
-			double Vr = (Ic+IdropC) * R;            // Current Voltage
+			double Vc = Iin * R;                     // Voltage at input of R
+			double Vr = (Iin+Idrop) * R;            // Current Voltage
 
 			double V = Vr * exp(-dT / tau);
 			double dV = Vr - V;
 
 			if (not float_equiv(dV, 0, Vc / 10000)) {
 				double dI = dV * R;
-//				m_I = dI - IdropC;
-				m_I = m_I - IdropC + dI;
+				m_I = m_I - Idrop + dI;
 				m_R = V / m_I - 1/Connection::conductance();
 				m_T = ts;
 				if (debug()) {
@@ -514,10 +418,9 @@ template <class T> class
 					std::cout << "; V=" << V;
 					std::cout << "; I=" << m_I << std::endl;
 				}
-				return V;
+				query_voltage();
 			}
 		}
-		return rd(false);
 	}
 
 
@@ -533,8 +436,7 @@ template <class T> class
 	}
 
 	void Inductor::on_clock(Connection *c, const std::string &a_name, const std::vector<BYTE>&a_data) {
-		recalc();
-		recalc_total_R();
+		input_changed();
 	}
 	double Inductor::H() { return m_H; }
 	void Inductor::H(double a_H) { m_H = a_H; }
@@ -567,7 +469,7 @@ template <class T> class
 // A Weak Voltage source.  If there are any unimpeded connections, we calculate the
 // lowest unimpeded, otherwise the highest impeded connection as the voltage
 	PullUp::PullUp(double V, const std::string name): Connection(V, false, name) {
-		R(1.0e+6);
+		R(1.0e+4);  // 10K
 	}
 
 	bool PullUp::impeded() const { return false; }
@@ -851,7 +753,7 @@ template <class T> class
 					conn->first->set_value(V, true);
 				}
 			} else if (not indeterminate) {
-				conn->first->set_vdrop();
+//				conn->second->set_vdrop(V);
 //				conn->second->calculate_vdrop(V);
 			}
 		}
@@ -1029,7 +931,7 @@ template <class T> class
 
 //___________________________________________________________________________________
 // A relay, such as a reed relay.  A signal applied closes the relay.  Functionally,
-// this is almost identical to a Tristate.
+// this is almost identical to a TriState.
 
 	void Relay::recalc_output() {
 		if (m_sw == NULL || m_in == NULL)
@@ -1073,6 +975,52 @@ template <class T> class
 	Connection& Relay::sw() { return *m_sw; }
 	Connection& Relay::rd() { return m_out; }
 
+//___________________________________________________________________________________
+// A toggle switch.  A really simple device
+	void ToggleSwitch::recalc_output() {
+		if (m_in == NULL) return;
+		if (m_closed) {
+			m_out.set_value(m_in->rd(), false);
+		} else {
+			m_out.set_value(0, true);
+		}
+	}
+
+	void ToggleSwitch::input_changed() {
+		recalc_output();
+	}
+
+	void ToggleSwitch::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+		recalc_output();
+	}
+
+	ToggleSwitch::ToggleSwitch(Connection &in, const std::string &a_name):
+		Device(a_name), m_in(&in), m_out(name()+"::out") {
+		recalc_output(); m_out.name(name());
+		DeviceEvent<Connection>::subscribe<ToggleSwitch>(this, &ToggleSwitch::on_change, m_in);
+		DeviceEvent<Connection>::subscribe<ToggleSwitch>(this, &ToggleSwitch::on_change, &m_out);
+	}
+
+	ToggleSwitch::~ToggleSwitch() {
+		if (m_in) DeviceEvent<Connection>::unsubscribe<ToggleSwitch>(this, &ToggleSwitch::on_change, m_in);
+		DeviceEvent<Connection>::unsubscribe<ToggleSwitch>(this, &ToggleSwitch::on_change, &m_out);
+	}
+
+	bool ToggleSwitch::signal() { return m_out.signal(); }
+	void ToggleSwitch::in(Connection *in) {
+		if (m_in) DeviceEvent<Connection>::unsubscribe<ToggleSwitch>(this, &ToggleSwitch::on_change, m_in);
+		m_in = in;
+		if (m_in)DeviceEvent<Connection>::subscribe<ToggleSwitch>(this, &ToggleSwitch::on_change, m_in);
+	}
+
+	bool ToggleSwitch::closed() { return m_closed; }
+	void ToggleSwitch::closed(bool a_closed) {
+		m_closed = a_closed;
+		recalc_output();
+	}
+
+	Connection& ToggleSwitch::in() { return *m_in; }
+	Connection& ToggleSwitch::rd() { return m_out; }
 
 //___________________________________________________________________________________
 // A generalised D flip flop or a latch, depending on how we use it
@@ -1259,9 +1207,8 @@ template <class T> class
 	}
 
 	void FET::on_output_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
-		bool active = m_gate.signal() ^ (not m_is_nType);
+//		bool active = m_gate.signal() ^ (not m_is_nType);
 		//		if (active) m_in_slot->calculate_vdrop(m_out.rd());
-		if (active) m_in.set_vdrop();
 	}
 
 	FET::FET(Connection &in, Connection &gate, bool is_nType, bool dbg):
