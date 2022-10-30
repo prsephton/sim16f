@@ -51,7 +51,29 @@ template < class T > class SmartPtr
     	return (long)(void *)pData < (long)(void *)(other.operator ->());
     }
     bool operator == (SmartPtr<T> &other) const {
-    	return (long)(void *)pData == (long)(void *)(other.operator ->());
+    	return pData == other.operator ->();
+    }
+
+    bool operator != (SmartPtr<T> &other) const {
+    	return pData != other.operator ->();
+    }
+
+    bool operator == (T *other) const {
+    	return pData == other;
+    }
+
+    bool operator != (T *other) const {
+    	return pData != other;
+    }
+
+    template <typename S> operator SmartPtr<S>() {   // cast to other smart pointers
+    	if (pData == NULL) return NULL;
+    	S *pt = dynamic_cast<S *>(pData);
+    	if (pt) {
+    		SmartPtr<S> &other = reinterpret_cast<SmartPtr<S>&>(*this);
+    		return other;
+    	}
+    	throw std::string("Smart Pointer cast failure");
     }
 
     SmartPtr<T>& operator = (const SmartPtr<T>& sp)
