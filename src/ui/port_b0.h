@@ -24,7 +24,7 @@ namespace app {
 			cr->paint();
 			black(cr);
 
-			cr->move_to(400, 20);
+			cr->move_to(300, 20);
 			cr->scale(2.0, 2.0);
 			cr->set_line_width(0.1);
 			cr->text_path("Device RB0/INT");
@@ -63,8 +63,8 @@ namespace app {
 
 			// connection to RBPU_AND
 			conn.add(ConnectionDiagram::pt(90,145,true,true));
-			conn.add(ConnectionDiagram::pt(90, -20));
-			conn.add(ConnectionDiagram::pt(170,-20));
+			conn.add(ConnectionDiagram::pt(90, -30));
+			conn.add(ConnectionDiagram::pt(170,-30));
 
 			// connection to Tristate3 input
 			conn.add(ConnectionDiagram::pt(90, 145,true));
@@ -159,15 +159,15 @@ namespace app {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["RBPU"]);
 			conn.add(ConnectionDiagram::pt(   0,  0, true));
 			conn.add(ConnectionDiagram::pt( 268,  0, false, false, true));
-			conn.add(new AndSymbol(2, 270, 10, 0, true));
+			conn.add(new AndSymbol(2, 270, 5, 0, true));
 			conn.add(ConnectionDiagram::text(0, -2, "RBPU").overscore());
 		}
 
 		void draw_rbpu_and() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["RBPU_AND"]);
-			conn.add(ConnectionDiagram::pt( 305,  10, true));
-			conn.add(ConnectionDiagram::pt( 360,  10, false, false, true));
-			conn.add(new FETSymbol(360, 10, 0, false, false, true));
+			conn.add(ConnectionDiagram::pt( 305,  15, true));
+			conn.add(ConnectionDiagram::pt( 360,  15, false, false, true));
+			conn.add(new FETSymbol(360, 15, 0, false, false, true));
 		}
 
 		void draw_int_output() {
@@ -241,7 +241,7 @@ namespace app {
 			m_components["Output.Q"]= new ConnectionDiagram(OutputLatch.Q(), 360.0, 320.0, m_area);
 			m_components["Clamp"]= new ClampDiagram(Clamp1, 515.0,145.0, m_area);
 			m_components["RBPU"]= new ConnectionDiagram(p0.RBPU(), 100.0, 50.0, m_area);
-			m_components["RBPU_AND"]= new ConnectionDiagram(RBPU.rd(), 100.0, 50.0, m_area);
+			m_components["RBPU_AND"]= new ConnectionDiagram(RBPU.rd(), 100.0, 40.0, m_area);
 			m_components["INT_WIRE"] = new WireDiagram(Int_wire, 105, 490, m_area);
 			m_components["Schmitt"]  = new SchmittDiagram(Int_trigger, 430, 490, CairoDrawing::DIRECTION::LEFT, false, m_area);
 

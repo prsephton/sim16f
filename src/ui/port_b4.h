@@ -24,7 +24,7 @@ namespace app {
 			cr->paint();
 			black(cr);
 
-			cr->move_to(400, 20);
+			cr->move_to(200, 20);
 			cr->scale(2.0, 2.0);
 			cr->set_line_width(0.1);
 			cr->text_path("Device RB4/PGM");
@@ -73,8 +73,8 @@ namespace app {
 
 			// connection to RBIF And Gate
 			conn.add(ConnectionDiagram::pt(90, 140).first().join());
-			conn.add(ConnectionDiagram::pt(90, 250));
-			conn.add(ConnectionDiagram::pt(65, 250));
+			conn.add(ConnectionDiagram::pt(90, 254));
+			conn.add(ConnectionDiagram::pt(65, 254));
 		}
 
 		void draw_out_enable() {
@@ -151,8 +151,8 @@ namespace app {
 			conn.add(ConnectionDiagram::pt(230, -95));
 
 			conn.add(ConnectionDiagram::pt(205, 0).first().join());
-			conn.add(ConnectionDiagram::pt(205, 140));
-			conn.add(ConnectionDiagram::pt(170, 140).invert());
+			conn.add(ConnectionDiagram::pt(205, 142));
+			conn.add(ConnectionDiagram::pt(170, 142).invert());
 
 			conn.add(ConnectionDiagram::text(0, -2, "LVP (configuration bit)"));
 		}
@@ -176,8 +176,8 @@ namespace app {
 			conn.add(ConnectionDiagram::pt(70, 0).first().join());
 			conn.add(ConnectionDiagram::pt(70, 145));
 			conn.add(ConnectionDiagram::pt(460, 145));
-			conn.add(ConnectionDiagram::pt(460, 120));
-			conn.add(ConnectionDiagram::pt(440, 120));
+			conn.add(ConnectionDiagram::pt(460, 115));
+			conn.add(ConnectionDiagram::pt(440, 115));
 
 		}
 
@@ -335,14 +335,14 @@ namespace app {
 
 			m_components["LVP"]  = new ConnectionDiagram(p4.LVP(), 100, 300, m_area);
 			m_components["Q1"]  = new ConnectionDiagram(p4.Q1(), 560, 405, m_area);
-			m_components["Q3"]  = new ConnectionDiagram(p4.Q3(), 560, 485, m_area);
+			m_components["Q3"]  = new ConnectionDiagram(p4.Q3(), 560, 490, m_area);
 			m_components["SR2en"]= new ConnectionDiagram(SR2en.rd(), 540, 495, m_area);
 
 			m_components["SR1.Q"]= new ConnectionDiagram(SR1.Q(), 410.0, 365.0, m_area);
 			m_components["SR2.Q"]= new ConnectionDiagram(SR2.Q(), 410.0, 455.0, m_area);
 
 			m_components["PIN_Changed"]= new ConnectionDiagram(PIN_Changed.rd(), 370, 450, m_area);
-			m_components["RBIF"]= new ConnectionDiagram(RBIF.rd(), 265, 440, m_area);
+			m_components["RBIF"]= new ConnectionDiagram(RBIF.rd(), 265, 442, m_area);
 
 			draw_data_bus();
 			draw_datalatch_q();

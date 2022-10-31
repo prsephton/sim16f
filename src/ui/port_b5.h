@@ -24,7 +24,7 @@ namespace app {
 			cr->paint();
 			black(cr);
 
-			cr->move_to(400, 20);
+			cr->move_to(200, 20);
 			cr->scale(2.0, 2.0);
 			cr->set_line_width(0.1);
 			cr->text_path("Device RB5");
@@ -64,8 +64,8 @@ namespace app {
 
 			// connection to RBPU_AND
 			conn.add(ConnectionDiagram::pt(90, 15,true,true));
-			conn.add(ConnectionDiagram::pt(90, -110));
-			conn.add(ConnectionDiagram::pt(170,-110));
+			conn.add(ConnectionDiagram::pt(90, -115));
+			conn.add(ConnectionDiagram::pt(170,-115));
 
 			// connection to Tristate3 input
 			conn.add(ConnectionDiagram::pt(90, 15,true));
@@ -74,8 +74,8 @@ namespace app {
 
 			// connection to RBIF And Gate
 			conn.add(ConnectionDiagram::pt(90, 140).first().join());
-			conn.add(ConnectionDiagram::pt(90, 250));
-			conn.add(ConnectionDiagram::pt(65, 250));
+			conn.add(ConnectionDiagram::pt(90, 260));
+			conn.add(ConnectionDiagram::pt(65, 260));
 		}
 
 //		void draw_out_enable() {
@@ -147,8 +147,8 @@ namespace app {
 			conn.add(ConnectionDiagram::pt(70, 0).first().join());
 			conn.add(ConnectionDiagram::pt(70, 145));
 			conn.add(ConnectionDiagram::pt(460, 145));
-			conn.add(ConnectionDiagram::pt(460, 120));
-			conn.add(ConnectionDiagram::pt(440, 120));
+			conn.add(ConnectionDiagram::pt(460, 115));
+			conn.add(ConnectionDiagram::pt(440, 115));
 
 		}
 
@@ -201,7 +201,7 @@ namespace app {
 
 		void draw_RBIF() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["RBIF"]);
-			conn.add(new AndSymbol(3, 0, 0, DIRECTION::LEFT));
+			conn.add(new AndSymbol(2, 0, 0, DIRECTION::LEFT));
 			conn.add(ConnectionDiagram::pt(   -30,  0).first());
 			conn.add(ConnectionDiagram::pt(  -165,  0));
 			conn.add(ConnectionDiagram::text(-160, -2, "Set RBIF"));
@@ -212,7 +212,7 @@ namespace app {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["RBPU"]);
 			conn.add(ConnectionDiagram::pt(   0,  0, true));
 			conn.add(ConnectionDiagram::pt( 268,  0, false, false, true));
-			conn.add(new AndSymbol(3, 270, 10, 0, true));
+			conn.add(new AndSymbol(2, 270, 5, 0, true));
 			conn.add(ConnectionDiagram::text(0, -2, "RBPU").overscore());
 		}
 
@@ -287,18 +287,18 @@ namespace app {
 			m_components["RD_TRISB"]  = new ConnectionDiagram(Tristate3.gate(), 100, 340, m_area);
 			m_components["RD_PORTB"]  = new ConnectionDiagram(Tristate2.gate(), 100, 385, m_area);
 			m_components["Clamp"]= new ClampDiagram(Clamp1, 515.0,105.0, m_area);
-			m_components["RBPU"]= new ConnectionDiagram(p5.RBPU(), 100.0, 50.0, m_area);
+			m_components["RBPU"]= new ConnectionDiagram(p5.RBPU(), 100.0, 55.0, m_area);
 			m_components["RBPU_AND"]= new ConnectionDiagram(RBPU.rd(), 100.0, 50.0, m_area);
 
 			m_components["Q1"]  = new ConnectionDiagram(p5.Q1(), 560, 405, m_area);
-			m_components["Q3"]  = new ConnectionDiagram(p5.Q3(), 560, 485, m_area);
+			m_components["Q3"]  = new ConnectionDiagram(p5.Q3(), 560, 490, m_area);
 			m_components["SR2en"]= new ConnectionDiagram(SR2en.rd(), 540, 495, m_area);
 
 			m_components["SR1.Q"]= new ConnectionDiagram(SR1.Q(), 410.0, 365.0, m_area);
 			m_components["SR2.Q"]= new ConnectionDiagram(SR2.Q(), 410.0, 455.0, m_area);
 
 			m_components["PIN_Changed"]= new ConnectionDiagram(PIN_Changed.rd(), 370, 450, m_area);
-			m_components["RBIF"]= new ConnectionDiagram(RBIF.rd(), 265, 440, m_area);
+			m_components["RBIF"]= new ConnectionDiagram(RBIF.rd(), 265, 445, m_area);
 
 			draw_data_bus();
 			draw_datalatch_q();

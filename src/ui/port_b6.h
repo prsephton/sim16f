@@ -24,7 +24,7 @@ namespace app {
 			cr->paint();
 			black(cr);
 
-			cr->move_to(270, 20);
+			cr->move_to(200, 20);
 			cr->scale(2.0, 2.0);
 			cr->set_line_width(0.1);
 			cr->text_path("Device RB6/T1OSO/T1CKI/PGC");
@@ -73,8 +73,8 @@ namespace app {
 
 			// connection to RBIF And Gate
 			conn.add(ConnectionDiagram::pt(90, 180).first().join());
-			conn.add(ConnectionDiagram::pt(90, 290));
-			conn.add(ConnectionDiagram::pt(65, 290));
+			conn.add(ConnectionDiagram::pt(90, 294));
+			conn.add(ConnectionDiagram::pt(65, 294));
 		}
 
 		void draw_out_enable() {
@@ -156,8 +156,8 @@ namespace app {
 			conn.add(ConnectionDiagram::pt(230, -95));
 
 			conn.add(ConnectionDiagram::pt(205, 35).first().join());
-			conn.add(ConnectionDiagram::pt(205, 180));
-			conn.add(ConnectionDiagram::pt(170, 180).invert());
+			conn.add(ConnectionDiagram::pt(205, 182));
+			conn.add(ConnectionDiagram::pt(170, 182).invert());
 
 			conn.add(ConnectionDiagram::text(0, 33, "T1OSCEN"));
 
@@ -197,8 +197,8 @@ namespace app {
 			conn.add(ConnectionDiagram::pt(70, 0).first().join());
 			conn.add(ConnectionDiagram::pt(70, 145));
 			conn.add(ConnectionDiagram::pt(460, 145));
-			conn.add(ConnectionDiagram::pt(460, 120));
-			conn.add(ConnectionDiagram::pt(440, 120));
+			conn.add(ConnectionDiagram::pt(460, 115));
+			conn.add(ConnectionDiagram::pt(440, 115));
 
 		}
 
@@ -275,7 +275,7 @@ namespace app {
 
 		void draw_tmr1_ck() {
 			WireDiagram &wire = dynamic_cast<WireDiagram &>(*m_components["TMR1_Ck"]);
-			wire.add(WireDiagram::pt(300, 0, true));
+			wire.add(WireDiagram::pt(315, 0, true));
 			wire.add(WireDiagram::pt(0, 0));
 			wire.add(WireDiagram::text(8, -2, "TMR1 Clock"));
 			wire.add(new VssSymbol(0, 0, M_PI*0.5));
@@ -364,14 +364,14 @@ namespace app {
 			m_components["T1OSC"]  = new ConnectionDiagram(p6.T1OSC(), 100, 300, m_area);
 
 			m_components["Q1"]  = new ConnectionDiagram(p6.Q1(), 560, 445, m_area);
-			m_components["Q3"]  = new ConnectionDiagram(p6.Q3(), 560, 525, m_area);
+			m_components["Q3"]  = new ConnectionDiagram(p6.Q3(), 560, 530, m_area);
 			m_components["SR2en"]= new ConnectionDiagram(SR2en.rd(), 540, 535, m_area);
 
 			m_components["SR1.Q"]= new ConnectionDiagram(SR1.Q(), 410.0, 405.0, m_area);
 			m_components["SR2.Q"]= new ConnectionDiagram(SR2.Q(), 410.0, 495.0, m_area);
 
 			m_components["PIN_Changed"]= new ConnectionDiagram(PIN_Changed.rd(), 370, 490, m_area);
-			m_components["RBIF"]= new ConnectionDiagram(RBIF.rd(), 265, 480, m_area);
+			m_components["RBIF"]= new ConnectionDiagram(RBIF.rd(), 265, 482, m_area);
 
 			draw_data_bus();
 			draw_datalatch_q();

@@ -24,7 +24,7 @@ namespace app {
 			cr->paint();
 			black(cr);
 
-			cr->move_to(400, 20);
+			cr->move_to(200, 20);
 			cr->scale(2.0, 2.0);
 			cr->set_line_width(0.1);
 			cr->text_path("Device RB3/CCP");
@@ -49,8 +49,10 @@ namespace app {
 
 		void draw_datalatch_q() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["Datalatch.Q"]);
-			conn.add(ConnectionDiagram::pt(70,53,true));
-			conn.add(ConnectionDiagram::pt(105,53));
+			conn.add(ConnectionDiagram::pt(70,55,true));
+			conn.add(ConnectionDiagram::pt(85,55));
+			conn.add(ConnectionDiagram::pt(85,45));
+			conn.add(ConnectionDiagram::pt(105,45));
 		}
 
 
@@ -85,7 +87,7 @@ namespace app {
 			out_en.add(new AndSymbol(2, 0, 0, 0, false));
 			out_en.add(ConnectionDiagram::pt(30, 0).first());
 			out_en.add(ConnectionDiagram::pt(70, 0));
-			out_en.add(ConnectionDiagram::pt(70, -105));
+			out_en.add(ConnectionDiagram::pt(70, -100));
 		}
 
 		void draw_pin_wire() {
@@ -205,8 +207,8 @@ namespace app {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["Peripheral.OE"]);
 			conn.add(ConnectionDiagram::pt(   0,  0).first());
 			conn.add(ConnectionDiagram::pt( 200,  0));
-			conn.add(ConnectionDiagram::pt( 200,  -70));
-			conn.add(ConnectionDiagram::pt( 215,  -70));
+			conn.add(ConnectionDiagram::pt( 200,  -75));
+			conn.add(ConnectionDiagram::pt( 215,  -75));
 			conn.add(ConnectionDiagram::text(0, -2, "Peripheral OE").overscore());
 		}
 
@@ -289,9 +291,9 @@ namespace app {
 			m_components["RBPU_AND"]= new ConnectionDiagram(RBPU.rd(), 100.0, 50.0, m_area);
 			m_components["Schmitt"]  = new SchmittDiagram(trigger, 430, 490, CairoDrawing::DIRECTION::LEFT, false, m_area);
 			m_components["REC_WIRE"] = new WireDiagram(REC_wire, 105, 490, m_area);
-			m_components["CCP.Out_en"]= new ConnectionDiagram(Out_en.rd(), 315.0, 245.0, m_area);
+			m_components["CCP.Out_en"]= new ConnectionDiagram(Out_en.rd(), 315.0, 240.0, m_area);
 			m_components["dMUX"]= new ConnectionDiagram(dMux.rd(), 305.0, 125.0, m_area);
-			m_components["CCP.out"]= new ConnectionDiagram(p3.CCP_Out(), 100.0, 110.0, m_area);
+			m_components["CCP.out"]= new ConnectionDiagram(p3.CCP_Out(), 100.0, 115.0, m_area);
 			m_components["Peripheral.OE"]= new ConnectionDiagram(p3.Peripheral_OE(), 100.0, 320.0, m_area);
 
 			draw_data_bus();
