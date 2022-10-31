@@ -1,0 +1,69 @@
+## Source code for timer0.a, which tests TMR0 function
+
+		;__________________________________________________________________________________________
+		;  This program exercises the TMR0 interrupt
+		;  ===========================================
+		
+		w-save:			EQU 0x7f          ; where we save the W register during interrupts
+		sts-save: 		EQU 0x22          ; where we save the STATUS register during interrupts
+		direction:		EQU 0x26          ; increments or decrements PORTA depending on direction
+		tmr0-initval:	EQU 0xE1          ; value to use when initialising TMR0
+		
+				CONFIG	0x3f71        		; set configuration
+		;______________________________________________________________________
+		;  Program starts here
+		program-start:	
+				ORG 0             		; Code starts at PC=0
+				call	initialise    		; Call the initialise procedure
+				goto    start         	; Start adding 'direction' to PORTB
+		
+		;______________________________________________________________________
+		;  After TMR0 overflows, we come here, with GIE disabled
+		isr-save:
+				ORG 4                 ; this is the start of the interrupt vector.
+				movwf	w-save            ; save W register
+				swapf	STATUS,w          ; swap high & low nibbles of status, store in W
+				clrf	STATUS            ; Clear status register
+				movwf	sts-save          ; save W to sts-save
+		irq-handler:
+				btfss	INTCON,T0IF       ; Was TMR0 the interrupt source?
+				goto	exit-irq          ;  if not, exit the IRQ
+				bcf	INTCON,T0IF	  		; Clear TMR0 interrupt flag
+				movf	direction,w	  	; move direction into W
+				sublw	0x00              ; W = 0 - W
+				movwf	direction         ; save W to  direction
+				movlw	tmr0-initval      ; W = tmr0-initval
+				movwf	TMR0              ; Store W to TMR0
+		exit-irq:
+				swapf	sts-save,w        ; Swap nibbles in sts-save, store in W
+				movwf	STATUS            ; Restore status from W
+				swapf	w-save,f          ; Swap nibbles in w-save, store in w-save
+				swapf	w-save,w          ; Swap nibbles in w-save, store in W
+				retfie
+		
+		;______________________________________________________________________
+		;  This is the initialisation routine
+		initialise:
+				clrf	PORTA      ; Clear PORTA
+				clrf	PORTB             ; and PORTB
+				bsf	STATUS,RP0        	; Select Bank 1
+				clrf	TRISA             ; Clear TRISA
+				clrf	TRISB             ; and TRISB, setting ports for output
+				clrf	OPTION            ; Clear OPTION (and thus T0CS is low)
+				bsf	OPTION,PSA        	; Set PSA high
+				bcf	STATUS,RP0        	; Select bank 0
+				movlw	0x01              ; W = 1
+				movwf	direction         ; Store W to direction
+				movlw	tmr0-initval      ; W = tmr1-initval (0xE1)
+				movwf	TMR0              ; Store W to TMR0
+				bsf	INTCON,T0IE       	; Enable TMR0 Interrupts
+				bcf	INTCON,T0IF       	; Clear the TMR0 interrupt flag
+				bsf	INTCON,GIE       		; Enable interrupts globally
+				return
+		
+		;______________________________________________________________________
+		;  Add direction to portB and loop
+		start:	movf	direction,w       ; W = direction
+				addwf	PORTB,f           ; PORTB = PORTB + direction
+				goto	start             ; and do that again
+

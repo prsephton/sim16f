@@ -119,15 +119,18 @@ namespace app {
 			return m_hotspots[id];
 		}
 		void hotspot(const Cairo::RefPtr<Cairo::Context>& cr, size_t id, Point p) {
-			cr->save();
-			cr->begin_new_sub_path();
-			cr->set_line_width(0.4);
-			cr->arc(p.x, p.y, 2, 0, 2*M_PI);
-			CairoDrawing::brightred(cr);
-			cr->fill_preserve();
-			CairoDrawing::black(cr);
-			cr->stroke();
-			cr->restore();
+			if (m_show_name) {
+				cr->save();
+				cr->begin_new_sub_path();
+				cr->set_line_width(0.4);
+				cr->arc(p.x, p.y, 2, 0, 2*M_PI);
+				CairoDrawing::brightred(cr);
+				cr->fill_preserve();
+				CairoDrawing::black(cr);
+				cr->stroke();
+				cr->restore();
+			}
+
 			cr->user_to_device(p.x, p.y);
 			p.x -= m_ofs.x; p.y -= m_ofs.y;
 			if (id >= m_hotspots.size())

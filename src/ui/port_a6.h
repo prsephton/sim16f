@@ -150,8 +150,8 @@ namespace app {
 			s0.add(ConnectionDiagram::pt(  -280, 100));
 			s0.add(ConnectionDiagram::text(-280,  98, "Fosc=101,111"));
 			s0.add(ConnectionDiagram::pt(  5, 100, true, true));
-			s0.add(ConnectionDiagram::pt(  5, 160));
-			s0.add(ConnectionDiagram::pt( 20, 160));
+			s0.add(ConnectionDiagram::pt(  5, 170));
+			s0.add(ConnectionDiagram::pt( 20, 170));
 		}
 
 		void draw_and1() {
@@ -166,7 +166,7 @@ namespace app {
 			conn.add(new OrSymbol(2, 0,0,0,true));
 			conn.add(ConnectionDiagram::pt(  30,   0, true));
 			conn.add(ConnectionDiagram::pt(  65,   0));
-			conn.add(ConnectionDiagram::pt(  65,-160));
+			conn.add(ConnectionDiagram::pt(  65,-165));
 		}
 
 		void draw_osc() {
@@ -262,12 +262,12 @@ namespace app {
 			m_components["Output Latch"]= new LatchDiagram(OutputLatch, false, 360.0, 430.0, m_area);
 			m_components["Output.Q"]= new ConnectionDiagram(OutputLatch.Q(), 360.0, 430.0, m_area);
 			m_components["Inverter1 out"]  = new ConnectionDiagram(Inverter1.rd(), 330, 520, m_area);
-			m_components["Mux"]= new MuxDiagram(Mux1, 380, 150, 0, m_area);
+			m_components["Mux"]= new MuxDiagram(Mux1, 380, 152, 0, m_area);
 			m_components["Mux.out"]= new ConnectionDiagram(Mux1.rd(), 380, 150, m_area);
 			m_components["Mux.s0"]= new ConnectionDiagram(Mux1.select(0), 380, 150, m_area);
 			m_components["Mux.in1"]= new ConnectionDiagram(Mux1.in(1), 380, 150, m_area);
 			m_components["And1"]  = new ConnectionDiagram(And1.rd(), 320, 330, m_area);
-			m_components["NOR1"]  = new ConnectionDiagram(Nor1.rd(), 400, 320, m_area);
+			m_components["NOR1"]  = new ConnectionDiagram(Nor1.rd(), 400, 325, m_area);
 			m_components["Fosc2"]  = new ConnectionDiagram(p6.fosc2(), 100, 420, m_area);
 			m_components["OSC"]  = new ConnectionDiagram(p6.osc(), 100, 100, m_area);
 

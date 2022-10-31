@@ -58,8 +58,7 @@ namespace app {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["Tristate1 gate"]);
 			conn.add(ConnectionDiagram::pt(70,145, true));
 			conn.add(ConnectionDiagram::pt(100,145));
-			conn.add(ConnectionDiagram::pt(100,155));
-			conn.add(ConnectionDiagram::pt(245,155));
+			conn.add(ConnectionDiagram::pt(245,145));
 			conn.add(ConnectionDiagram::pt(245,120));
 		}
 
@@ -67,9 +66,9 @@ namespace app {
 			WireDiagram &wire = dynamic_cast<WireDiagram &>(*m_components["Pin Wire"]);
 			wire.add(WireDiagram::pt(460, 150, true));
 			wire.add(WireDiagram::pt(530, 150));
-			wire.add(WireDiagram::pt(500, 150, true, true));
-			wire.add(WireDiagram::pt(500, 250));
-			wire.add(WireDiagram::pt(500, 200, true, true));
+			wire.add(WireDiagram::pt(495, 150, true, true));
+			wire.add(WireDiagram::pt(495, 250));
+			wire.add(WireDiagram::pt(495, 200, true, true));
 			wire.add(WireDiagram::pt(540, 200));
 			wire.add(WireDiagram::pt(540, 450));
 			wire.add(WireDiagram::pt(100, 450));
@@ -97,8 +96,8 @@ namespace app {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["CMCON"]);
 			conn.add(ConnectionDiagram::text(0, 0, "Analog\nInput Mode\n(CMCON Reg.)"));
 			conn.add(ConnectionDiagram::pt( 34, 2, true));
-			conn.add(ConnectionDiagram::pt(150, 2));
-			conn.add(ConnectionDiagram::pt(150,25, false, false, true));
+			conn.add(ConnectionDiagram::pt(155, 2));
+			conn.add(ConnectionDiagram::pt(155,25, false, false, true));
 		}
 
 		void draw_schmitt() {

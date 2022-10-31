@@ -145,8 +145,8 @@ namespace app {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["Mux.out"]);
 			conn.add(ConnectionDiagram::pt(  10,  0, true));
 			conn.add(ConnectionDiagram::pt(  30,  0));
-			conn.add(ConnectionDiagram::pt(  30,  35));
-			conn.add(ConnectionDiagram::pt(  55,  35));
+			conn.add(ConnectionDiagram::pt(  30,  45));
+			conn.add(ConnectionDiagram::pt(  55,  45));
 		}
 
 		void draw_mux_inputs() {
@@ -165,8 +165,8 @@ namespace app {
 		void draw_nor_gate() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["NORGate"]);
 			conn.add(new OrSymbol(2, 0,0,0,true));
-			conn.add(ConnectionDiagram::pt(   1,  10, true));
-			conn.add(ConnectionDiagram::pt(-170,  10));
+			conn.add(ConnectionDiagram::pt(   1,  5, true));
+			conn.add(ConnectionDiagram::pt(-170,  5));
 		}
 
 
@@ -246,8 +246,8 @@ namespace app {
 			m_components["Mux.out"]= new ConnectionDiagram(Mux1.rd(), 380, 130, m_area);
 			m_components["Mux.s0"]= new ConnectionDiagram(Mux1.select(0), 380, 130, m_area);
 			m_components["Mux.in1"]= new ConnectionDiagram(Mux1.in(1), 380, 130, m_area);
-			m_components["NORGate"]  = new ConnectionDiagram(TrisLatch.Q(), 435, 175, m_area);
-			m_components["NORGate.out"]  = new ConnectionDiagram(NorGate.rd(), 510, 175, m_area);
+			m_components["NORGate"]  = new ConnectionDiagram(TrisLatch.Q(), 435, 180, m_area);
+			m_components["NORGate.out"]  = new ConnectionDiagram(NorGate.rd(), 510, 180, m_area);
 
 
 			draw_data_bus();

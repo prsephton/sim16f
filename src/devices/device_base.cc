@@ -1100,8 +1100,6 @@ template <class T> class
 			m_idx = m_idx << 1;
 			m_idx |= (m_select[n] && m_select[n]->signal()?1:0);
 		}
-		if (m_select.size() > 1)
-			std::cout << "Select is " << (int)m_idx << "; size is " << m_select.size() << std::endl;
 		if (m_idx >= m_in.size()) throw(name() + std::string(": Multiplexer index beyond input bounds"));
 	}
 

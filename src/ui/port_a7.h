@@ -70,10 +70,10 @@ namespace app {
 			WireDiagram &wire = dynamic_cast<WireDiagram &>(*m_components["Pin Wire"]);
 			wire.add(WireDiagram::pt(460, 150, true));
 			wire.add(WireDiagram::pt(530, 150));
-			wire.add(WireDiagram::pt(500, 150, true, true));
-			wire.add(WireDiagram::pt(500, 250));
-			wire.add(WireDiagram::pt(490, 150, true, true));
-			wire.add(WireDiagram::pt(490, 110));
+			wire.add(WireDiagram::pt(495, 150, true, true));
+			wire.add(WireDiagram::pt(495, 250));
+			wire.add(WireDiagram::pt(480, 150, true, true));
+			wire.add(WireDiagram::pt(480, 110));
 			wire.add(WireDiagram::pt(320, 110));
 			wire.add(WireDiagram::text(320, 108, "To clock circuits"));
 		}
@@ -98,11 +98,11 @@ namespace app {
 		void draw_fosc() {
 			ConnectionDiagram &conn = dynamic_cast<ConnectionDiagram &>(*m_components["FOSC"]);
 			conn.add(ConnectionDiagram::text(10, -2, "Fosc=100, 101"));
-			conn.add(ConnectionDiagram::pt( 30, -30, true));
-			conn.add(ConnectionDiagram::pt( 0,  -30));
+			conn.add(ConnectionDiagram::pt( 30, -35, true));
+			conn.add(ConnectionDiagram::pt( 0,  -35));
 			conn.add(ConnectionDiagram::pt( 0, 0));
-			conn.add(ConnectionDiagram::pt(150, 0));
-			conn.add(ConnectionDiagram::pt(150, 25, false, false, true));
+			conn.add(ConnectionDiagram::pt(155, 0));
+			conn.add(ConnectionDiagram::pt(155, 25, false, false, true));
 		}
 
 		void draw_schmitt() {
@@ -119,8 +119,8 @@ namespace app {
 			conn.add(ConnectionDiagram::pt(50,-84));
 			conn.add(ConnectionDiagram::pt(20,-84));
 			conn.add(ConnectionDiagram::pt(50,-84, true, true));
-			conn.add(ConnectionDiagram::pt(50,-140));
-			conn.add(ConnectionDiagram::pt(110,-140));
+			conn.add(ConnectionDiagram::pt(50,-135));
+			conn.add(ConnectionDiagram::pt(110,-135));
 		}
 
 		void draw_rd_trisa() {

@@ -56,8 +56,8 @@ namespace app {
 			wire.add(WireDiagram::pt(120, 200));
 			wire.add(new VssSymbol(120, 200, CairoDrawing::DIRECTION::DOWN));
 			wire.add(WireDiagram::text(130, 185, "Program\n mode"));
-			wire.add(WireDiagram::pt(490, 200, true, true));
-			wire.add(WireDiagram::pt(490, 250));
+			wire.add(WireDiagram::pt(485, 200, true, true));
+			wire.add(WireDiagram::pt(485, 250));
 			wire.add(WireDiagram::pt(530, 200, true, true));
 			wire.add(WireDiagram::pt(530, 140));
 			wire.add(WireDiagram::pt(440, 140));
@@ -75,10 +75,10 @@ namespace app {
 			wire.add(WireDiagram::pt(20, 0, true));
 			wire.add(WireDiagram::pt(0, 0));
 			wire.add(WireDiagram::pt(0, 130));
-			wire.add(WireDiagram::pt(220, 130));
-			wire.add(WireDiagram::pt(220, 145, false, false, true));
-			wire.add(WireDiagram::pt(0, 20, true, true));
-			wire.add(WireDiagram::pt(-65, 20));
+			wire.add(WireDiagram::pt(225, 130));
+			wire.add(WireDiagram::pt(225, 145, false, false, true));
+			wire.add(WireDiagram::pt(0, 30, true, true));
+			wire.add(WireDiagram::pt(-65, 30));
 		}
 
 
@@ -195,7 +195,7 @@ namespace app {
 			m_components["Schmitt1_Out"]  = new ConnectionDiagram(Schmitt1.rd(), 440, 140, m_area);
 			m_components["Schmitt2"]  = new SchmittDiagram(Schmitt2, 480, 250, CairoDrawing::DIRECTION::DOWN, true, m_area);
 			m_components["Schmitt2_Out"]  = new ConnectionDiagram(Schmitt2.rd(), 480, 250, m_area);
-			m_components["And1.out"]  = new ConnectionDiagram(And1.rd(), 185, 130, m_area);
+			m_components["And1.out"]  = new ConnectionDiagram(And1.rd(), 185, 135, m_area);
 			m_components["Tristate2"]  = new TristateDiagram(Tristate2, false, 250, 380, m_area);
 			m_components["Tristate3"]  = new TristateDiagram(Tristate3, false, 250, 310, m_area);
 			m_components["Tristate3.in"] = new ConnectionDiagram(Tristate3.input(), 250, 310, m_area);

@@ -203,7 +203,6 @@ namespace app {
 			m_components["Prescale_Mux.gate"] = ps;
 			ps->add(GenericDiagram::pt(0,10).first());
 			ps->add(GenericDiagram::pt(-25,10));
-			std::cout << "Get prescale rate: " << m_PS.get() << std::endl;
 			ps->add(GenericDiagram::text(5, 10, "PS<2:0>"));
 			ps->add(new prescale_text(m_PS, -15, 20));
 //			ps->add(GenericDiagram::text(-15, 20, int_to_string(m_PS.get())));
