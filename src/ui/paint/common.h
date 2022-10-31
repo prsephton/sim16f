@@ -2274,19 +2274,28 @@ namespace app {
 
 	class BlockDiagram:  public GenericDiagram {
 		double x, y, width, height;
+		Rect device_rect;
+		bool clip_is_set = false;
 	  public:
 
 		void redraw() {
-			m_area->queue_draw_area(x, y, width, height);
+			if (clip_is_set) {
+				m_area->queue_draw_area(device_rect.x, device_rect.y, device_rect.w, device_rect.h);
+			} else {
+				m_area->queue_draw();
+				std::cout << "BlockDiagram::redraw(); note: setting the clip rectangle would be more efficient!\n";
+			}
 		}
 
 		void clip(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->rectangle(0, 0, width, height);
 			cr->clip();
+			device_rect = Rect(0, 0, width, height).to_device(cr, m_dev_origin);
+			clip_is_set = true;
 		}
 
 		BlockDiagram(double x, double y, double width, double height, const std::string &a_name, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			GenericDiagram(x, y, a_area), x(x), y(y), width(width), height(height)
+			GenericDiagram(x, y, a_area), x(x), y(y), width(width), height(height), device_rect(0,0,0,0)
 		{
 			double dw = width / 2, dh = height / 2;
 			add(new BlockSymbol(dw, dh, width, height));

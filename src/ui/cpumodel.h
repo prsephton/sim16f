@@ -148,6 +148,7 @@ namespace app {
 			const PINS &pins = cpu.pins;
 
 			cr->save();
+			clip(cr);
 			BYTE trisA = tris();
 			BYTE portA = port();
 			for (int n = 0; n < 8; ++n) {
@@ -222,6 +223,7 @@ namespace app {
 			const PINS &pins = cpu.pins;
 
 			cr->save();
+			clip(cr);
 			for (int n = 0; n < 8; ++n) {
 				bool trisflag = trisB & 1;
 				bool portflag = portB & 1;
@@ -298,16 +300,12 @@ namespace app {
 			cr->save();
 			Cairo::TextExtents extents;
 			cr->get_text_extents(t, extents);
-			cr->move_to(LEFT-2-extents.width, BASE+row*LINE_HEIGHT);
-			cr->text_path(t);
-			cr->move_to(LEFT, BASE+row*LINE_HEIGHT);
-			cr->text_path("|");
-			cr->set_line_width(0.5);
-			cr->fill_preserve();
-			cr->stroke();
+			cr->move_to(LEFT-4-extents.width, BASE+row*LINE_HEIGHT);
+			cr->show_text(t);
+			cr->move_to(LEFT-2, BASE+row*LINE_HEIGHT);
+			cr->show_text("│");
 			cr->restore();
 		}
-
 
 		virtual void draw_extra(const Cairo::RefPtr<Cairo::Context>& cr) {
 			const int BASE = 14;
@@ -323,7 +321,7 @@ namespace app {
 			cr->fill_preserve();
 			cr->stroke();
 			if (Q.length()) {
-				cr->set_line_width(0.8);
+				cr->set_line_width(0.9);
 
 				draw_row(cr, "OSC1", 1);
 				cr->save();
@@ -353,9 +351,10 @@ namespace app {
 
 				draw_row(cr, "CLKOUT", 3);
 				cr->save();
+				cr->set_line_width(0.8);
 				cr->translate(LEFT, LINE_HEIGHT * 2 + BASE + 6);
-				cr->move_to(2, 0);
-				cr->line_to(4, LINE_HEIGHT-6);
+				cr->move_to(0, 0);
+				cr->line_to(2, LINE_HEIGHT-6);
 				for (int n = 0; n < osc+1; ++n) {
 					int q = n + 1;
 					cr->line_to(q*STEP-2, ((n / 4 + 1) % 2) * (LINE_HEIGHT-6));
@@ -365,7 +364,6 @@ namespace app {
 				cr->restore();
 			}
 			cr->restore();
-			redraw();
 		}
 
 
@@ -373,14 +371,16 @@ namespace app {
 		void process(const std::string &name) {
 			if (name == "Q1" || name == "Q2" || name == "Q3" || name == "Q4")
 				Q = name;
-			else if (name == "oscillator")
+			else if (name == "oscillator") {
 				osc++;
+				redraw();
+			}
 			else if (name == "cycle")
 				osc = 0;
 		}
 
 		ClockDiagram(const CPU_DATA &a_cpu, double x, double y, double width, double height, Glib::RefPtr<Gtk::DrawingArea>a_area):
-			BlockDiagram(x, y, width, height, "CLK", a_area), m_cpu(a_cpu), Q(""), osc(0) {
+			BlockDiagram(x, y, width, height, "CLOCK", a_area), m_cpu(a_cpu), Q(""), osc(0) {
 		}
 	};
 
@@ -645,7 +645,7 @@ namespace app {
 			m_components["STATUS"] = new STATUSDiagram(m_cpu, 270.0, 320.0, 145.0, 45.0, m_area);
 
 			// Literal-Data MUX
-			cpu->add(new MuxSymbol(405, 400, M_PI/2));
+			cpu->add(new MuxSymbol(415, 400, M_PI/2));
 			cpu->add(new BusSymbol(Point(420, 370, false, true),  Point(465, 370, false), 10.0));
 			cpu->add(new BusSymbol(Point(420, 395, true), Point(420, 375, false), 10.0));
 

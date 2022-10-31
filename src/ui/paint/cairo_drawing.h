@@ -153,6 +153,14 @@ namespace app {
 			return false;
 		}
 
+		Rect to_device(const Cairo::RefPtr<Cairo::Context>& cr, const Point &dev_ofs) {
+			Point p(x, y);
+			cr->user_to_device(p.x, p.y);
+			p.x -= dev_ofs.x; p.y -= dev_ofs.y;
+			Point d(w, h);
+			cr->user_to_device_distance(d.x, d.y);
+			return Rect(p.x, p.y, d.x, d.y);
+		}
 
 		Rect(double a_x, double a_y, double a_w, double a_h):
 			x(a_x), y(a_y), w(a_w), h(a_h) {}
