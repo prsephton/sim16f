@@ -31,7 +31,7 @@ Common to all app displays, is the assembler listing of the flash content.  This
 
 The program includes a HEX file loader, as well as quite a nice assembler.  For example, the following assembler code is meant to test TMR0 function, including a TMR0 interrupt handler ([see timer0.a](docs/timer0-a.md)).
 
-Of course, there is nothing wrong with using the Microchip assembler or C compiler [built into MPLAB](https://www.microchip.com/en-us/tools-resources/develop/mplab-x-ide "Microchip MPLAB") instead (or even something like [PicForth](https://rfc1149.net/devel/picforth.html "A Forth Compiler"), which I have found extraordinarily useful) to produce your code, but having a built-in assembler is convenient.
+Of course, there is nothing wrong with using the Microchip assembler or C compiler [built into MPLAB](https://www.microchip.com/en-us/tools-resources/develop/mplab-x-ide "Microchip MPLAB") instead (or even something like [PicForth](https://rfc1149.net/devel/picforth.html "A Forth Compiler"), which I have personally [found extraordinarily useful](docs/cmp0-fs.md) to produce your code, but having a built-in assembler is convenient.
 
 # Why the PIC16f6xx series?
 

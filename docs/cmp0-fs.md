@@ -4,7 +4,7 @@ The following is an example of FORTH code used to generate a program which
 cycles through all comparator modes.  This was used to check all of the variations
 for the comparator diagram.
 
-FORTH is quite readable when you get used to it.  It's like reading english:
+FORTH is quite readable when you get used to it.  It's a little like reading English:
 
 >  Variable comp-mode,
 >  main, start, zero comp-mode store, begin
@@ -33,7 +33,7 @@ FORTH is quite readable when you get used to it.  It's like reading english:
 	    false set-lvp           \ No low-voltage programming
 	    true set-boden          \ No brown-out reset
 
-Compiling this generates the following PIC code:
+Compiling this generates the following PIC code.  I have annotated the listing with the FORTH equivalent:
 
 	0000:   CLRF    PCLATH          ; Clear f
 	0001:   GOTO    0x4             ; Go to address (init-picforth)
@@ -41,18 +41,19 @@ Compiling this generates the following PIC code:
 	0003:   NOP                     ; No Operation
 	0004:   MOVLW   0x33            ; Move literal to W
 	0005:   MOVWF   FSR             ; Move W to f
-	0006:   CLRF    0x22            ; Clear f
-	0007:   MOVF    0x22,w          ; Move f
-	0008:   ANDLW   0x7             ; AND literal with W
-	0009:   DECF    FSR,f           ; Decrement f
-	000a:   MOVWF   INDF            ; Move W to f
-	000b:   ADDLW   0x1             ; Add literal and W
-	000c:   MOVWF   0x22            ; Move W to f
-	000d:   MOVF    CMCON,w         ; Move f
-	000e:   ANDLW   0xF8            ; AND literal with W
-	000f:   IORWF   INDF,w          ; Inclusive OR W with f
-	0010:   INCF    FSR,f           ; Increment f
-	0011:   MOVWF   CMCON           ; Move W to f
-	0012:   GOTO    0x7             ; Go to address
+	0006:   CLRF    0x22            ; Clear f                 ; 0 comp-mode !
+	0007:   MOVF    0x22,w          ; Move f                  ; comp-mode @
+	0008:   ANDLW   0x7             ; AND literal with W      ; 7 and
+	0009:   DECF    FSR,f           ; Decrement f             ; dup
+	000a:   MOVWF   INDF            ; Move W to f             ; ( dup pushes to stack )
+	000b:   ADDLW   0x1             ; Add literal and W       ; 1 comp-mode
+	000c:   MOVWF   0x22            ; Move W to f             ; +!
+	000d:   MOVF    CMCON,w         ; Move f                  ; cmcon @
+	000e:   ANDLW   0xF8            ; AND literal with W      ; F8 and
+	000f:   IORWF   INDF,w          ; Inclusive OR W with f   ; or
+	0010:   INCF    FSR,f           ; Increment f             ; ( pop from stack)
+	0011:   MOVWF   CMCON           ; Move W to f             ; cmcon !
+	0012:   GOTO    0x7             ; Go to address           ; again
 
 
+![mode 0](cmp-modes.gif)
