@@ -4,7 +4,7 @@ This change will add more flexibility to the scratch pad, although no claim as t
 
 Consider the following circuit:
 
-![A Circuit with two meshes](docs/mesh-circuit.png)
+![A Circuit with two meshes](mesh-circuit.png)
 
 We can see that the circuit contains two "meshes", or sub-circuits, with one resistor, R2 in common.
 

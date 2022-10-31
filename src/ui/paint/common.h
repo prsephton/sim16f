@@ -1964,9 +1964,6 @@ namespace app {
 	};
 
 
-
-
-
 	class GenericDiagram: public CairoDrawing {
 //		Point m_pos;
 
