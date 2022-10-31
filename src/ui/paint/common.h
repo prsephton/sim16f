@@ -84,6 +84,7 @@ namespace app {
 		}
 
 		void show_name(bool show) { m_show_name = show; }
+		bool showing_name() { return m_show_name; }
 
 		void draw_value(const Cairo::RefPtr<Cairo::Context>& cr, double x, double y, const std::string &text) {
 			if (m_show_name)
@@ -1829,22 +1830,22 @@ namespace app {
 			}
 			bits += " [" + int_to_hex(m_value, "0x") + "]";
 
-			cr->move_to(10, height() - 10);
-			cr->text_path(bits);
-			cr->set_line_width(0.6);
+			cr->move_to(10, height() - 14);
+			CairoDrawing::black(cr);
+			cr->show_text(bits);
 
-			CairoDrawing::black(cr); cr->fill_preserve(); cr->stroke();
-
-			cr->save();
-			cr->set_font_size(7);
-			for (int n = 0; n < m_nBits; ++n) {           // outputs
-				double x = (n+1) * width()/(m_nBits+2);
-				int bit_no = (m_nBits-1-n);
-				hotspot(cr, 2+bit_no, Point(x, height()));
-				cr->move_to(x, height()-2);
-				cr->show_text(int_to_string(bit_no));
+			if (showing_name()) {
+				cr->save();
+				cr->set_font_size(7);
+				for (int n = 0; n < m_nBits; ++n) {           // outputs
+					double x = (n+1) * width()/(m_nBits+2);
+					int bit_no = (m_nBits-1-n);
+					hotspot(cr, 2+bit_no, Point(x, height()));
+					cr->move_to(x, height()-2);
+					cr->show_text(int_to_string(bit_no));
+				}
+				cr->restore();
 			}
-			cr->restore();
 
 			if (m_is_sync) {
 				auto mid = width() / 2;

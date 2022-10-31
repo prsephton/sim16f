@@ -65,7 +65,7 @@ namespace app {
 		}
 
 		void draw_pin() {
-			ConnectionDiagram * dia = new ConnectionDiagram(m_T0CKI, 40, 150, m_area);
+			ConnectionDiagram * dia = new ConnectionDiagram(m_T0CKI, 40, 145, m_area);
 			m_components["PIN"] = dia;
 			dia->add(new PinSymbol(60, 0, DIRECTION::LEFT));
 			dia->add(ConnectionDiagram::pt(60, 0).first());
@@ -75,7 +75,7 @@ namespace app {
 
 
 		void draw_T0SE() {
-			ConnectionDiagram * dia = new ConnectionDiagram(m_T0SE, 100, 180, m_area);
+			ConnectionDiagram * dia = new ConnectionDiagram(m_T0SE, 100, 175, m_area);
 			m_components["T0SE"] = dia;
 			dia->add(ConnectionDiagram::pt(10,  0).first());
 			dia->add(ConnectionDiagram::pt(10, -20));
@@ -84,10 +84,10 @@ namespace app {
 		}
 
 		void draw_T0SE_Gate() {
-			ConnectionDiagram * dia = new ConnectionDiagram(m_T0SE_Gate.rd(), 125, 155, m_area);
+			ConnectionDiagram * dia = new ConnectionDiagram(m_T0SE_Gate.rd(), 125, 150, m_area);
 			m_components["T0SE Gate"] = dia;
 			dia->add(new OrSymbol(2, 0, 0, 0, false, true));
-			dia->add(ConnectionDiagram::pt(45,0).first());
+			dia->add(ConnectionDiagram::pt(35,0).first());
 			dia->add(ConnectionDiagram::pt(65,0));
 		}
 
@@ -107,7 +107,7 @@ namespace app {
 			MuxDiagram *mux = new MuxDiagram(m_T0CS_Mux, 190, 140, 0, m_area);
 			m_components["T0CS_Mux"] = mux;
 			mux->draw_forward(false);
-
+			mux->flipped(true);
 			ConnectionDiagram * dia = new ConnectionDiagram(m_T0CS_Mux.rd(), 200, 140, m_area);
 			m_components["T0CS_Mux.out"] = dia;
 			dia->add(ConnectionDiagram::pt(0,0).first());
@@ -115,8 +115,8 @@ namespace app {
 			dia->add(ConnectionDiagram::pt(30,0).first().join());
 			dia->add(ConnectionDiagram::pt(30,80));
 			dia->add(ConnectionDiagram::pt(-80,80));
-			dia->add(ConnectionDiagram::pt(-80,120));
-			dia->add(ConnectionDiagram::pt(-30,120));
+			dia->add(ConnectionDiagram::pt(-80,130));
+			dia->add(ConnectionDiagram::pt(-30,130));
 
 			ConnectionDiagram * t0cs = new ConnectionDiagram(m_T0CS, 195, 165, m_area);
 			m_components["T0CS_Mux.gate"] = t0cs;
@@ -128,6 +128,7 @@ namespace app {
 
 		void draw_PSA_Mux3() {
 			MuxDiagram *mux = new MuxDiagram(m_PSA_Mux3, 280, 150, 0, m_area);
+			mux->flipped(true);
 			m_components["PSA_Mux3"] = mux;
 			ConnectionDiagram * dia = new ConnectionDiagram(m_PSA_Mux3.rd(), 290, 150, m_area);
 			m_components["PSA_Mux3.out"] = dia;
@@ -146,6 +147,7 @@ namespace app {
 			MuxDiagram *mux = new MuxDiagram(m_PSA_Mux1, 170, 280, 0, m_area);
 			m_components["PSA_Mux1"] = mux;
 			mux->draw_forward(false);
+			mux->flipped(true);
 
 			ConnectionDiagram * dia = new ConnectionDiagram(m_PSA_Mux1.rd(), 180, 280, m_area);
 			m_components["PSA_Mux1.out"] = dia;
@@ -190,21 +192,21 @@ namespace app {
 			ConnectionDiagram * dia = new ConnectionDiagram(m_Prescale_Mux.rd(), 290, 365, m_area);
 			m_components["Prescale_Mux.out"] = dia;
 			dia->add(ConnectionDiagram::pt(  0,   0).first());
-			dia->add(ConnectionDiagram::pt(  0,  40));
-			dia->add(ConnectionDiagram::pt( 20,  40));
+			dia->add(ConnectionDiagram::pt(  0,  45));
+			dia->add(ConnectionDiagram::pt( 20,  45));
 			dia->add(ConnectionDiagram::pt(  0,  20).first().join());
 			dia->add(ConnectionDiagram::pt(200,  20));
 			dia->add(ConnectionDiagram::pt(200,-140));
 			dia->add(ConnectionDiagram::pt(-30,-140));
-			dia->add(ConnectionDiagram::pt(-30,-200));
-			dia->add(ConnectionDiagram::pt(-10,-200));
+			dia->add(ConnectionDiagram::pt(-30,-205));
+			dia->add(ConnectionDiagram::pt(-10,-205));
 
 			GenericDiagram *ps = new GenericDiagram(390, 345, m_area);
 			m_components["Prescale_Mux.gate"] = ps;
 			ps->add(GenericDiagram::pt(0,10).first());
 			ps->add(GenericDiagram::pt(-25,10));
 			ps->add(GenericDiagram::text(5, 10, "PS<2:0>"));
-			ps->add(new prescale_text(m_PS, -15, 20));
+			ps->add(new prescale_text(m_PS, -10, 20));
 //			ps->add(GenericDiagram::text(-15, 20, int_to_string(m_PS.get())));
 		}
 
@@ -232,7 +234,7 @@ namespace app {
 
 		void draw_PSA_Mux2() {
 			MuxDiagram *mux = new MuxDiagram(m_PSA_Mux2, 310, 420, 0, m_area);
-
+			mux->flipped(true);
 			m_components["PSA_Mux2"] = mux;
 			ConnectionDiagram * dia = new ConnectionDiagram(m_PSA_Mux2.rd(), 320, 420, m_area);
 			m_components["PSA_Mux2.out"] = dia;
