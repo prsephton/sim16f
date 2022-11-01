@@ -1009,7 +1009,7 @@ namespace app {
 
 		void set_symbol_data() {
 			auto first_ts = m_trace.first_us();
-			auto range =  std::chrono::duration<double>(m_trace.current_us() - first_ts).count();
+			auto range =  std::chrono::duration<double>(m_trace.current_us() - first_ts).count(); // @suppress("Symbol is not resolved")
 			auto collated = m_trace.collate();
 			int nth = 0;
 			m_symbol.clear_data();
@@ -1018,7 +1018,7 @@ namespace app {
 				auto &row = m_symbol.add_data_row(m_names[nth++]);
 				while (!q.empty()) {
 					auto &data = q.front();
-					auto ts = std::chrono::duration<double>(data.ts - first_ts).count();
+					auto ts = std::chrono::duration<double>(data.ts - first_ts).count(); // @suppress("Symbol is not resolved")
 					double x = ts / range;
 					row.add(x, data.v/c->Vdd);
 					q.pop();
