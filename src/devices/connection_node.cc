@@ -9,12 +9,13 @@
 const std::string MeshItem::id() { return as_text(this); }
 double MeshItem::R() { return dev->R(); }
 double MeshItem::V() {
+	if (is_voltage) return dev->rd(false);
 	auto v = dynamic_cast<Voltage *>(dev);
-	if (v) return v->rd();
+	if (v) return v->rd(false);
 	return 0;
 }
 
-MeshItem::MeshItem(Connection *d): dev(d) {}
+MeshItem::MeshItem(Device *d): dev(d) {}
 
 void Mesh::I(double a_amps) {
 	amps = a_amps;
@@ -34,9 +35,7 @@ bool Mesh::contains(Device *d) {
 }
 
 void Mesh::add(Device *d) {
-  Connection *dev = dynamic_cast<Connection *>(d);
-  if (dev)
-	  items.push_back(MeshItem(dev));
+	items.push_back(MeshItem(d));
 }
 
 void Mesh::add_shared(Device *d) {
@@ -228,7 +227,6 @@ void Connection_Node::add_mesh_totals() {
 				m_amps[item.dev] = item.Itotal;
 			else
 				m_amps[item.dev] += item.Itotal;
-
 	}
 }
 
@@ -243,24 +241,23 @@ void Connection_Node::solve_meshes() {
 	Matrix v(1, m_meshes.size());
 	build_matrices(m, v);
 
-	double D = m.determinant();
-	if (m_debug) {
-		std::cout << "M is \n";
-		m.view();
-		std::cout << "V is \n";
-		v.view();
-		std::cout << "D is " << D << std::endl;
-	}
-	if (D == 0) return;   //nothing to be done
-
+	double D = 1;
+//	if (v.cols() > 1) {
+		D = m.determinant();
+		if (m_debug) {
+			std::cout << "M is \n";
+			m.view();
+			std::cout << "V is \n";
+			v.view();
+			std::cout << "D is " << D << std::endl;
+		}
+		if (D == 0) return;   //nothing to be done
+//	}
 	calculate_I(m, v, D);
 	add_mesh_totals();
 
 	for (auto dev: m_devicelist) {
-		Connection *c = dynamic_cast<Connection *>(dev);
-		if (c) {
-			c->set_vdrop(-m_amps[dev] * c->R());
-		}
+		dev->set_vdrop(-m_amps[dev] * dev->R());
 	}
 }
 
@@ -306,6 +303,10 @@ void Connection_Node::process_model() {
 			add_shared(prev, *mesh, start, finish);
 		}
 	}
+	if (m_meshes.size())
+		if (m_meshes[0]->items.size())
+			m_meshes[0]->items[0].is_voltage = true;
+
 	solve_meshes();
 }
 

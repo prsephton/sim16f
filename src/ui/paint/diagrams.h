@@ -4,6 +4,7 @@
 #include <iostream>
 #include <sstream>
 #include <queue>
+#include <chrono>
 #include <type_traits>
 #include "../../utils/utility.h"
 #include "../../devices/devices.h"
@@ -261,6 +262,8 @@ namespace app {
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
 			m_gate.name(m_symbol.name());
+			m_gate.clone_output_name();
+
 			m_gate.inverted(m_symbol.inverted());
 			m_area->queue_draw();
 		};

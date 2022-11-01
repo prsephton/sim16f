@@ -64,11 +64,13 @@ template <class T> class
 		}
 	}
 
-	bool Connection::unslot(Slot *slot_id){
-		if (m_slots.find(slot_id) == m_slots.end()) return false;
-		m_slots.erase(slot_id); delete slot_id;
-//		recalc_total_R();
-		return true;
+	bool Connection::unslot(Device *dev){
+		for (auto &slot: m_slots)
+			if (slot->dev == dev) {
+				m_slots.erase(slot);
+				return true;
+			}
+		return false;
 	}
 
 	bool Connection::add_connection_slots(std::set<Slot *> &slots) {
@@ -220,14 +222,14 @@ template <class T> class
 	}
 
 	void Terminal::update_voltage(double v) {
-		m_terminal_impeded = true;
-		for (auto &c : m_connects ) {
-			if (!c.first->impeded()) {
-				m_terminal_impeded = false;
-				break;   // at least one unimpeded terminal connection
-			}
-		}
 		Connection::update_voltage(v);
+		m_terminal_impeded = false;
+//		for (auto &c : m_connects ) {
+//			if (!c.first->impeded()) {
+//				m_terminal_impeded = false;
+//				break;   // at least one unimpeded terminal connection
+//			}
+//		}
 	}
 
 	void Terminal::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
@@ -244,6 +246,7 @@ template <class T> class
 	}
 
 	void Terminal::input_changed() {
+		query_voltage();
 	}
 
 	void Terminal::query_voltage() {
@@ -254,18 +257,6 @@ template <class T> class
 		} else {   // top of chain
 			Connection::query_voltage();
 		}
-	}
-
-	bool Terminal::unslot(void *slot_id){
-		for (auto &c : m_connects ) {
-			if (c.second == (Slot *)slot_id) {
-				DeviceEvent<Connection>::unsubscribe<Terminal>(this, &Terminal::on_change, c.first);
-				m_connects.erase(c.first);
-				query_voltage();
-				return true;
-			}
-		}
-		return false;
 	}
 
 	Terminal::Terminal(const std::string name): Connection(name), m_connects(),
@@ -298,7 +289,7 @@ template <class T> class
 	void Terminal::disconnect(Connection &c) {
 		if (m_connects.find(&c) != m_connects.end()) {
 			DeviceEvent<Connection>::unsubscribe<Terminal>(this, &Terminal::on_change, &c);
-			if (c.unslot(m_connects[&c]))
+			if (c.unslot(this))
 				m_connects.erase(&c);
 			query_voltage();
 		}
@@ -568,6 +559,7 @@ template <class T> class
 		if (!in.size()) return;
 		bool sig = in[0]?in[0]->signal():false;
 		rd().set_value((inverted() ^ sig) * Vdd, false);
+		rd().query_voltage();
 	}
 
 	void Gate::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
@@ -581,7 +573,11 @@ template <class T> class
 		Device(a_name), m_in(in), m_out(Vdd), m_inverted(inverted) {
 		for (size_t n = 0; n < m_in.size(); ++n)
 			if (m_in[n]) DeviceEvent<Connection>::subscribe<Gate>(this, &Gate::on_change, m_in[n]);
+		clone_output_name();
 		recalc();
+	}
+	void Gate::clone_output_name() {
+		m_out.name(name()+".out");
 	}
 
 	Gate::~Gate() {
@@ -592,6 +588,7 @@ template <class T> class
 		if (a_pos+1 > m_in.size()) m_in.resize(a_pos+1);
 		if (m_in[a_pos]) DeviceEvent<Connection>::unsubscribe<Gate>(this, &Gate::on_change, m_in[a_pos]);
 		m_in[a_pos] = &in;
+		in.slot(this);
 		if (m_in[a_pos]) DeviceEvent<Connection>::subscribe<Gate>(this, &Gate::on_change, m_in[a_pos]);
 		recalc();
 		return true;
@@ -600,11 +597,14 @@ template <class T> class
 	void Gate::disconnect(size_t a_pos) {
 		if (a_pos+1 > m_in.size()) return;
 		if (m_in[a_pos]) DeviceEvent<Connection>::unsubscribe<Gate>(this, &Gate::on_change, m_in[a_pos]);
+		m_in[a_pos]->unslot(this);
 		m_in[a_pos] = NULL;
 		recalc();
 	}
 
-	void Gate::inputs(const std::vector<Connection *> &in) { m_in = in; }
+	void Gate::inputs(const std::vector<Connection *> &in) {
+		m_in = in;
+	}
 	Connection& Gate::rd() { return m_out; }
 
 //___________________________________________________________________________________
@@ -802,7 +802,7 @@ template <class T> class
 			if (conn->first == &connection) {
 				DeviceEvent<Connection>::unsubscribe<Wire>(this, &Wire::on_connection_change,
 						const_cast<Connection *>(&connection));
-				if (conn->first->unslot(conn->second))
+				if (conn->first->unslot(this))
 					connections.erase(conn);
 				break;
 			}
@@ -990,6 +990,19 @@ template <class T> class
 		recalc_output();
 	}
 
+	SmartPtr<Node> ToggleSwitch::get_targets(Node *parent) {
+		return m_out.get_targets(parent);
+	}
+
+	void ToggleSwitch::set_vdrop(double drop) {
+	}
+
+	double ToggleSwitch::R() const {
+		if (m_closed) return min_R;
+		return max_R;
+	}
+
+
 	void ToggleSwitch::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
 		recalc_output();
 	}
@@ -1017,6 +1030,7 @@ template <class T> class
 	void ToggleSwitch::closed(bool a_closed) {
 		m_closed = a_closed;
 		recalc_output();
+		m_out.query_voltage();
 	}
 
 	Connection& ToggleSwitch::in() { return *m_in; }

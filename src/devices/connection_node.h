@@ -9,13 +9,14 @@
 #include "../utils/matrix.h"
 
 struct MeshItem {
-	Connection *dev;
+	bool is_voltage = false;
+	Device *dev;
 	double Itotal = 0;
 	const std::string id();
 	double R();
 	double V();
 
-	MeshItem(Connection *d);
+	MeshItem(Device *d);
 };
 
 struct Mesh {
@@ -44,7 +45,7 @@ class Connection_Node: public Node {
 //      We represent the node voltage value as a "voltage drop" defined in each of
 //  the source components.
 
-	bool m_debug = false;
+	bool m_debug = true;
 
 	std::set<Slot *> m_slots;
 	Device *m_current;

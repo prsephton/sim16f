@@ -78,32 +78,20 @@ class Device {
 		return *this;
 	}
 
-	virtual SmartPtr<Node> get_targets(Node *parent) {
-		return NULL;
-	}
+	virtual SmartPtr<Node> get_targets(Node *parent) {return NULL;}
 
 	virtual void update_voltage(double v) {};
-
-//	virtual double resistance_for() { return 1e-12; }
-//	void calc_conductance_antecedents(double &Gout, double &Iout) { Gout = Iout = 0; }
-//	virtual int calc_conductance_precedents(double &Gin, double &Iin, double &Idrop) {
-//		Gin = max_R;
-//		Iin = -min_R;
-//		Idrop = 0;
-//		return 0;
-//	}
-//	virtual bool recalc_total_R() { return false; }
-//	virtual double get_total_R() { return 0; };
-//	virtual void set_total_R() { };
+	virtual void set_vdrop(double v) {};
+	virtual double R() const { return max_R; }
 	virtual double rd(bool include_vdrop=true) const { return 0; }
 
 	virtual std::string info() { return "Name: " + name(); }
 	void debug(bool flag) { m_debug = flag; }
 	bool debug() const { return m_debug; }
-	const std::string &name() const { return m_name; }
+	virtual const std::string &name() const { return m_name; }
 	virtual int slot_id(int a_id) { return a_id; }
-	virtual bool unslot(void *slot_id){ return true; }
-	void name(const std::string &a_name) { m_name = a_name; }
+	virtual bool unslot(Device *dev){ return true; }
+	virtual void name(const std::string &a_name) { m_name = a_name; }
 };
 
 
@@ -374,7 +362,7 @@ class Connection: public Device {
 
   public:
 	virtual Slot *slot(Device *d);
-	virtual bool unslot(Slot *slot_id);
+	virtual bool unslot(Device *dev);
 
 	bool add_connection_slots(std::set<Slot *> &slots);
 	virtual SmartPtr<Node> get_targets(Node *parent);
@@ -455,7 +443,7 @@ class Terminal: public Connection {
 	virtual bool connect(Connection &c);
 	virtual void disconnect(Connection &c);
 	virtual int slot_id(int a_id) { return m_nslots++; }
-	virtual bool unslot(void *slot_id);
+
 	void impeded(bool a_impeded);
 	virtual bool impeded() const;
 	virtual double rd(bool include_vdrop=true) const;
@@ -649,6 +637,7 @@ class Gate: public Device {
 	virtual void disconnect(size_t a_pos);
 	void inverted(bool a_inverted) { m_inverted = a_inverted; }
 	bool inverted() {return m_inverted; }
+	void clone_output_name();
 	std::vector<Connection *> &inputs() { return m_in; }
 	void inputs(const std::vector<Connection *> &in);
 	Connection &rd();
@@ -859,10 +848,10 @@ class ToggleSwitch: public Device {
 	bool signal();
 	void in(Connection *in);
 
+	virtual SmartPtr<Node> get_targets(Node *parent);
 	virtual void input_changed();
-
-//	virtual bool recalc_total_R();
-//	virtual void set_total_R();
+	virtual void set_vdrop(double drop);
+	virtual double R() const;
 
 	bool closed();
 	void closed(bool a_closed);
