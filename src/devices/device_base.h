@@ -45,10 +45,8 @@ inline void sleep_for_us(unsigned long us) {
 //   A node represents a connection point between electrical components
 class Node {
 
-  protected:
-	virtual Node *get_parent() = 0;
-
   public:
+	virtual Node *get_parent() = 0;
 	virtual ~Node() {}
 	virtual void process_model() = 0;
 };
@@ -77,6 +75,9 @@ class Device {
 		name(d.name());
 		return *this;
 	}
+
+	virtual std::vector<Device *> sources() { return {}; }
+	virtual std::vector<Device *> targets() { return {}; }
 
 	virtual SmartPtr<Node> get_targets(Node *parent) {return NULL;}
 
@@ -366,6 +367,7 @@ class Connection: public Device {
 
 	bool add_connection_slots(std::set<Slot *> &slots);
 	virtual SmartPtr<Node> get_targets(Node *parent);
+	virtual std::vector<Device *> targets();
 
 	virtual void query_voltage();
 	virtual void update_voltage(double v);
@@ -435,6 +437,7 @@ class Terminal: public Connection {
 
 	bool add_slots(std::set<Slot *> &slots);
 
+	virtual std::vector<Device *> sources();
 	virtual void input_changed();
 	virtual void query_voltage();
 	void update_voltage(double v);
