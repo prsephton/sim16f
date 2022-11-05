@@ -55,7 +55,7 @@ class Connection_Node: public Node {
 //      We represent the node voltage value as a "voltage drop" defined in each of
 //  the source components.
 
-	int m_debug = 2;
+	int m_debug = 0;
 
 	Device *m_current;
 	SmartPtr<Connection_Node> m_parent;
