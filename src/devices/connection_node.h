@@ -9,24 +9,34 @@
 #include "../utils/matrix.h"
 
 struct MeshItem {
-	bool is_voltage = false;
 	Device *dev;
 	double Itotal = 0;
 	const std::string id();
 	double R();
 	double V();
+	bool is_voltage();
 
 	MeshItem(Device *d);
 };
 
 struct Mesh {
 	std::vector<MeshItem> items;
-	std::set<Device *> shared;
+	std::set<MeshItem *> shared(const Mesh &other);
+
 	double amps = 0;
 	void I(double a_amps);
 	void add(Device *d);
 	bool contains(Device *d);
-	void add_shared(Device *d);
+};
+
+struct Connection_Data {
+	std::map<Device *, SmartPtr<Node>> targets;
+	std::map<Device *, SmartPtr<Node>> all_nodes;
+	std::set<Device *> loop_start;
+	std::set<Device *> loop_term;
+	std::deque<Device *> devicelist;
+	std::map<Device *, double> amps;
+	std::vector<SmartPtr<Mesh>> meshes;
 };
 
 class Connection_Node: public Node {
@@ -45,25 +55,19 @@ class Connection_Node: public Node {
 //      We represent the node voltage value as a "voltage drop" defined in each of
 //  the source components.
 
-	bool m_debug = true;
+	int m_debug = 2;
 
-	std::set<Slot *> m_slots;
 	Device *m_current;
-	Connection_Node *m_parent;
+	SmartPtr<Connection_Node> m_parent;
+	SmartPtr<Connection_Data> m_cdata;
 
-	std::set<Device *> m_sources;
-	std::set<Device *> m_destinations;
-	std::map<Device *, SmartPtr<Connection_Node>> m_targets;
-	std::map<Device *, SmartPtr<Connection_Node>> m_all_nodes;
-	std::set<Device *> m_loop_start;
-	std::set<Device *> m_loop_term;
-	std::deque<Device *> m_devicelist;
-	std::map<Device *, double> m_amps;
-	std::vector<SmartPtr<Mesh>> m_meshes;
+	std::vector<Device *> m_sources;
+	std::vector<Device *> m_targets;
 
 protected:
-	std::set<Device *> sources() { return m_sources; }
-	std::set<Device *> destinations() { return m_destinations; }
+	std::vector<Device *> sources() const { return m_sources; }
+	std::vector<Device *> targets() const { return m_targets; }
+	std::set<Device *>target_set() const;
 
 	void add_device_to_list(Device *d);
 	void register_node(Device *d, SmartPtr<Connection_Node> a_node);
@@ -71,11 +75,16 @@ protected:
 	void add_loop_term(Device *d);
 	void add_loop_start(Device *d);
 	Node *get_parent();
+	Device *device() { return m_current; }
 
 	// build a node map recursively
 	//   produces m_devicelist, m_loop_start and m_loop_term in the first node
-	void get_targets();
-	void add_shared(Mesh *prev, Mesh &mesh, Connection_Node *start, const std::set<Device *>&finish);
+	void get_sources(SmartPtr<Connection_Node> a_node);
+	void get_targets(SmartPtr<Connection_Node> a_node);
+	bool add_shared(Mesh *prev, Mesh &mesh, Connection_Node *start, const std::set<Device *>&finish);
+	std::vector<Device *> shortest_path(std::vector<Device *>a_targets);
+	int find_shortest_path(Device *dev);
+
 
 	void show_meshes();
 	void build_matrices(Matrix &m, Matrix &v);
@@ -84,7 +93,8 @@ protected:
 	void solve_meshes();
 
 public:
-	Connection_Node(std::set<Slot *> &slots, Device *current, Node *parent = NULL);
+	Connection_Node(Device *d, SmartPtr<Connection_Data>cdata, bool getting_targets=true);
+	Connection_Node(Device *current, Node *parent = NULL);
 	virtual ~Connection_Node() {}
 
 	// produces m_meshes, combines and solves.   Then updates voltage drops.
