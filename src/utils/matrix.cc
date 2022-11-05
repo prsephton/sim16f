@@ -66,9 +66,9 @@ void Matrix::view() const {
 	for (size_t j=0; j<m_rows; ++j) {
 		std::cout << " ";
 		for (size_t i=0; i<m_cols; ++i) {
-			std::cout << (i==0?"  │  ":"  ┊  ") << std::setprecision(2) << std::setw(5) << (*this)(i,j);
+			std::cout << (i==0?"  │ ":" ┊ ") << std::setprecision(2) << std::setw(7) << (*this)(i,j);
 		}
-		std::cout << "  │";
+		std::cout << " │";
 		std::cout << std::endl;
 		if (j+1 < m_rows) {
 			for (size_t i=0; i<m_cols; ++i) {
