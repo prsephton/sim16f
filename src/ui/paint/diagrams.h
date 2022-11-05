@@ -91,8 +91,12 @@ namespace app {
 		// Context menu for m_symbol
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
+			apply_config_changes();
 			m_area->queue_draw();
 		}
+		virtual void apply_config_changes() {
+		}
+		virtual Configurable *context() { return &m_symbol; }
 
 		virtual void show_name(bool a_show) {
 			m_symbol.show_name(a_show);
@@ -112,10 +116,15 @@ namespace app {
 		// Context menu for a VddSymbol
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
-			m_device.name(m_symbol.name());
-			m_device.voltage(m_symbol.voltage());
+			apply_config_changes();
 			m_area->queue_draw();
 		};
+
+		virtual void apply_config_changes() {
+			m_device.name(m_symbol.name());
+			m_device.voltage(m_symbol.voltage());
+		}
+
 	  public:
 		VddDiagram(Glib::RefPtr<Gtk::DrawingArea>a_area, Voltage &a_device, double x, double y, double rotation=0, double scale=1):
 			BasicDiagram<Voltage, VddSymbol>(a_area, a_device, x, y, rotation, scale) {
@@ -128,6 +137,9 @@ namespace app {
 		// Context menu for a ConnectionSymbol
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
+			apply_config_changes();
+		}
+		virtual void apply_config_changes() {
 			m_device.name(m_symbol.name());
 		}
 
@@ -142,10 +154,12 @@ namespace app {
 		// Context menu for a ResistorSymbol
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
+			apply_config_changes();
+			m_area->queue_draw();
+		}
+		virtual void apply_config_changes() {
 			m_device.name(m_symbol.name());
 			m_device.R(m_symbol.resistance());
-//			m_device.recalc();
-			m_area->queue_draw();
 		}
 
 	  public:
@@ -160,10 +174,13 @@ namespace app {
 		// Context menu for a ResistorSymbol
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
+			apply_config_changes();
+			m_area->queue_draw();
+		}
+		virtual void apply_config_changes() {
 			m_device.name(m_symbol.name());
 			m_device.F(m_symbol.capacitance());
 			m_device.reset();
-			m_area->queue_draw();
 		}
 
 	  public:
@@ -178,10 +195,13 @@ namespace app {
 		// Context menu for a ResistorSymbol
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
+			apply_config_changes();
+			m_area->queue_draw();
+		}
+		virtual void apply_config_changes() {
 			m_device.name(m_symbol.name());
 			m_device.H(m_symbol.inductance());
 			m_device.reset();
-			m_area->queue_draw();
 		}
 
 	  public:
@@ -261,13 +281,16 @@ namespace app {
 		// Context menu for m_symbol
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
-			m_gate.name(m_symbol.name());
-			m_gate.clone_output_name();
-
-			m_gate.inverted(m_symbol.inverted());
+			apply_config_changes();
 			m_area->queue_draw();
 		};
+		virtual void apply_config_changes() {
+			m_gate.name(m_symbol.name());
+			m_gate.clone_output_name();
+			m_gate.inverted(m_symbol.inverted());
+		}
 
+		virtual Configurable *context() { return &m_symbol; }
 
 		template <class T> void create_or_symbol(std::true_type) {
 			m_symbol = T(m_gate.inputs().size(), 0, 0, m_rotation, invert, is_xor);
@@ -294,6 +317,7 @@ namespace app {
 			create_and_symbol<SymType>(std::is_same<SymType, AndSymbol>());
 			create_buffer_symbol<SymType>(std::is_same<SymType, BufferSymbol>());
 			Counters::rename(&m_symbol, &a_gate);
+			a_gate.clone_output_name();
 		}
 	};
 
@@ -335,10 +359,14 @@ namespace app {
 		// Context menu for m_symbol
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
-			m_pin.name(m_symbol.name());
+			apply_config_changes();
 			m_area->queue_draw();
 		};
+		virtual void apply_config_changes() {
+			m_pin.name(m_symbol.name());
+		}
 
+		virtual Configurable *context() { return &m_symbol; }
 
 
 	  public:
@@ -490,11 +518,15 @@ namespace app {
 		// Context menu for m_symbol
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
+			apply_config_changes();
+			m_area->queue_draw();
+		};
+		virtual void apply_config_changes() {
 			m_schmitt.name(m_symbol.name());
 			m_schmitt.out_invert(m_symbol.inverted());
 			m_schmitt.gate_invert(m_symbol.gate_inverted());
-			m_area->queue_draw();
-		};
+		}
+		virtual Configurable *context() { return &m_symbol; }
 
 		virtual void show_name(bool a_show) {
 			m_symbol.show_name(true);
@@ -537,11 +569,15 @@ namespace app {
 		// Context menu for m_symbol
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
+			apply_config_changes();
+			m_area->queue_draw();
+		};
+		virtual void apply_config_changes() {
 			m_tris.name(m_symbol.name());
 			m_tris.inverted(m_symbol.inverted());
 			m_tris.gate_invert(m_symbol.gate_inverted());
-			m_area->queue_draw();
-		};
+		}
+		virtual Configurable *context() { return &m_symbol; }
 
 		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			m_symbol.name(m_tris.name());
@@ -706,10 +742,13 @@ namespace app {
 		// Context menu for m_symbol
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
-			m_switch.name(m_symbol.name());
-
+			apply_config_changes();
 			m_area->queue_draw();
 		};
+		virtual void apply_config_changes() {
+			m_switch.name(m_symbol.name());
+		}
+		virtual Configurable *context() { return &m_symbol; }
 
 		void closed(bool a_closed) {
 			prop::Switch::closed(a_closed);
@@ -802,10 +841,14 @@ namespace app {
 		// Context menu for m_symbol
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
-			m_mux.name(m_symbol.name());
-			m_mux.configure(m_symbol.inputs(), m_symbol.gate_count());
+			apply_config_changes();
 			m_area->queue_draw();
 		};
+		virtual void apply_config_changes() {
+			m_mux.name(m_symbol.name());
+			m_mux.configure(m_symbol.inputs(), m_symbol.gate_count());
+		}
+		virtual Configurable *context() { return &m_symbol; }
 
 		void set_scale(double a_scale) {m_symbol.set_scale(a_scale); }
 		void flipped(bool a_flipped) { m_symbol.flipped(a_flipped); }
@@ -977,6 +1020,7 @@ namespace app {
 		{
 			m_symbol = CounterSymbol(m_size.x/2, m_size.y/2, m_size.x, m_size.y);
 			Counters::rename(&m_symbol, &a_counter);
+			a_counter.set_name(a_counter.name());
 		}
 	};
 
