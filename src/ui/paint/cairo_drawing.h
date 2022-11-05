@@ -176,7 +176,8 @@ namespace app {
 
 		Configurable *pt;
 		ELEMENT what;
-		int id;
+		int id;         // slot id
+		int loc;        // location for reconnect
 		AFFINITY dir = EAST;
 
 		int rotate_affinity(double a_rotation) {
@@ -184,7 +185,7 @@ namespace app {
 			return (int) (AFFINITY)(((int)dir + quad) % 4);
 		}
 
-		WHATS_AT(Configurable *a_pt, ELEMENT a_element, int a_id, AFFINITY d=EAST): pt(a_pt), what(a_element), id(a_id), dir(d) {}
+		WHATS_AT(Configurable *a_pt, ELEMENT a_element, int a_id, AFFINITY d=EAST): pt(a_pt), what(a_element), id(a_id), loc(a_id), dir(d) {}
 		bool match(void *a_pt, ELEMENT a_what, int a_id) const {
 			return (pt == a_pt && what == a_what && id == a_id);
 		}
@@ -256,6 +257,7 @@ namespace app {
 
 		// context editor for item at target
 		virtual void context(const WHATS_AT &target_info) {};
+		virtual Configurable *context() { return NULL; }
 
 		// click action for item at target
 		virtual void click_action(const WHATS_AT &target_info) {};
@@ -329,6 +331,7 @@ namespace app {
 			cr->stroke();
 			cr->restore();
 		}
+		virtual void apply_config_changes() {}
 		virtual void show_name(bool a_show) {}
 		void draw_info(const Cairo::RefPtr<Cairo::Context>& cr, const std::string &a_info);
 	};
@@ -453,24 +456,27 @@ namespace app {
 	  protected:
 		Interaction_Factory m_interactions;                        // a factory for managing interactions
 		std::map<std::string, SmartPtr<Component> > m_components;  // a registry for components added to the diagram
+		std::map<std::string, SmartPtr<InterConnection> > m_connections;
+
 		sigc::connection m_on_draw;
 
 		// attempt to slot output from source into input at target
 		// An input "slot" can only have one source at a time.  Sources may be used any number of times.
 		virtual void slot(CairoDrawingBase *source, const WHATS_AT &source_info, const WHATS_AT &target_info) {
 			if (source != this) {
-				InterConnection *ic = new InterConnection(source, source_info, this, target_info);
-				std::string key = target_info.asText("Connection");
+				SmartPtr<InterConnection> ic = new InterConnection(source, source_info, this, target_info);
+				std::string key = target_info.asText(std::string("Connection"));
 				if (ic->connected) {
 					m_components[key] = ic;
+					m_connections[key] = ic;
 				} else {    // disconnect toggle?
-					delete ic;
 					for (auto c: m_components) {
 						InterConnection *i = dynamic_cast<InterConnection *>(c.second.operator ->());
 						if (i && i->src_index.match(source_info.pt, source_info.what, source_info.id))
 							if (i->dst_index.match(target_info.pt, target_info.what, i->dst_index.id)) {
 								std::cout << "Disconnecting " << c.first << std::endl;
 								m_components.erase(c.first);
+								m_connections.erase(c.first);
 								break;
 							}
 					}
@@ -546,6 +552,10 @@ namespace app {
 		// A CairoDrawing can contain other CairoDrawing components
 		SmartPtr<Component> &component(const std::string &a_name) {
 			return m_components[a_name];
+		}
+
+		std::map<std::string, SmartPtr<InterConnection> > &connections() {
+			return m_connections;
 		}
 
 		void pix_extents(float a_pix_width, float a_pix_height) {
