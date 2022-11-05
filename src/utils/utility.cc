@@ -48,6 +48,12 @@ int as_int(const std::string &a_val) {
 	return i;
 }
 
+double as_double(const std::string &a_val) {
+	double d;
+	std::stringstream(a_val) >> d;
+	return d;
+}
+
 bool FileExists(const std::string &s)
 {
   struct stat buffer;
@@ -61,6 +67,31 @@ bool float_equiv(double a, double b, double limit) {
 const std::string as_text(void *a_val) {
 	std::ostringstream s;
 	s << std::hex << a_val;
+	return s.str();
+}
+
+const std::string as_text(bool a_value) {
+	return a_value?"true":"false";
+}
+
+const std::string as_text(double v1, double v2) {
+	std::ostringstream s;
+	s << "(" << std::fixed << std::defaultfloat << v1;
+	s << ",  " << v2 << ")";
+	return s.str();
+}
+
+const std::string as_text(double v1, double v2, double v3) {
+	std::ostringstream s;
+	s << "(" << std::fixed << std::defaultfloat << v1;
+	s << ",  " << v2;
+	s << ",  " << v3 << ")";
+	return s.str();
+}
+
+const std::string as_text(int a_value) {
+	std::ostringstream s;
+	s << a_value;
 	return s.str();
 }
 

@@ -18,7 +18,12 @@ bool is_decimal(const std::string &in);
 bool is_hex(const std::string &in);
 bool FileExists(const std::string &s);
 int as_int(const std::string &a_val);
+double as_double(const std::string &a_val);
 const std::string as_text(double a_value, int a_precision=4);
+const std::string as_text(bool a_value);
+const std::string as_text(int a_value);
+const std::string as_text(double v1, double v2);
+const std::string as_text(double v1, double v2, double v3);
 const std::string as_text(void *a_val);
 bool float_equiv(double a, double b, double limit=1.0e-12);
 
