@@ -526,16 +526,16 @@ namespace app {
 
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
-				return WHATS_AT(this, WHATS_AT::IN_OUT, 0, WHATS_AT::WEST);
+				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::WEST);
 			if (hotspot(1).close_to(p))
-				return WHATS_AT(this, WHATS_AT::IN_OUT, 1, WHATS_AT::EAST);
+				return WHATS_AT(this, WHATS_AT::OUTPUT, 1, WHATS_AT::EAST);
 			return Symbol::location(p);
 		}
 
 		virtual const Point *hotspot_at(const WHATS_AT &what) const {
-			if (what.match((void *)this, WHATS_AT::IN_OUT, 0))
+			if (what.match((void *)this, WHATS_AT::INPUT, 0))
 				return &hotspot(0);
-			if (what.match((void *)this, WHATS_AT::IN_OUT, 1))
+			if (what.match((void *)this, WHATS_AT::OUTPUT, 1))
 				return &hotspot(1);
 			return NULL;
 		}
