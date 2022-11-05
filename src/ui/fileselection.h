@@ -16,6 +16,7 @@ namespace app {
 		Glib::RefPtr<Gtk::Entry> m_filename;
 		Glib::RefPtr<Gtk::FileFilter> m_hex_filter;
 		Glib::RefPtr<Gtk::FileFilter> m_asm_filter;
+		Glib::RefPtr<Gtk::FileFilter> m_scratch_filter;
 
 		void on_ok_clicked() {
 			response(Gtk::RESPONSE_OK);
@@ -61,6 +62,7 @@ namespace app {
 			m_filename = Glib::RefPtr<Gtk::Entry>::cast_dynamic(m_builder->get_object("file_select_filename"));
 			m_hex_filter = Glib::RefPtr<Gtk::FileFilter>::cast_dynamic(m_builder->get_object("hex_chooser"));
 			m_asm_filter = Glib::RefPtr<Gtk::FileFilter>::cast_dynamic(m_builder->get_object("asm_chooser"));
+			m_scratch_filter = Glib::RefPtr<Gtk::FileFilter>::cast_dynamic(m_builder->get_object("scratch_chooser"));
 
 			m_filename->set_text("");
 
@@ -91,6 +93,16 @@ namespace app {
 
 		std::string load_asm_file() {
 			set_filter(m_asm_filter);
+			return load_file();
+		}
+
+		std::string save_scratch_file(const std::string &a_filename) {
+			set_filter(m_scratch_filter);
+			return save_file(a_filename);
+		}
+
+		std::string load_scratch_file() {
+			set_filter(m_scratch_filter);
 			return load_file();
 		}
 	};
