@@ -47,17 +47,21 @@ template <class T> class
 	// use a Connection_Node to determine I & voltage drops
 	void Connection::query_voltage() {
 //		if (debug()) std::cout << name() << ": Top of chain\n";
-		Connection_Node node(m_slots, this);   // @suppress("Type cannot be resolved")
+		double old_V = m_V;
+		Connection_Node node(this);            // @suppress("Type cannot be resolved")
 		node.process_model();                  // @suppress("Method cannot be resolved")
-		if (m_slots.size()) {
-			for (auto slot: m_slots)
-				slot->recalculate();
-		}
+		if (old_V != m_V)
+			queue_change(true, std::string(": query_voltage=") + as_text(m_V));
+	}
+
+	// Called from the Connection_Node to update voltage drop
+	void Connection::set_vdrop(double drop) {
+		m_vdrop = drop;
 	}
 
 	// Called from the Connection_Node to update voltages
 	void Connection::update_voltage(double v) {
-		set_value(v, m_impeded);
+		m_V = v;
 		if (m_slots.size()) {
 			for (auto slot: m_slots)
 				slot->recalculate();
@@ -84,8 +88,16 @@ template <class T> class
 		return added;
 	}
 
+	std::vector<Device *> Connection::targets() {
+		std::vector<Device *>t;
+		for (auto c: m_slots) {
+			t.push_back(c->dev);
+		}
+		return t;
+	}
+
 	SmartPtr<Node> Connection::get_targets(Node *parent) {
-		return new Connection_Node(m_slots, this, parent);         // @suppress("Type cannot be resolved")
+		return new Connection_Node(this, parent);         // @suppress("Type cannot be resolved")
 	}
 
 	// Add a voltage change event to the queue
@@ -93,7 +105,7 @@ template <class T> class
 		std::string detail = name() + std::string(": Voltage Change") + a_comment;
 		eq.queue_event(new DeviceEvent<Connection>(*this, detail));
 		if (debug()) std::cout << detail << (process_q?": process_queue":"") << std::endl;
-//		if (process_q) eq.process_events();
+		if (process_q) eq.process_events();
 	}
 
 	bool Connection::impeded_suppress_change(bool a_impeded) {
@@ -104,10 +116,6 @@ template <class T> class
 			return true;
 		}
 		return false;
-	}
-
-	void Connection::set_vdrop(double drop) {
-		m_vdrop = drop;
 	}
 
 	Connection::Connection(const std::string &a_name):
@@ -221,6 +229,14 @@ template <class T> class
 		return added;
 	}
 
+	std::vector<Device *> Terminal::sources() {
+		std::vector<Device *> s;
+		for (auto &c : m_connects ) {
+			s.push_back(c.first);
+		}
+		return s;
+	}
+
 	void Terminal::update_voltage(double v) {
 		Connection::update_voltage(v);
 		m_terminal_impeded = false;
@@ -250,13 +266,7 @@ template <class T> class
 	}
 
 	void Terminal::query_voltage() {
-		if (m_connects.size()) {
-			for (auto &c : m_connects ) {
-				c.first->query_voltage();   // walk the chain until we find a reference
-			}
-		} else {   // top of chain
-			Connection::query_voltage();
-		}
+		Connection::query_voltage();
 	}
 
 	Terminal::Terminal(const std::string name): Connection(name), m_connects(),
@@ -1206,10 +1216,10 @@ template <class T> class
 
 		if (active) {
 			m_out.conductance(m_in.conductance());
-			m_in.set_value(in, false);
+//			m_in.set_value(in, false);
 			m_out.set_value(in, false);
 		} else {
-			m_in.set_value(in, true);
+//			m_in.set_value(in, true);
 			m_out.set_value(in, true);
 		}
 	}
@@ -1539,7 +1549,7 @@ template <class T> class
 	void Counter::set_name(const std::string &a_name) {
 		name(a_name);
 		for (size_t n = 0; n < m_bits.size(); ++n) {
-			m_bits[n].name(a_name + int_to_hex(n, "::"));
+			m_bits[n].name(a_name + int_to_hex(n, "."));
 		}
 	}
 
