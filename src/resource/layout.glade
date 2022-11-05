@@ -1581,6 +1581,34 @@
       </object>
     </child>
   </object>
+  <object class="GtkMenu" id="mn_file">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <child>
+      <object class="GtkMenuItem">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="label" translatable="yes">New</property>
+        <property name="use_underline">True</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkMenuItem">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="label" translatable="yes">Save</property>
+        <property name="use_underline">True</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkMenuItem">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="label" translatable="yes">Load</property>
+        <property name="use_underline">True</property>
+      </object>
+    </child>
+  </object>
   <object class="GtkMenu" id="mn_functions">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -15267,6 +15295,26 @@
                             <property name="can_focus">False</property>
                             <property name="layout_style">start</property>
                             <child>
+                              <object class="GtkMenuButton" id="bn_file">
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="receives_default">True</property>
+                                <property name="popup">mn_file</property>
+                                <child>
+                                  <object class="GtkLabel">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="label" translatable="yes">File</property>
+                                  </object>
+                                </child>
+                              </object>
+                              <packing>
+                                <property name="expand">True</property>
+                                <property name="fill">True</property>
+                                <property name="position">0</property>
+                              </packing>
+                            </child>
+                            <child>
                               <object class="GtkMenuButton" id="bn_rails">
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
@@ -15283,7 +15331,7 @@
                               <packing>
                                 <property name="expand">True</property>
                                 <property name="fill">True</property>
-                                <property name="position">0</property>
+                                <property name="position">1</property>
                               </packing>
                             </child>
                             <child>
@@ -15303,7 +15351,7 @@
                               <packing>
                                 <property name="expand">True</property>
                                 <property name="fill">True</property>
-                                <property name="position">1</property>
+                                <property name="position">2</property>
                               </packing>
                             </child>
                             <child>
@@ -15323,7 +15371,7 @@
                               <packing>
                                 <property name="expand">True</property>
                                 <property name="fill">True</property>
-                                <property name="position">2</property>
+                                <property name="position">3</property>
                               </packing>
                             </child>
                             <child>
@@ -15343,7 +15391,7 @@
                               <packing>
                                 <property name="expand">True</property>
                                 <property name="fill">True</property>
-                                <property name="position">3</property>
+                                <property name="position">4</property>
                               </packing>
                             </child>
                             <child>
@@ -15363,7 +15411,7 @@
                               <packing>
                                 <property name="expand">True</property>
                                 <property name="fill">True</property>
-                                <property name="position">4</property>
+                                <property name="position">5</property>
                               </packing>
                             </child>
                             <child>
@@ -15383,7 +15431,7 @@
                               <packing>
                                 <property name="expand">True</property>
                                 <property name="fill">True</property>
-                                <property name="position">5</property>
+                                <property name="position">6</property>
                               </packing>
                             </child>
                           </object>
@@ -15899,6 +15947,11 @@
         </child>
       </object>
     </child>
+  </object>
+  <object class="GtkFileFilter" id="scratch_chooser">
+    <patterns>
+      <pattern>*.scratch</pattern>
+    </patterns>
   </object>
   <object class="GtkTextBuffer" id="textbuffer1"/>
 </interface>
