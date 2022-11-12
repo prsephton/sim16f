@@ -2275,12 +2275,12 @@ namespace app {
 		bool clip_is_set = false;
 	  public:
 
-		void redraw() {
+		virtual void recalculate() {
 			if (clip_is_set) {
 				m_area->queue_draw_area(device_rect.x, device_rect.y, device_rect.w, device_rect.h);
 			} else {
 				m_area->queue_draw();
-				std::cout << "BlockDiagram::redraw(); note: setting the clip rectangle would be more efficient!\n";
+//				std::cout << "BlockDiagram::redraw(); note: setting the clip rectangle would be more efficient!\n";
 			}
 		}
 

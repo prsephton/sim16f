@@ -138,7 +138,7 @@ namespace app {
 		}
 
 		void on_pin_change(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
-			redraw();
+			Dispatcher::emit("recalculate");
 		}
 
 	  public:
@@ -211,7 +211,7 @@ namespace app {
 		}
 
 		void on_pin_change(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
-			redraw();
+			Dispatcher::emit("recalculate");
 		}
 
 	  public:
@@ -373,7 +373,7 @@ namespace app {
 				Q = name;
 			else if (name == "oscillator") {
 				osc++;
-				redraw();
+				Dispatcher::emit("recalculate");
 			}
 			else if (name == "cycle")
 				osc = 0;
