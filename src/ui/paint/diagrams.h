@@ -277,13 +277,13 @@ namespace app {
 			return NULL;
 		};
 
-
 		// Context menu for m_symbol
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
 			apply_config_changes();
 			m_area->queue_draw();
 		};
+
 		virtual void apply_config_changes() {
 			m_gate.name(m_symbol.name());
 			m_gate.clone_output_name();
@@ -618,8 +618,6 @@ namespace app {
 			return NULL;
 		};
 
-
-
 		TristateDiagram(Tristate &a_tris, bool point_right, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			CairoDrawing(a_area, Point(x,y)), m_tris(a_tris), m_point_right(point_right)
 		{
@@ -683,6 +681,7 @@ namespace app {
 			}
 			return NULL;
 		};
+		virtual Configurable *context() { return &m_symbol; }
 
 		virtual void show_name(bool a_show) {
 			m_symbol.show_name(true);
@@ -930,6 +929,7 @@ namespace app {
 			}
 			return NULL;
 		};
+		virtual Configurable *context() { return &m_latchsym; }
 
 
 		LatchDiagram(Latch &a_latch, bool point_right, double x, double y, Glib::RefPtr<Gtk::DrawingArea>a_area):
@@ -1008,7 +1008,7 @@ namespace app {
 			}
 			return NULL;
 		};
-
+		virtual Configurable *context() { return &m_symbol; }
 
 		virtual void show_name(bool a_show) {
 			m_symbol.show_name(true);
@@ -1123,6 +1123,7 @@ namespace app {
 					m_names[n] = std::string("S") + int_to_hex(n, ".");
 			}
 		}
+		virtual Configurable *context() { return &m_symbol; }
 
 
 		TraceDiagram(SignalTrace &a_trace, Glib::RefPtr<Gtk::DrawingArea>a_area, double x, double y, int width=200, int row_height=20):
