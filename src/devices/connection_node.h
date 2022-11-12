@@ -10,13 +10,14 @@
 
 struct MeshItem {
 	Device *dev;
+	bool reversed;
 	double Itotal = 0;
 	const std::string id();
 	double R();
 	double V();
 	bool is_voltage();
 
-	MeshItem(Device *d);
+	MeshItem(Device *d, bool reversed=false);
 };
 
 struct Mesh {
@@ -25,8 +26,9 @@ struct Mesh {
 
 	double amps = 0;
 	void I(double a_amps);
-	void add(Device *d);
+	void add(Device *d, bool reversed=false);
 	bool contains(Device *d);
+	bool reversed(Device *d);
 };
 
 struct Connection_Data {
@@ -55,7 +57,7 @@ class Connection_Node: public Node {
 //      We represent the node voltage value as a "voltage drop" defined in each of
 //  the source components.
 
-	int m_debug = 0;
+	int m_debug = 2;
 
 	Device *m_current;
 	SmartPtr<Connection_Node> m_parent;
@@ -81,7 +83,7 @@ protected:
 	//   produces m_devicelist, m_loop_start and m_loop_term in the first node
 	void get_sources(SmartPtr<Connection_Node> a_node);
 	void get_targets(SmartPtr<Connection_Node> a_node);
-	bool add_shared(Mesh *prev, Mesh &mesh, Connection_Node *start, const std::set<Device *>&finish);
+	bool add_shared(Mesh &mesh, Connection_Node *start, const std::set<Device *>&finish);
 	std::vector<Device *> shortest_path(std::vector<Device *>a_targets);
 	int find_shortest_path(Device *dev);
 
