@@ -12,6 +12,11 @@ public:
 		if (m_dispatcher.find(a_name)==m_dispatcher.end())
 			m_dispatcher[a_name] = new Glib::Dispatcher();
 	}
+	static void emit(const std::string &a_name) {
+		if (m_dispatcher.find(a_name)==m_dispatcher.end())
+			throw(std::string("Dispatcher by name: [")+a_name+"] not found!");
+		return m_dispatcher[a_name]->emit();
+	}
 	Glib::Dispatcher &dispatcher(const std::string &a_name) {
 		if (m_dispatcher.find(a_name)==m_dispatcher.end())
 			throw(std::string("Dispatcher by name: [")+a_name+"] not found!");
