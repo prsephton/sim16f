@@ -517,7 +517,7 @@ class Voltage: public Terminal {
 
 	void voltage(double a_voltage) {
 		Connection::set_value(a_voltage, false);
-		query_voltage();
+//		query_voltage();
 	}
 	virtual bool impeded() const;
 	virtual bool determinate() const { return true; }
