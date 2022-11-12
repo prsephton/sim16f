@@ -561,6 +561,7 @@ namespace app {
 			auto source = m_devices.find(ic->from);   // the target diagram for the connection
 			if (source != m_devices.end()) {
 				auto &what = ic->src_index;
+//				std::cout << "source id=" << what.id << ", loc=" << what.loc << std::endl;
 				info["slot_type"] = as_text(what.what);
 				info["slot_id"] = as_text(what.loc);
 				info["slot_dir"] = as_text(what.dir);
@@ -689,9 +690,10 @@ namespace app {
 			if (dia) {
 				Configurable *cfg = dia->drawing->context();
 				for (auto &attr: attributes) {
-					if (attr.name == "name")
-						dia->dev->name(attr.data.str);
-					else if (attr.name == "position") {
+					if (attr.name == "name") {
+						if (cfg) cfg->set_name(attr.data.str);
+						else dia->dev->name(attr.data.str);
+					} else if (attr.name == "position") {
 						auto x_str = attr.data.str.substr(1, attr.data.str.find(',')-1);
 						auto y_str = attr.data.str.substr(attr.data.str.find(',')+1);
 						y_str = y_str.substr(0, y_str.find(")"));
@@ -741,7 +743,7 @@ namespace app {
 		//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
 
 		void on_clock(Clock *c, const std::string &name, const std::vector<BYTE>&a_data) {
-			if (name == "CLKOUT") m_area->queue_draw();
+			if (name == "CLKOUT") Dispatcher::emit("recalculate");
 		}
 
 		ScratchDiagram(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
