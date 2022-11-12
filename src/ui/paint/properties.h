@@ -131,7 +131,7 @@ namespace app {
 		};
 
 		class Gate_Inverted : virtual public Configurable {
-			bool m_gate_inverted;
+			bool m_gate_inverted=false;
 			// context menu integration
 			virtual bool needs_gate_inverted(bool &a_inverted){ a_inverted = gate_inverted(); return true; }
 			virtual void set_gate_inverted(bool a_inverted){ gate_inverted(a_inverted); }
@@ -141,7 +141,7 @@ namespace app {
 		};
 
 		class Switch : virtual public Configurable {
-			bool m_closed;
+			bool m_closed=false;
 			// context menu integration
 			virtual bool needs_switch(bool &on){ on = closed(); return true; }
 			virtual void set_switch(bool on){ closed(on); }
