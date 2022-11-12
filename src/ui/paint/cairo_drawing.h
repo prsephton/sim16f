@@ -541,6 +541,10 @@ namespace app {
 			return fabs(yc);
 		}
 
+		virtual void recalculate() {
+			m_area->queue_draw();
+		}
+
 	  public:
 		struct DIRECTION {
 			static constexpr double UP      = -M_PI/2.0;
@@ -562,8 +566,6 @@ namespace app {
 			m_interactions.produce(m_area)->set_extents(a_pix_width, a_pix_height);
 		}
 
-
-		virtual void recalculate() {}
 
 		CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>area, const Point &a_pos = Point(0,0)): CairoDrawingBase(area, a_pos) {
 			m_on_draw = m_area->signal_draw().connect(sigc::mem_fun(*this, &CairoDrawing::draw_content));
