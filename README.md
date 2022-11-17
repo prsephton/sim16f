@@ -57,4 +57,4 @@ The source comes with a Makefile which should work.  Most of the time.  Once the
 
 - [The scratchpad](docs/scratchpad.md) is coming along!
 - [Mesh analysis](docs/mesh-analysis.md) replaces the old manual circuit analysis for analog components.
-- [Scratch pad](docs/scratchpad.md#Scratch pad now has load & save) much improved, and now has load & save.
+- [Scratch pad](docs/scratchpad.md#scratch-pad-now-has-load--save) much improved, and now has load & save.
