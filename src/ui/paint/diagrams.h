@@ -409,6 +409,9 @@ namespace app {
 			m_symbol = PinSymbol(0,0, m_rotation, m_scale);
 			Counters::rename(&m_symbol, &a_pin);
 		}
+		~PinDiagram() {
+			DeviceEvent<Connection>::unsubscribe<PinDiagram>(this, &PinDiagram::on_connection_change, &m_pin);
+		}
 	};
 
 	class ClampDiagram:  public CairoDrawing {
@@ -1050,6 +1053,10 @@ namespace app {
 			return false;
 		}
 
+//		void changed(Connection *c, const std::string &a_name, const std::vector<BYTE> &a_data) {
+//			Rect r = m_symbol.bounding_rect();
+//			m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+//		}
 
 		void set_symbol_data() {
 			auto first_ts = m_trace.first_us();
@@ -1076,11 +1083,13 @@ namespace app {
 		virtual bool slot(const WHATS_AT &w, Connection *source) {
 			if (w.what == WHATS_AT::INPUT) {
 				if (m_trace.has_trace(source)) {
+//					DeviceEvent<Connection>::unsubscribe<TraceDiagram>(this, &TraceDiagram::changed, source);
 					m_trace.remove_trace(source);
 					set_names();
 					return false;
 				}
 				if (m_trace.add_trace(source, w.id)) {
+//					DeviceEvent<Connection>::subscribe<TraceDiagram>(this, &TraceDiagram::changed, source);
 					set_names();
 					return true;
 				}
@@ -1099,7 +1108,6 @@ namespace app {
 			cr->restore();
 			return false;
 		}
-
 
 		virtual void show_name(bool a_show) {
 			m_symbol.show_name(true);
