@@ -28,8 +28,7 @@ template <class T> class
   //
 
 	void Slot::recalculate() {
-		Connection *c = dynamic_cast<Connection *>(connection);
-		dev->update_voltage(c->rd());
+		dev->update_voltage(connection->rd());
 	}
 
 	Slot::Slot(Device *a_dev, Device *a_connection): dev(a_dev), connection(a_connection) {}
@@ -47,21 +46,18 @@ template <class T> class
 	// use a Connection_Node to determine I & voltage drops
 	void Connection::query_voltage() {
 //		if (debug()) std::cout << name() << ": Top of chain\n";
-		double old_V = m_V;
 		Connection_Node node(this);            // @suppress("Type cannot be resolved")
 		node.process_model();                  // @suppress("Method cannot be resolved")
-		if (old_V != m_V)
-			queue_change(true, std::string(": query_voltage=") + as_text(m_V));
 	}
 
-	// Called from the Connection_Node to update voltage drop
-	void Connection::set_vdrop(double drop) {
-		m_vdrop = drop;
+	void Connection::refresh() {
+		queue_change(false, std::string(": refresh voltage=") + as_text(rd()));
 	}
 
 	// Called from the Connection_Node to update voltages
 	void Connection::update_voltage(double v) {
 		m_V = v;
+		determinate(true);
 		if (m_slots.size()) {
 			for (auto slot: m_slots)
 				slot->recalculate();
@@ -94,10 +90,6 @@ template <class T> class
 			t.push_back(c->dev);
 		}
 		return t;
-	}
-
-	SmartPtr<Node> Connection::get_targets(Node *parent) {
-		return new Connection_Node(this, parent);         // @suppress("Type cannot be resolved")
 	}
 
 	// Add a voltage change event to the queue
@@ -143,10 +135,13 @@ template <class T> class
 	}
 
 	bool Connection::signal() const { return rd(true) > Vdd/2.0; }
-	bool Connection::impeded() const { return m_impeded; }
+	bool Connection::impeded() const {
+		return (m_slots.size() == 0 || m_impeded);
+	}
 	bool Connection::determinate() const { return m_determinate || !impeded(); }
 	double Connection::vDrop() const {
-		return m_vdrop;
+		if (impeded()) return 0;
+		return I() * R();
 	}
 
 	void Connection::impeded(bool a_impeded) {
@@ -160,8 +155,8 @@ template <class T> class
 	void Connection::conductance(double iR) {  // set internal resistance
 		if (iR >= min_R && iR <= max_R) {
 			if (not float_equiv(m_conductance, iR)) {
-				query_voltage();
 				m_conductance = iR;
+				query_voltage();
 			}
 		} else if (iR < min_R) {
 			impeded(true);
@@ -173,16 +168,13 @@ template <class T> class
 	}
 
 	double Connection::conductance() const {  // internal resistance
+		if (impeded()) return min_R;
 		return m_conductance;
 	}
 
 	double Connection::R() const {  // internal resistanve
 		double g = conductance();
 		return  g>0?1/g:max_R;
-	}
-
-	double Connection::I() const {  // maximum current given V & R
-		return vDrop() * conductance();
 	}
 
 	std::string Connection::info() 	{
@@ -204,11 +196,11 @@ template <class T> class
 	}
 
 	void Connection::set_value(double V, bool a_impeded) {
-		if (!float_equiv(m_V, V, 1e-4) || m_impeded != a_impeded || !determinate()) {
+		if (!float_equiv(m_V, V, 1e-9) || m_impeded != a_impeded || !determinate()) {
 			determinate(true);     // the moment we change the value of a connection the value is determined
 			impeded_suppress_change(a_impeded);
 			m_V = V;
-			queue_change(true, std::string(": set_value=") + as_text(V));
+			queue_change(false, std::string(": set_value=") + as_text(V));
 		}
 	}
 
@@ -237,15 +229,18 @@ template <class T> class
 		return s;
 	}
 
+	void Terminal::query_voltage() {
+		if (not m_connects.size())
+			Connection::query_voltage();
+		else for (auto &c : m_connects ) {
+			c.first->query_voltage();
+			break;  // only one is needed
+		}
+	}
+
 	void Terminal::update_voltage(double v) {
 		Connection::update_voltage(v);
 		m_terminal_impeded = false;
-//		for (auto &c : m_connects ) {
-//			if (!c.first->impeded()) {
-//				m_terminal_impeded = false;
-//				break;   // at least one unimpeded terminal connection
-//			}
-//		}
 	}
 
 	void Terminal::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
@@ -265,15 +260,11 @@ template <class T> class
 		query_voltage();
 	}
 
-	void Terminal::query_voltage() {
-		Connection::query_voltage();
-	}
-
-	Terminal::Terminal(const std::string name): Connection(name), m_connects(),
+	Terminal::Terminal(const std::string &name): Connection(name), m_connects(),
 			m_terminal_impeded(true) {
 	}
 
-	Terminal::Terminal(double V, const std::string name): Connection(V, true, name), m_connects(),
+	Terminal::Terminal(double V, const std::string &name): Connection(V, true, name), m_connects(),
 			m_terminal_impeded(true) {
 	}
 
@@ -473,7 +464,7 @@ template <class T> class
 		R(1.0e+4);  // 10K
 	}
 
-	bool PullUp::impeded() const { return false; }
+	bool PullUp::impeded() const { return Connection::impeded(); }
 
 
 //___________________________________________________________________________________
@@ -524,7 +515,7 @@ template <class T> class
 	}
 
 	bool Output::signal() const { if (wrapper) return c.signal(); return Connection::signal(); }
-	double Output::rd(bool include_vdrop) const { if (wrapper) return c.rd(); return Connection::rd(); }
+	double Output::rd(bool include_vdrop) const { if (wrapper) return c.rd(); return Connection::rd(include_vdrop); }
 	bool Output::impeded() const { return true; }
 	bool Output::determinate() const { return true; }
 
@@ -555,7 +546,7 @@ template <class T> class
 
 	bool Input::signal() const { if (wrapper) return c.signal(); return Connection::signal(); }
 	double Input::rd(bool include_vdrop) const { if (wrapper) return c.rd(); return Connection::rd(); }
-	bool Input::impeded() const { return true; }
+	bool Input::impeded() const { return Connection::impeded(); }
 	bool Input::determinate() const { if (wrapper) return c.determinate(); return Connection::determinate(); }
 
 	void Input::set_value(double V, bool a_impeded) { if (wrapper) c.set_value(V, true); else Connection::set_value(V, true); }
@@ -569,7 +560,7 @@ template <class T> class
 		if (!in.size()) return;
 		bool sig = in[0]?in[0]->signal():false;
 		rd().set_value((inverted() ^ sig) * Vdd, false);
-		rd().query_voltage();
+//		rd().query_voltage();
 	}
 
 	void Gate::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
@@ -989,6 +980,8 @@ template <class T> class
 // A toggle switch.  A really simple device
 	void ToggleSwitch::recalc_output() {
 		if (m_in == NULL) return;
+		m_in->query_voltage();
+
 		if (m_closed) {
 			m_out.set_value(m_in->rd(), false);
 		} else {
@@ -1000,47 +993,51 @@ template <class T> class
 		recalc_output();
 	}
 
-	SmartPtr<Node> ToggleSwitch::get_targets(Node *parent) {
-		return m_out.get_targets(parent);
-	}
-
-	void ToggleSwitch::set_vdrop(double drop) {
-	}
-
 	double ToggleSwitch::R() const {
 		if (m_closed) return min_R;
 		return max_R;
 	}
 
+	void ToggleSwitch::name(const std::string &a_name) {
+		Device::name(a_name);
+		m_out.name(a_name+".out");
+	}
 
 	void ToggleSwitch::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
 		recalc_output();
 	}
 
 	ToggleSwitch::ToggleSwitch(Connection &in, const std::string &a_name):
-		Device(a_name), m_in(&in), m_out(name()+"::out") {
+		Device(a_name), m_in(&in), m_out(name()+".out") {
 		recalc_output(); m_out.name(name());
+		m_in->slot(this);
 		DeviceEvent<Connection>::subscribe<ToggleSwitch>(this, &ToggleSwitch::on_change, m_in);
 		DeviceEvent<Connection>::subscribe<ToggleSwitch>(this, &ToggleSwitch::on_change, &m_out);
 	}
 
 	ToggleSwitch::~ToggleSwitch() {
-		if (m_in) DeviceEvent<Connection>::unsubscribe<ToggleSwitch>(this, &ToggleSwitch::on_change, m_in);
+		if (m_in) {
+			DeviceEvent<Connection>::unsubscribe<ToggleSwitch>(this, &ToggleSwitch::on_change, m_in);
+			m_in->unslot(this);
+		}
 		DeviceEvent<Connection>::unsubscribe<ToggleSwitch>(this, &ToggleSwitch::on_change, &m_out);
 	}
 
 	bool ToggleSwitch::signal() { return m_out.signal(); }
 	void ToggleSwitch::in(Connection *in) {
-		if (m_in) DeviceEvent<Connection>::unsubscribe<ToggleSwitch>(this, &ToggleSwitch::on_change, m_in);
+		if (m_in) {
+			DeviceEvent<Connection>::unsubscribe<ToggleSwitch>(this, &ToggleSwitch::on_change, m_in);
+			m_in->unslot(this);
+		}
 		m_in = in;
 		if (m_in)DeviceEvent<Connection>::subscribe<ToggleSwitch>(this, &ToggleSwitch::on_change, m_in);
+		m_in->slot(this);
 	}
 
 	bool ToggleSwitch::closed() { return m_closed; }
 	void ToggleSwitch::closed(bool a_closed) {
 		m_closed = a_closed;
 		recalc_output();
-		m_out.query_voltage();
 	}
 
 	Connection& ToggleSwitch::in() { return *m_in; }
@@ -1216,10 +1213,10 @@ template <class T> class
 
 		if (active) {
 			m_out.conductance(m_in.conductance());
-//			m_in.set_value(in, false);
+			m_in.set_value(in, false);
 			m_out.set_value(in, false);
 		} else {
-//			m_in.set_value(in, true);
+			m_in.set_value(in, true);
 			m_out.set_value(in, true);
 		}
 	}
@@ -1535,9 +1532,13 @@ template <class T> class
 	}
 
 	void Counter::set_input(Connection *c) {
-		if (m_in) DeviceEvent<Connection>::unsubscribe<Counter>(this, &Counter::on_signal, m_in);
+		if (m_in) {
+			DeviceEvent<Connection>::unsubscribe<Counter>(this, &Counter::on_signal, m_in);
+//			m_in->unslot(this);
+		}
 		m_in = c;
 		if (m_in) DeviceEvent<Connection>::subscribe<Counter>(this, &Counter::on_signal, m_in);
+//		m_in->slot(this);
 	}
 
 	void Counter::set_clock(Connection *c) {
@@ -1556,7 +1557,7 @@ template <class T> class
 	void Counter::set_value(unsigned long a_value) {
 		m_value = a_value;
 		for (size_t n = 0; n < m_bits.size(); ++n) {
-			m_bits[n].set_value(((a_value & 1) != 0) * Vdd, true);
+			m_bits[n].set_value(((a_value & 1) != 0) * Vdd, false);
 			a_value >>= 1;
 		}
 	}

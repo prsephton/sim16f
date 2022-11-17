@@ -51,7 +51,6 @@ class Node {
 	virtual void process_model() = 0;
 };
 
-
 #define min_R (1.0e-12)
 #define max_R (1.0e+12)
 
@@ -60,6 +59,7 @@ class Node {
 class Device {
 	std::string m_name;
 	bool m_debug;
+	double amps = 0;
   public:
 	static constexpr double Vss = 0.0;
 	static constexpr double Vdd = 5.0;
@@ -79,14 +79,14 @@ class Device {
 	virtual std::vector<Device *> sources() { return {}; }
 	virtual std::vector<Device *> targets() { return {}; }
 
-	virtual SmartPtr<Node> get_targets(Node *parent) {return NULL;}
-
 	virtual void update_voltage(double v) {};
-	virtual void set_vdrop(double v) {};
+	virtual void refresh() {};
+	virtual double I() const { return amps; }
 	virtual double R() const { return max_R; }
 	virtual double rd(bool include_vdrop=true) const { return 0; }
 
 	virtual std::string info() { return "Name: " + name(); }
+	virtual void I(double a_amps) { amps = a_amps; }
 	void debug(bool flag) { m_debug = flag; }
 	bool debug() const { return m_debug; }
 	virtual const std::string &name() const { return m_name; }
@@ -192,7 +192,6 @@ class DeviceEventQueue {
 		try {
 			for (n=0; n<1000; ++n)
 				if (not process_single()) break;
-//			std::cout << "Event Queue Processed: " << n << " events." << std::endl;
 		} catch (std::exception &e) {
 			std::cout << e.what() << std::endl;
 		} catch (...) {}
@@ -350,7 +349,6 @@ class Connection: public Device {
 	bool   m_determinate;         //  We know what the value of the voltage is
 	std::set<Slot *> m_slots;     //  The set of target slots for this connection.
 	DeviceEventQueue eq;
-	double m_vdrop = 0;
 
   protected:
 	bool impeded_suppress_change(bool a_impeded);
@@ -366,7 +364,6 @@ class Connection: public Device {
 	virtual bool unslot(Device *dev);
 
 	bool add_connection_slots(std::set<Slot *> &slots);
-	virtual SmartPtr<Node> get_targets(Node *parent);
 	virtual std::vector<Device *> targets();
 
 	virtual void query_voltage();
@@ -376,7 +373,7 @@ class Connection: public Device {
 	Connection(double V, bool impeded=true, const std::string &a_name="");
 	virtual	~Connection();
 
-	void set_vdrop(double drop);
+	virtual void refresh();
 
 	void queue_change(bool process_q = true, const std::string &a_comment="");
 	virtual double rd(bool include_vdrop=true) const;
@@ -394,7 +391,7 @@ class Connection: public Device {
 	virtual void R(double a_R);
 	virtual double conductance() const;
 	virtual double R() const;
-	virtual double I() const;
+//	virtual double I() const;
 	virtual void impeded(bool a_impeded);
 	virtual void set_value(double V, bool a_impeded);
 };
@@ -431,8 +428,8 @@ class Terminal: public Connection {
 	// virtual double calc_voltage_drop(double out_voltage, double output_R);
 
   public:
-	Terminal(const std::string name="");
-	Terminal(double V, const std::string name="");
+	Terminal(const std::string &name="");
+	Terminal(double V, const std::string &name="");
 	virtual ~Terminal();
 
 	bool add_slots(std::set<Slot *> &slots);
@@ -845,16 +842,19 @@ class ToggleSwitch: public Device {
 	virtual void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data);
 
   public:
-	ToggleSwitch() : Device(), m_in(NULL), m_closed(false) { m_out.name(name()); }
+	ToggleSwitch() : Device(), m_in(NULL), m_closed(false) { }
 	ToggleSwitch(Connection &in, const std::string &a_name="sw");
 	virtual ~ToggleSwitch();
 	bool signal();
 	void in(Connection *in);
 
-	virtual SmartPtr<Node> get_targets(Node *parent);
+	virtual std::vector<Device *> sources() { return {m_in}; }
+	virtual std::vector<Device *> targets() { return {&m_out}; }
+
 	virtual void input_changed();
-	virtual void set_vdrop(double drop);
 	virtual double R() const;
+	virtual const std::string &name() const { return Device::name(); }
+	virtual void name(const std::string &a_name);
 
 	bool closed();
 	void closed(bool a_closed);
