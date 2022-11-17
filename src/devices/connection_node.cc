@@ -9,7 +9,10 @@
 const std::string MeshItem::id() { return as_text(this); }
 double MeshItem::R() { return dev->R(); }
 double MeshItem::V() {
-	if (is_voltage()) return dev->rd(false);
+	if (is_voltage()) {
+//		std::cout << dev->name() << " is a voltage source!" << std::endl;
+		return dev->rd(false);
+	}
 	return 0;
 }
 
@@ -26,10 +29,6 @@ void Mesh::I(double a_amps) {
 	amps = a_amps;
 	for (auto &item: items) {
 		item.Itotal -= amps;
-//	  if (shared.find(item.dev) == shared.end())
-//		  item.Itotal += amps;
-//	  else
-//		  item.Itotal -= amps;
 	}
 }
 
@@ -124,7 +123,6 @@ Connection_Node::Connection_Node(Device *current, SmartPtr<Connection_Data>cdata
 	m_targets = current->targets();
 
 	SmartPtr<Connection_Node> node = this;
-//	node.incRef();  // this was allocated on stack, managed externally
 
 	if (getting_targets)
 		get_targets(node);
@@ -178,10 +176,18 @@ void Connection_Node::get_sources(SmartPtr<Connection_Node> a_node) {       // b
 			get_targets(a_node);
 		}
 	} else {
+		if (m_debug > 3) {
+			std::cout << "   seek sources: " << m_current->name() << "[";
+			for (auto d: m_sources) {
+				std::cout << d->name() << "; ";
+			}
+			std::cout << "]\n";
+		}
+
 		for (auto d: m_sources) {
 			m_parent = check_exists(d);
 			if (not m_parent) {
-				new Connection_Node(d, m_cdata, false);    // seek top of chain
+				new Connection_Node(d, m_cdata, false);    // seek top of chain (not a bug)
 			} else if (not check_exists(m_current)) {
 				if (m_debug > 0) std::cout << "      - loop start(b): " << m_current->name() << std::endl;
 				add_loop_start(m_current);
@@ -193,7 +199,7 @@ void Connection_Node::get_sources(SmartPtr<Connection_Node> a_node) {       // b
 
 void Connection_Node::get_targets(SmartPtr<Connection_Node> a_node) {
 	if (not check_exists(m_current)) {
-		if (m_debug > 0) std::cout << "      - node*: " << m_current->name() << std::endl;
+		if (m_debug > 0) std::cout << "      - add node: " << m_current->name() << std::endl;
 
 		add_device_to_list(m_current);
 		register_node(m_current, a_node);
@@ -214,7 +220,7 @@ void Connection_Node::get_targets(SmartPtr<Connection_Node> a_node) {
 						if (m_debug > 0) std::cout << "      - loop start(c): " << d->name() << std::endl;
 						add_loop_start(d);
 					}
-					new Connection_Node(d, m_cdata);
+					new Connection_Node(d, m_cdata);  // not a bug.  Find loop targets.
 				}
 				first = false;
 			}
@@ -273,13 +279,13 @@ void Connection_Node::calculate_I(Matrix &m, Matrix &v, double D) {
 		auto &i_mesh = *m_cdata->meshes[i];
 		Matrix n(m);
 		for (size_t j=0; j< m_cdata->meshes.size(); ++j) n(i,j) = v(0,j);
-		if (m_debug > 1) {
+		if (m_debug > 2) {
 			std::cout << "matrix " << i << ": \n";
 			n.view();
 		}
 		double Di = n.determinant();
 		i_mesh.I(Di / D);
-		if (m_debug > 1) {
+		if (m_debug > 2) {
 			std::cout << "D" << i << " is " << Di;
 			std::cout << ", I" << i << " is D" << i << "/D";
 			std::cout << " = " << Di << "/" << D << " = " << i_mesh.amps;
@@ -316,7 +322,7 @@ void Connection_Node::solve_meshes() {
 	build_matrices(m, v);
 
 	double D = m.determinant();
-	if (m_debug > 0) {
+	if (m_debug > 2) {
 		std::cout << "M is \n";
 		m.view();
 		std::cout << "V is \n";
@@ -327,15 +333,23 @@ void Connection_Node::solve_meshes() {
 	calculate_I(m, v, D);
 	add_mesh_totals();
 
+	std::map<Device *, double> values;  // save existing values
 	for (auto dev: m_cdata->devicelist) {
-		dev->set_vdrop(m_cdata->amps[dev] * dev->R());
+		values[dev] = dev->I();
+		if (m_debug > 2)
+			std::cout << dev->name() << ": vdrop=" << m_cdata->amps[dev] * dev->R() << std::endl;
+		dev->I(m_cdata->amps[dev]);
 	}
 	for (auto &mesh: m_cdata->meshes) {
 		if (mesh->items.size()) {
 			auto &item = mesh->items[0];
 			if (item.is_voltage())
-				item.dev->update_voltage(item.V());  // kick off updates
+				item.dev->update_voltage(item.V());  // cascade updates
 		}
+	}
+	for (auto dev: m_cdata->devicelist) {
+		if (not float_equiv(values[dev], dev->I()))
+			dev->refresh();   // generate update events for changed devices
 	}
 }
 
@@ -344,11 +358,11 @@ void Connection_Node::solve_meshes() {
 // describing the components in the mesh, and a list of components shared
 // with the previous mesh.  This may not describe all possible circuits, but should
 // come close.
-bool Connection_Node::add_shared(Mesh &mesh, Connection_Node *start, const std::set<Device *>&finish) {
-	if (m_debug > 0 && not start)
+bool Connection_Node::add_shared(Mesh &prev, Mesh &mesh, Connection_Node *start, const std::set<Device *>&finish) {
+	if (m_debug > 1 && not start)
 		std::cout << " adding shared- start is null\n";
 	if (!start) return false;
-	if (m_debug > 0) {
+	if (m_debug > 1) {
 		std::cout << " add shared from " << start->device()->name();
 		std::cout << " to [";
 		for (auto d: finish)
@@ -356,39 +370,18 @@ bool Connection_Node::add_shared(Mesh &mesh, Connection_Node *start, const std::
 		std::cout << "]\n";
 	}
 
-	// for each loop terminating device
-	//     find the set of nodes targeting the terminating device
-	//         if one of the nodes targets the start, the loop is complete
-	//         otherwise, the terminating devices become the subject of each node found
-	//     if the loop is complete, we rewind recursively, adding each device to a new loop
+	auto sources = start->sources();
+	auto sset = std::set<Device *>(sources.begin(), sources.end());
 
-	for (auto d: finish) {      // terminating devices
-		SmartPtr<Connection_Node> c = m_cdata->all_nodes[d];    // the node representing [d]
-		if (mesh.contains(d)) continue;                         // do not revisit mesh items
-		auto sources = c->sources();
-		if (!sources.size()) {
-			return true;
-		} else {
-			for (auto s :sources) {                                 // the sources for [d]
-				bool valid_source = true;
-				if (mesh.contains(s)) continue;                     // do not revisit mesh items
-				for (auto m: m_cdata->meshes)
-					if (m->reversed(s))
-						valid_source = false;                       // part of another loop
-				if (!valid_source) continue;
-				auto targets = s->targets();                        // all targets for [s]
-				auto tset = std::set<Device *>(targets.begin(), targets.end());  // as a set
-				if (tset.count(start->device()))                    // target set contains start
-					return true;                                    // loop complete
-				if (add_shared(mesh, start, {s})) {
-					mesh.add(s, true);
-					return true;
-				}
-			}
-		}
+	bool found = sources.size() == 0;
+	for (auto item: prev.items) {
+		if (finish.count(item.dev)) break;
+		if (!found && sset.count(item.dev))
+			found = true;
+		else if (found && not item.reversed)
+			mesh.add(item.dev, true);
 	}
-
-	return false;
+	return true;
 }
 
 //______________________________________________________________________
@@ -396,7 +389,7 @@ bool Connection_Node::add_shared(Mesh &mesh, Connection_Node *start, const std::
 // set of interconnections.
 void Connection_Node::process_model() {
 	m_cdata->meshes.clear();
-	if (m_debug > 1) {
+	if (m_debug > 0) {
 		std::cout << "DeviceList=";
 		for (auto d: m_cdata->devicelist) {
 			if (m_cdata->loop_start.find(d) != m_cdata->loop_start.end())
@@ -408,20 +401,22 @@ void Connection_Node::process_model() {
 		std::cout << std::endl;
 	}
 
+	Mesh *prev = NULL;
 	Mesh *mesh = new Mesh();
 	m_cdata->meshes.push_back(mesh);
 	for (auto &dev: m_cdata->devicelist) {
 		if (m_cdata->loop_start.find(dev) != m_cdata->loop_start.end()) {
 			if (mesh->items.size()) {
+				prev = mesh;
 				mesh = new Mesh();
 				m_cdata->meshes.push_back(mesh);
 			}
 		}
 		mesh->add(dev);
-		if (m_cdata->loop_term.find(dev) != m_cdata->loop_term.end()) {   // last device in the loop
+		if (prev && m_cdata->loop_term.find(dev) != m_cdata->loop_term.end()) {   // last device in the loop
 			auto first = m_cdata->all_nodes[mesh->items[0].dev];
 			auto last = dynamic_cast<Connection_Node *>(m_cdata->all_nodes[dev].operator ->());
-			if (m_debug > 0) {
+			if (m_debug > 2) {
 				std::cout << "*mesh first=" << mesh->items[0].dev->name();
 				std::cout << ", last=" << last->device()->name();
 				std::cout << "; finding shared nodes\n";
@@ -429,7 +424,7 @@ void Connection_Node::process_model() {
 
 			Connection_Node *start = dynamic_cast<Connection_Node *>(first.operator ->());
 			auto finish = last->target_set();
-			add_shared(*mesh, start, finish);
+			add_shared(*prev, *mesh, start, finish);
 		}
 	}
 	solve_meshes();
