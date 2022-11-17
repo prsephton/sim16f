@@ -2270,18 +2270,21 @@ namespace app {
 
 
 	class BlockDiagram:  public GenericDiagram {
+		BlockSymbol *m_sym;
 		double x, y, width, height;
 		Rect device_rect;
 		bool clip_is_set = false;
 	  public:
 
 		virtual void recalculate() {
-			if (clip_is_set) {
-				m_area->queue_draw_area(device_rect.x, device_rect.y, device_rect.w, device_rect.h);
-			} else {
-				m_area->queue_draw();
-//				std::cout << "BlockDiagram::redraw(); note: setting the clip rectangle would be more efficient!\n";
-			}
+			Rect r = m_sym->bounding_rect();
+			m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+
+//			if (clip_is_set) {
+//				m_area->queue_draw_area(device_rect.x, device_rect.y, device_rect.w, device_rect.h);
+//			} else {
+//				m_area->queue_draw();
+//			}
 		}
 
 		void clip(const Cairo::RefPtr<Cairo::Context>& cr) {
@@ -2295,7 +2298,8 @@ namespace app {
 			GenericDiagram(x, y, a_area), x(x), y(y), width(width), height(height), device_rect(0,0,0,0)
 		{
 			double dw = width / 2, dh = height / 2;
-			add(new BlockSymbol(dw, dh, width, height));
+			m_sym = new BlockSymbol(dw, dh, width, height);
+			add(m_sym);
 			if (a_name.length())
 				add(text(4, 12, a_name).line_width(0.8).underscore());
 		}
