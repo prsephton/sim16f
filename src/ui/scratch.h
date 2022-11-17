@@ -313,6 +313,7 @@ namespace app {
 				std::string dtype = "physical";
 				if (a_label == "Switch") {
 					ToggleSwitch *l_dev = new ToggleSwitch({});
+					l_dev->debug(true);
 					auto dia = new ToggleSwitchDiagram(*l_dev, 0, 0, scratch->area());
 					return scratch->add_diagram(dtype, a_label, dia, l_dev, a_cname);
 				} else if (a_label == "Relay") {
@@ -366,7 +367,6 @@ namespace app {
 				std::string dtype = "porta";
 				auto add_pinDiagram = [&](Connection &c){
 					SmartPtr<Device>pin = &c;
-					c.debug(true);
 					pin.incRef();   // prevent pointer disposal when out of scope
 					auto dia = new PinDiagram(c, 0, 0, 0, 1, scratch->area());
 					return scratch->add_diagram(dtype, a_label, dia, pin, a_cname);

@@ -206,12 +206,12 @@ class ScratchXML {
 					xmlSetProp(e, (uchar *)"type", type);
 				}
 				if (c.first_connection()) {
-					auto target = c.target_info();
-					auto to = xmlNewChild(connections, NULL, (uchar *)"target", NULL);
-					for (auto inf: target)
-						xmlSetProp(to, (uchar *)inf.first.c_str(), (uchar *)inf.second.c_str());
-
 					while (true) {
+						auto target = c.target_info();
+						auto to = xmlNewChild(connections, NULL, (uchar *)"target", NULL);
+						for (auto inf: target)
+							xmlSetProp(to, (uchar *)inf.first.c_str(), (uchar *)inf.second.c_str());
+
 						auto source = c.source_info();
 						if (not source.size()) continue;
 
