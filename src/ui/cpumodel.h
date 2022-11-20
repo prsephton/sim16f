@@ -138,7 +138,7 @@ namespace app {
 		}
 
 		void on_pin_change(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
-			Dispatcher::emit("recalculate");
+			Dispatcher().dispatcher(this, "refresh").emit();
 		}
 
 	  public:
@@ -148,7 +148,6 @@ namespace app {
 			const PINS &pins = cpu.pins;
 
 			cr->save();
-			clip(cr);
 			BYTE trisA = tris();
 			BYTE portA = port();
 			for (int n = 0; n < 8; ++n) {
@@ -211,7 +210,7 @@ namespace app {
 		}
 
 		void on_pin_change(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
-			Dispatcher::emit("recalculate");
+			Dispatcher().dispatcher(this, "refresh").emit();
 		}
 
 	  public:
@@ -223,7 +222,6 @@ namespace app {
 			const PINS &pins = cpu.pins;
 
 			cr->save();
-			clip(cr);
 			for (int n = 0; n < 8; ++n) {
 				bool trisflag = trisB & 1;
 				bool portflag = portB & 1;
@@ -314,7 +312,6 @@ namespace app {
 			const int LEFT = 60;
 
 			cr->save();
-			clip(cr);  // set the clipping rectangle
 			cr->move_to(LEFT, BASE);
 			cr->text_path("| Q1 | Q2 | Q3 | Q4 ");
 			cr->set_line_width(0.5);
@@ -368,12 +365,13 @@ namespace app {
 
 
 	  public:
+
 		void process(const std::string &name) {
 			if (name == "Q1" || name == "Q2" || name == "Q3" || name == "Q4")
 				Q = name;
 			else if (name == "oscillator") {
 				osc++;
-				Dispatcher::emit("recalculate");
+				Dispatcher().dispatcher(this, "refresh").emit();
 			}
 			else if (name == "cycle")
 				osc = 0;
@@ -538,6 +536,10 @@ namespace app {
 
 		Glib::RefPtr<Gtk::Builder> m_refGlade;
 
+		virtual void refresh() {  // this is done from within the application thread
+			m_area->queue_draw();
+		}
+
 	  protected:
 		std::map<std::string, SmartPtr<Component> > m_components;
 	  public:
@@ -568,7 +570,8 @@ namespace app {
 			m_execPC = e.PC;
 			m_idx = e.OPCODE & 0x7f;
 			m_file = (no_file.find(m_assembly.substr(0,m_assembly.find("\t"))) == std::string::npos);
-			m_area->queue_draw();
+
+			Dispatcher().dispatcher(this, "refresh").emit();
 		}
 
 		void clock(const std::string &name) {

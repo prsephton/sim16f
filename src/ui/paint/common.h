@@ -1975,8 +1975,7 @@ namespace app {
 				bool selected = s.selected();
 				s.selected() = r.inside(Point(x, y));
 				if (selected != s.selected()) {
-//					m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
-					m_area->queue_draw();
+					Dispatcher().dispatcher(this, "refresh").emit();
 				}
 			}
 			return false;
@@ -2089,12 +2088,12 @@ namespace app {
 				} else if (p.close_to_line_with(p1.dev, p2.dev)) {
 					p1.segstart = true;
 					p2.hilight = true;
-					m_area->queue_draw();
+					Dispatcher().dispatcher(this, "refresh").emit();
 					return WHATS_AT(NULL, WHATS_AT::LINE, n, WHATS_AT::WEST);
 				} else if (p2.hilight) {
 					p1.segstart = false;
 					p2.hilight = false;
-					m_area->queue_draw();
+					Dispatcher().dispatcher(this, "refresh").emit();
 				}
 			}
 
@@ -2112,11 +2111,11 @@ namespace app {
 			if (target_info.what == WHATS_AT::SYMBOL) {
 				Symbol *sym = dynamic_cast<Symbol *>(target_info.pt);
 				ContextDialogFactory().popup_context(*sym);
-				m_area->queue_draw();
+				Dispatcher().dispatcher(this, "refresh").emit();
 			}
 			if (target_info.what == WHATS_AT::POINT) {
 				ContextDialogFactory().popup_context(*(pt *)target_info.pt);
-				m_area->queue_draw();
+				Dispatcher().dispatcher(this, "refresh").emit();
 			}
 		};
 
@@ -2233,7 +2232,6 @@ namespace app {
 
 	};
 
-
 	class ConnectionDiagram: public GenericDiagram {
 		Connection &m_connection;
 
@@ -2251,7 +2249,6 @@ namespace app {
 		Connection &connection() { return m_connection; }
 	};
 
-
 	class WireDiagram: public GenericDiagram {
 		Wire &m_wire;
 
@@ -2268,31 +2265,19 @@ namespace app {
 			GenericDiagram(x, y, a_area), m_wire(a_wire){}
 	};
 
-
 	class BlockDiagram:  public GenericDiagram {
 		BlockSymbol *m_sym;
 		double x, y, width, height;
 		Rect device_rect;
-		bool clip_is_set = false;
+
+		virtual void refresh() {
+			if (m_sym) {
+				Rect r = m_sym->bounding_rect();
+				m_area->queue_draw_area(r.x, r.y, r.w, r.h);
+			}
+		}
+
 	  public:
-
-		virtual void recalculate() {
-			Rect r = m_sym->bounding_rect();
-			m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
-
-//			if (clip_is_set) {
-//				m_area->queue_draw_area(device_rect.x, device_rect.y, device_rect.w, device_rect.h);
-//			} else {
-//				m_area->queue_draw();
-//			}
-		}
-
-		void clip(const Cairo::RefPtr<Cairo::Context>& cr) {
-			cr->rectangle(0, 0, width, height);
-			cr->clip();
-			device_rect = Rect(0, 0, width, height).to_device(cr, m_dev_origin);
-			clip_is_set = true;
-		}
 
 		BlockDiagram(double x, double y, double width, double height, const std::string &a_name, Glib::RefPtr<Gtk::DrawingArea>a_area):
 			GenericDiagram(x, y, a_area), x(x), y(y), width(width), height(height), device_rect(0,0,0,0)
@@ -2304,7 +2289,5 @@ namespace app {
 				add(text(4, 12, a_name).line_width(0.8).underscore());
 		}
 	};
-
-
 
 }

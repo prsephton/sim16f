@@ -613,6 +613,15 @@ template <class T> class
 	ABuffer::ABuffer(Connection &in, const std::string &a_name):
 			Gate({&in}, false, a_name) {
 	}
+	void ABuffer::recalc() {
+		std::vector<Connection *> &in = inputs();
+		if (!in.size()) return;
+		bool sig = in[0]?in[0]->signal():false;
+		if (inverted())
+			rd().set_value((not sig) * Vdd, false);
+		else
+			rd().set_value(in[0]?in[0]->rd():0, false);
+	}
 
 //___________________________________________________________________________________
 // Inverts a high impedence input and outputs a signal

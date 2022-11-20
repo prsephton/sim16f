@@ -221,11 +221,11 @@ namespace app {
 		}
 
 		void on_wire_change(Wire *wire, const std::string &name, const std::vector<BYTE> &data) {
-			m_area->queue_draw();
+			Dispatcher().dispatcher(this, "refresh").emit();
 		}
 
 		void on_port_change(BasicPort *conn, const std::string &name, const std::vector<BYTE> &data) {
-			m_area->queue_draw();
+			Dispatcher().dispatcher(this, "refresh").emit();
 		}
 
 		virtual ~PortB1() {

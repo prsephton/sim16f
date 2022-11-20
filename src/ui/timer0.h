@@ -325,7 +325,7 @@ namespace app {
 				m_PSA.set_value(t.assigned_to_wdt() * m_PSA.Vdd, false);
 				m_PS.set_value(t.prescale_rate());
 				m_queue.pop();
-				m_area->queue_draw();
+				Dispatcher().dispatcher(this, "refresh").emit();
 			} else {
 				sleep_for_us(100);
 			}

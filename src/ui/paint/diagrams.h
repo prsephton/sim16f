@@ -38,6 +38,12 @@ namespace app {
 	};
 
 	template <class DeviceType, class SymbolType> class BasicDiagram: public CairoDrawing {
+
+		virtual void refresh() {
+			Rect r = m_symbol.bounding_rect();
+			m_area->queue_draw_area(r.x, r.y, r.w, r.h);
+		}
+
 	  protected:
 		SymbolType  m_symbol;
 		DeviceType &m_device;
@@ -72,7 +78,7 @@ namespace app {
 			bool selected = m_symbol.selected();
 			m_symbol.selected() = r.inside(Point(x, y));
 			if (selected != m_symbol.selected()) {
-				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+				Dispatcher().dispatcher(this, "refresh").emit();
 			}
 			return false;
 		}
@@ -92,7 +98,7 @@ namespace app {
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
 			apply_config_changes();
-			m_area->queue_draw();
+			Dispatcher().dispatcher(this, "refresh").emit();
 		}
 		virtual void apply_config_changes() {
 		}
@@ -114,10 +120,11 @@ namespace app {
 
 	class VddDiagram: public BasicDiagram<Voltage, VddSymbol> {
 		// Context menu for a VddSymbol
+
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
 			apply_config_changes();
-			m_area->queue_draw();
+			Dispatcher().dispatcher(this, "refresh").emit();
 		};
 
 		virtual void apply_config_changes() {
@@ -155,7 +162,7 @@ namespace app {
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
 			apply_config_changes();
-			m_area->queue_draw();
+			Dispatcher().dispatcher(this, "refresh").emit();
 		}
 		virtual void apply_config_changes() {
 			m_device.name(m_symbol.name());
@@ -175,7 +182,7 @@ namespace app {
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
 			apply_config_changes();
-			m_area->queue_draw();
+			Dispatcher().dispatcher(this, "refresh").emit();
 		}
 		virtual void apply_config_changes() {
 			m_device.name(m_symbol.name());
@@ -196,7 +203,7 @@ namespace app {
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
 			apply_config_changes();
-			m_area->queue_draw();
+			Dispatcher().dispatcher(this, "refresh").emit();
 		}
 		virtual void apply_config_changes() {
 			m_device.name(m_symbol.name());
@@ -226,6 +233,11 @@ namespace app {
 		double m_rotation;
 		SymType m_symbol;
 
+		virtual void refresh() {
+			Rect r = m_symbol.bounding_rect();
+			m_area->queue_draw_area(r.x, r.y, r.w, r.h);
+		}
+
 		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_symbol.location(p);
 		}
@@ -240,7 +252,7 @@ namespace app {
 			bool selected = m_symbol.selected();
 			m_symbol.selected() = r.inside(Point(x, y));
 			if (selected != m_symbol.selected()) {
-				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+				Dispatcher().dispatcher(this, "refresh").emit();
 			}
 			return false;
 		}
@@ -281,7 +293,7 @@ namespace app {
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
 			apply_config_changes();
-			m_area->queue_draw();
+			Dispatcher().dispatcher(this, "refresh").emit();
 		};
 
 		virtual void apply_config_changes() {
@@ -336,6 +348,11 @@ namespace app {
 		double m_scale;
 		PinSymbol m_symbol;
 
+		virtual void refresh() {
+			Rect r = m_symbol.bounding_rect();
+			m_area->queue_draw_area(r.x, r.y, r.w, r.h);
+		}
+
 		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_symbol.location(p);
 		}
@@ -360,7 +377,7 @@ namespace app {
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
 			apply_config_changes();
-			m_area->queue_draw();
+			Dispatcher().dispatcher(this, "refresh").emit();
 		};
 		virtual void apply_config_changes() {
 			m_pin.name(m_symbol.name());
@@ -376,7 +393,7 @@ namespace app {
 			bool selected = m_symbol.selected();
 			m_symbol.selected() = r.inside(Point(x, y));
 			if (selected != m_symbol.selected()) {
-				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+				Dispatcher().dispatcher(this, "refresh").emit();
 			}
 			return false;
 		}
@@ -395,7 +412,7 @@ namespace app {
 
 		void on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data) {
 //			std::cout << "Connection change: " << name << " to " << conn->name() << std::endl;
-			m_area->queue_draw_area((int)position().x, (int)position().y-10, 20, 20);
+			Dispatcher().dispatcher(this, "refresh").emit();
 		}
 
 		virtual void show_name(bool a_show) {
@@ -470,6 +487,11 @@ namespace app {
 
 		SchmittSymbol m_symbol;
 
+		virtual void refresh() {
+			Rect r = m_symbol.bounding_rect();
+			m_area->queue_draw_area(r.x, r.y, r.w, r.h);
+		}
+
 		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_symbol.location(p);
 		}
@@ -502,7 +524,7 @@ namespace app {
 			bool selected = m_symbol.selected();
 			m_symbol.selected() = r.inside(Point(x, y));
 			if (selected != m_symbol.selected()) {
-				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+				Dispatcher().dispatcher(this, "refresh").emit();
 			}
 			return false;
 		}
@@ -522,7 +544,7 @@ namespace app {
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
 			apply_config_changes();
-			m_area->queue_draw();
+			Dispatcher().dispatcher(this, "refresh").emit();
 		};
 		virtual void apply_config_changes() {
 			m_schmitt.name(m_symbol.name());
@@ -546,8 +568,12 @@ namespace app {
 	class TristateDiagram: public CairoDrawing {
 		Tristate &m_tris;
 		bool m_point_right;
-
 		TristateSymbol m_symbol;
+
+		virtual void refresh() {
+			Rect r = m_symbol.bounding_rect();
+			m_area->queue_draw_area(r.x, r.y, r.w, r.h);
+		}
 
 		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_symbol.location(p);
@@ -556,7 +582,6 @@ namespace app {
 			return m_symbol.hotspot_at(w);
 		}
 
-
 	  public:
 
 		virtual bool on_motion(double x, double y, guint state) {
@@ -564,7 +589,7 @@ namespace app {
 			bool selected = m_symbol.selected();
 			m_symbol.selected() = r.inside(Point(x, y));
 			if (selected != m_symbol.selected()) {
-				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+				Dispatcher().dispatcher(this, "refresh").emit();
 			}
 			return false;
 		}
@@ -573,7 +598,7 @@ namespace app {
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
 			apply_config_changes();
-			m_area->queue_draw();
+			Dispatcher().dispatcher(this, "refresh").emit();
 		};
 		virtual void apply_config_changes() {
 			m_tris.name(m_symbol.name());
@@ -636,6 +661,11 @@ namespace app {
 		Relay &m_relay;
 		RelaySymbol m_symbol;
 
+		virtual void refresh() {
+			Rect r = m_symbol.bounding_rect();
+			m_area->queue_draw_area(r.x, r.y, r.w, r.h);
+		}
+
 		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_symbol.location(p);
 		}
@@ -650,7 +680,7 @@ namespace app {
 			bool selected = m_symbol.selected();
 			m_symbol.selected() = r.inside(Point(x, y));
 			if (selected != m_symbol.selected()) {
-				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+				Dispatcher().dispatcher(this, "refresh").emit();
 			}
 			return false;
 		}
@@ -703,6 +733,11 @@ namespace app {
 		ToggleSwitch &m_switch;
 		ToggleSwitchSymbol m_symbol;
 
+		virtual void refresh() {
+			Rect r = m_symbol.bounding_rect();
+			m_area->queue_draw_area(r.x, r.y, r.w, r.h);
+		}
+
 		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_symbol.location(p);
 		}
@@ -717,7 +752,7 @@ namespace app {
 			bool selected = m_symbol.selected();
 			m_symbol.selected() = r.inside(Point(x, y));
 			if (selected != m_symbol.selected()) {
-				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+				Dispatcher().dispatcher(this, "refresh").emit();
 			}
 			return false;
 		}
@@ -745,7 +780,7 @@ namespace app {
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
 			apply_config_changes();
-			m_area->queue_draw();
+			Dispatcher().dispatcher(this, "refresh").emit();
 		};
 		virtual void apply_config_changes() {
 			m_switch.name(m_symbol.name());
@@ -790,6 +825,11 @@ namespace app {
 		MuxSymbol m_symbol;
 		double m_rotation;
 
+		virtual void refresh() {
+			Rect r = m_symbol.bounding_rect();
+			m_area->queue_draw_area(r.x, r.y, r.w, r.h);
+		}
+
 		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_symbol.location(p);
 		}
@@ -806,7 +846,7 @@ namespace app {
 			bool selected = m_symbol.selected();
 			m_symbol.selected() = r.inside(Point(x, y));
 			if (selected != m_symbol.selected()) {
-				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+				Dispatcher().dispatcher(this, "refresh").emit();
 			}
 			return false;
 		}
@@ -844,7 +884,7 @@ namespace app {
 		virtual void context(const WHATS_AT &target_info) {
 			ContextDialogFactory().popup_context(m_symbol);
 			apply_config_changes();
-			m_area->queue_draw();
+			Dispatcher().dispatcher(this, "refresh").emit();
 		};
 		virtual void apply_config_changes() {
 			m_mux.name(m_symbol.name());
@@ -875,6 +915,11 @@ namespace app {
 		BlockSymbol m_basic;
 		LatchSymbol m_latchsym;
 
+		virtual void refresh() {
+			Rect r = m_latchsym.bounding_rect();
+			m_area->queue_draw_area(r.x, r.y, r.w, r.h);
+		}
+
 		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_latchsym.location(p);
 		}
@@ -889,7 +934,7 @@ namespace app {
 			bool selected = r.inside(Point(x, y));
 			if (selected != m_latchsym.selected()) {
 				m_latchsym.selected() = selected;
-				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+				Dispatcher().dispatcher(this, "refresh").emit();
 			}
 			return false;
 		}
@@ -950,6 +995,11 @@ namespace app {
 		Point m_size;
 		CounterSymbol m_symbol;
 
+		virtual void refresh() {
+			Rect r = m_symbol.bounding_rect();
+			m_area->queue_draw_area(r.x, r.y, r.w, r.h);
+		}
+
 		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_symbol.location(p);
 		}
@@ -962,7 +1012,7 @@ namespace app {
 			bool selected = m_symbol.selected();
 			m_symbol.selected() = r.inside(Point(x, y));
 			if (selected != m_symbol.selected()) {
-				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+				Dispatcher().dispatcher(this, "refresh").emit();
 			}
 			return false;
 		}
@@ -1027,7 +1077,6 @@ namespace app {
 		}
 	};
 
-
 	class TraceDiagram: public CairoDrawing {
 		SignalTrace &m_trace;
 		int m_width;
@@ -1035,6 +1084,11 @@ namespace app {
 		Point m_size;
 		TraceSymbol m_symbol;
 		std::vector<std::string> m_names;
+
+		virtual void refresh() {
+			Rect r = m_symbol.bounding_rect();
+			m_area->queue_draw_area(r.x, r.y, r.w, r.h);
+		}
 
 		virtual WHATS_AT location(Point p, bool for_input=false) {
 			return m_symbol.location(p);
@@ -1048,15 +1102,14 @@ namespace app {
 			bool selected = m_symbol.selected();
 			m_symbol.selected() = r.inside(Point(x, y));
 			if (selected != m_symbol.selected()) {
-				m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
+				Dispatcher().dispatcher(this, "refresh").emit();
 			}
 			return false;
 		}
 
-//		void changed(Connection *c, const std::string &a_name, const std::vector<BYTE> &a_data) {
-//			Rect r = m_symbol.bounding_rect();
-//			m_area->queue_draw_area(r.x-2, r.y-2, r.w+4, r.h+4);
-//		}
+		void changed(Connection *c, const std::string &a_name, const std::vector<BYTE> &a_data) {
+			Dispatcher().dispatcher(this, "refresh").emit();
+		}
 
 		void set_symbol_data() {
 			auto first_ts = m_trace.first_us();
@@ -1077,19 +1130,18 @@ namespace app {
 			}
 		}
 
-
 		// Attempt to slot output from source into input at target.
 		// If source is already connected, disconnect instead.
 		virtual bool slot(const WHATS_AT &w, Connection *source) {
 			if (w.what == WHATS_AT::INPUT) {
 				if (m_trace.has_trace(source)) {
-//					DeviceEvent<Connection>::unsubscribe<TraceDiagram>(this, &TraceDiagram::changed, source);
+					DeviceEvent<Connection>::unsubscribe<TraceDiagram>(this, &TraceDiagram::changed, source);
 					m_trace.remove_trace(source);
 					set_names();
 					return false;
 				}
 				if (m_trace.add_trace(source, w.id)) {
-//					DeviceEvent<Connection>::subscribe<TraceDiagram>(this, &TraceDiagram::changed, source);
+					DeviceEvent<Connection>::subscribe<TraceDiagram>(this, &TraceDiagram::changed, source);
 					set_names();
 					return true;
 				}

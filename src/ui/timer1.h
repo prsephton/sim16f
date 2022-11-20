@@ -191,11 +191,11 @@ namespace app {
 	  protected:
 
 		void timer1_changed(Timer1 *t, const std::string &name, const std::vector<BYTE> &data) {
-			m_area->queue_draw();
+			Dispatcher().dispatcher(this, "refresh").emit();
 		}
 
 		void fosc_changed(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
-			m_area->queue_draw();
+			Dispatcher().dispatcher(this, "refresh").emit();
 		}
 
 	  public :

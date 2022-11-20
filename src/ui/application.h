@@ -2,7 +2,6 @@
 #include <gtkmm.h>
 #include <map>
 #include "../cpu_data.h"
-#include "dispatch.h"
 
 class Component: public Glib::ObjectBase {
   public:

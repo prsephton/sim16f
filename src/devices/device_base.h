@@ -162,11 +162,9 @@ class DeviceEventQueue {
 			auto event = events.front(); events.pop();
 			while (not events.empty() && event == events.front()) events.pop();
 			mtx.unlock();
-			m_ui_lock.acquire();
 //			std::cout << "dev acquired lock" << std::endl;
 			event->fire_event(debug);
 //			std::cout << "dev releasing lock" << std::endl;
-			m_ui_lock.release();
 			return event;
 		}
 	}
@@ -646,6 +644,8 @@ class Gate: public Device {
 //___________________________________________________________________________________
 // A buffer takes a weak high impedence input and outputs a strong signal
 class ABuffer: public Gate {
+
+	virtual void recalc();
 
   public:
 	ABuffer(): Gate({}, false) {};

@@ -49,7 +49,7 @@ Sim16F::~Sim16F() {
 
 Application::Application() {
 	Glib::init();
-	app = Gtk::Application::create("org.another.sim16fcc.base");
+	app = Gtk::Application::create("");
 }
 
 bool Application::create_window() {
@@ -76,7 +76,7 @@ bool Application::create_window() {
 		// builder->get_widget_derived("Window", pWindow, is_glad);
 	} else
 		builder->get_widget_derived("sim16f_main", pWindow);
-	Dispatcher("recalculate");   // create the 'recalculate' dispatcher
+
 	return true;
 }
 

@@ -243,11 +243,10 @@ namespace app {
 
 	  public:
 
-		virtual void recalculate() {  // this is done from within the application thread
+		virtual void refresh() {  // this is done from within the application thread
 			draw_c1_input(Point(300,150));
 			draw_c2_input(Point(300,270));
 			m_area->queue_draw();
-
 		}
 
 		void on_comparator_change(Comparator *c, const std::string &name, const std::vector<BYTE>&data) {
@@ -263,7 +262,7 @@ namespace app {
 			cm += (mode & Flags::CMCON::CM1)?"1 ":"0 ";
 			cm += (mode & Flags::CMCON::CM0)?"1 ":"0 ";
 
-			Dispatcher().dispatcher("recalculate").emit();
+			Dispatcher().dispatcher(this, "refresh").emit();
 		}
 
 		ComparatorsDiagram(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
@@ -287,7 +286,7 @@ namespace app {
 			mode = 0;
 			cm = "0 0 0";
 
-			Dispatcher().dispatcher("recalculate").emit();
+			Dispatcher().dispatcher(this, "refresh").emit();
 		}
 
 		~ComparatorsDiagram() {

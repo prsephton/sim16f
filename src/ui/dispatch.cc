@@ -1,3 +1,3 @@
 #include "dispatch.h"
 
-std::map<std::string, SmartPtr<Glib::Dispatcher>> Dispatcher::m_dispatcher;
+std::map<Component *, Dispatcher::DISPATCH> Dispatcher::m_dispatcher;

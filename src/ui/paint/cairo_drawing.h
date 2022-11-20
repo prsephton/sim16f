@@ -541,7 +541,7 @@ namespace app {
 			return fabs(yc);
 		}
 
-		virtual void recalculate() {
+		virtual void refresh() {
 			m_area->queue_draw();
 		}
 
@@ -566,15 +566,16 @@ namespace app {
 			m_interactions.produce(m_area)->set_extents(a_pix_width, a_pix_height);
 		}
 
-
 		CairoDrawing(Glib::RefPtr<Gtk::DrawingArea>area, const Point &a_pos = Point(0,0)): CairoDrawingBase(area, a_pos) {
 			m_on_draw = m_area->signal_draw().connect(sigc::mem_fun(*this, &CairoDrawing::draw_content));
-			Dispatcher().dispatcher("recalculate").connect(sigc::mem_fun(*this, &CairoDrawing::recalculate));
+			Dispatcher(this, "refresh").dispatcher(this, "refresh").connect(sigc::mem_fun(*this, &CairoDrawing::refresh));
 			m_interactions.produce(area)->add_drawing(this);         // register this CairoDRawing area with interactions
 		}
+
 		virtual ~CairoDrawing() {
 			m_on_draw.disconnect();
 			m_interactions.produce(m_area)->remove_drawing(this);         // deregister this CairoDRawing area with interactions
 		}
+
 	};
 }

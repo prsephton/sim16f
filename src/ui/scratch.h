@@ -743,7 +743,8 @@ namespace app {
 		//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
 
 		void on_clock(Clock *c, const std::string &name, const std::vector<BYTE>&a_data) {
-			if (name == "CLKOUT") Dispatcher::emit("recalculate");
+			if (name == "CLKOUT")
+				Dispatcher().dispatcher(this, "refresh").emit();
 		}
 
 		ScratchDiagram(CPU_DATA &a_cpu, const Glib::RefPtr<Gtk::Builder>& a_refGlade):
