@@ -1,6 +1,14 @@
 #pragma once
 #include "device_base.h"
 
+#include <iostream>
+#include <queue>
+#include <tuple>
+#include <map>
+#include <string>
+#include <cstring>
+#include <functional>
+#include <mutex>
 
 //___________________________________________________________________________________
 // A base class for device events that can be queued.

@@ -14,22 +14,13 @@
  */
 #pragma once
 
-#include <iostream>
 #include <queue>
-#include <tuple>
-#include <map>
 #include <set>
-#include <string>
-#include <cstring>
-#include <cassert>
-#include <functional>
-#include <mutex>
 #include <chrono>
 #include <thread>
 #include "../utils/smart_ptr.h"
 #include "../utils/utility.h"
 #include "constants.h"
-#include <cmath>
 
 //__________________________________________________________________________________________________
 // A small function to return a current time stamp in microseconds.

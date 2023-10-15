@@ -2,6 +2,8 @@
 
 #include <sstream>
 #include <deque>
+#include <cassert>
+#include <cmath>
 #include "device_base.h"
 #include "device_queue.h"
 #include "connection_node.h"
