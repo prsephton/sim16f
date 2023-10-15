@@ -7,7 +7,7 @@
 #include <chrono>
 #include <type_traits>
 #include "../../utils/utility.h"
-#include "../../devices/devices.h"
+#include "../../devices/core_devices.h"
 #include "common.h"
 #include "cairo_drawing.h"
 
@@ -64,7 +64,9 @@ namespace app {
 		// Attempt to slot output from source into input at target.
 		// If source is already connected, disconnect instead.
 		virtual bool slot(const WHATS_AT &w, Connection *source) {
-			return m_device.connect(*source);  // should work for terminals
+			Terminal *t = dynamic_cast<Terminal *>(&m_device);
+			if (t) return t->connect(*source);  // should work for terminals
+			return false;
 		};
 
 		// Return the connection at the indicated location
@@ -365,7 +367,10 @@ namespace app {
 		// Attempt to slot output from source into input at target.
 		// If source is already connected, disconnect instead.
 		virtual bool slot(const WHATS_AT &w, Connection *source) {
-			return m_pin.connect(*source);  // should work for terminals
+			Terminal *t = dynamic_cast<Terminal *>(&m_pin);
+			if (t) return t->connect(*source);
+			return false;
+//			return m_pin.connect(*source);  // should work for terminals
 		};
 
 		// Return the connection at the indicated location
@@ -729,7 +734,7 @@ namespace app {
 
 	};
 
-	class ToggleSwitchDiagram: public CairoDrawing, public prop::Switch {
+	class ToggleSwitchDiagram: public CairoDrawing {
 		ToggleSwitch &m_switch;
 		ToggleSwitchSymbol m_symbol;
 
@@ -778,24 +783,26 @@ namespace app {
 
 		// Context menu for m_symbol
 		virtual void context(const WHATS_AT &target_info) {
+			m_symbol.closed(m_switch.closed());
 			ContextDialogFactory().popup_context(m_symbol);
 			apply_config_changes();
 			Dispatcher().dispatcher(this, "refresh").emit();
 		};
 		virtual void apply_config_changes() {
 			m_switch.name(m_symbol.name());
+			m_switch.closed(m_symbol.closed());
 		}
+
 		virtual Configurable *context() { return &m_symbol; }
 
 		void closed(bool a_closed) {
-			prop::Switch::closed(a_closed);
-			m_switch.closed(prop::Switch::closed());
-			m_symbol.closed(prop::Switch::closed());
+			m_symbol.closed(a_closed);
+			m_switch.closed(a_closed);
 		}
 
 		// click action for item at target
 		virtual void click_action(const WHATS_AT &target_info) {
-			closed(not prop::Switch::closed());
+			closed(not m_symbol.closed());
 		};
 
 		// Return the connection at the indicated location
@@ -977,6 +984,18 @@ namespace app {
 			}
 			return NULL;
 		};
+
+
+		// Context menu for m_symbol
+		virtual void context(const WHATS_AT &target_info) {
+			ContextDialogFactory().popup_context(m_latchsym);
+			apply_config_changes();
+			Dispatcher().dispatcher(this, "refresh").emit();
+		};
+		virtual void apply_config_changes() {
+			m_latch.name(m_latchsym.name());
+		}
+
 		virtual Configurable *context() { return &m_latchsym; }
 
 
@@ -1026,7 +1045,7 @@ namespace app {
 
 			m_symbol.set_value(m_counter.get());
 			m_symbol.set_synch(m_counter.is_sync());
-			m_symbol.set_nbits(m_counter.nbits());
+			m_symbol.outputs(m_counter.nbits());
 			m_symbol.draw_symbol(cr, m_dev_origin);
 
 			cr->restore();
@@ -1059,21 +1078,49 @@ namespace app {
 			if (w.what == WHATS_AT::OUTPUT) {
 				return &m_counter.bit(w.id);
 			}
+			else if (w.what == WHATS_AT::OVERFLOW) {
+				return &m_counter.overflow();
+			}
 			return NULL;
 		};
+
+		// Context menu for m_symbol
+		virtual void context(const WHATS_AT &target_info) {
+			ContextDialogFactory().popup_context(m_symbol);
+			apply_config_changes();
+			Dispatcher().dispatcher(this, "refresh").emit();
+		};
+
+		virtual void apply_config_changes() {
+			m_counter.name(m_symbol.name());
+			m_counter.set_nbits(m_symbol.outputs());
+			m_counter.asynch(not m_symbol.synchronous());
+			m_counter.set_rising(m_symbol.positive());
+			autosize();
+		}
+
 		virtual Configurable *context() { return &m_symbol; }
 
 		virtual void show_name(bool a_show) {
 			m_symbol.show_name(true);
 		}
 
+		void autosize() {
+			m_size = Point(m_counter.nbits() * 7 + 50, 30 + 20 * m_counter.is_sync());
+//			m_size = Point(m_counter.nbits() * 10 + 30, 40 + 20 * m_counter.is_sync());
+			m_symbol.width(m_size.x);
+			m_symbol.height(m_size.y);
+		}
 		CounterDiagram(Counter &a_counter, Glib::RefPtr<Gtk::DrawingArea>a_area, double x, double y):
-			CairoDrawing(a_area, Point(x,y)), m_counter(a_counter),
-			m_size(a_counter.nbits() * 7 + 50, 30 + 20 * a_counter.is_sync())
+			CairoDrawing(a_area, Point(x,y)), m_counter(a_counter)
 		{
+			autosize();
 			m_symbol = CounterSymbol(m_size.x/2, m_size.y/2, m_size.x, m_size.y);
 			Counters::rename(&m_symbol, &a_counter);
 			a_counter.set_name(a_counter.name());
+			m_symbol.outputs(m_counter.nbits());
+			m_symbol.synchronous(m_counter.is_sync());
+			m_symbol.positive(m_counter.get_rising());
 		}
 	};
 
@@ -1196,5 +1243,240 @@ namespace app {
 			Counters::rename(&m_symbol, &a_trace);
 		}
 	};
+
+
+
+	class ShiftRegisterDiagram: public CairoDrawing {
+		ShiftRegister &m_ShiftRegister;
+		Point m_size;
+		ShiftRegisterSymbol m_symbol;
+
+		virtual void refresh() {
+			Rect r = m_symbol.bounding_rect();
+			m_area->queue_draw_area(r.x, r.y, r.w, r.h);
+		}
+
+		virtual WHATS_AT location(Point p, bool for_input=false) {
+			return m_symbol.location(p);
+		}
+		virtual const Point *point_at(const WHATS_AT &w) const {
+			return m_symbol.hotspot_at(w);
+		}
+
+		virtual bool on_motion(double x, double y, guint state) {
+			Rect r = m_symbol.bounding_rect();
+			bool selected = m_symbol.selected();
+			m_symbol.selected() = r.inside(Point(x, y));
+			if (selected != m_symbol.selected()) {
+				Dispatcher().dispatcher(this, "refresh").emit();
+			}
+			return false;
+		}
+
+	  public:
+
+		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+
+			cr->save();
+			position().cairo_translate(cr);
+
+			m_symbol.set_value(m_ShiftRegister.get());
+			m_symbol.outputs(m_ShiftRegister.nbits());
+			m_symbol.draw_symbol(cr, m_dev_origin);
+
+			cr->restore();
+			return false;
+		}
+
+		// Attempt to slot output from source into input at target.
+		// If source is already connected, disconnect instead.
+		virtual bool slot(const WHATS_AT &w, Connection *source) {
+			if (w.what == WHATS_AT::INPUT) {   // serial input
+				if (w.id == 0) {
+					if (m_ShiftRegister.get_input() == source) {
+						m_ShiftRegister.set_input(NULL);
+						return false;
+					}
+					m_ShiftRegister.set_input(source);
+				} else if (w.id == 2) {       // shift direction
+					if (m_ShiftRegister.get_shift_right() == source) {
+						m_ShiftRegister.set_shift_right(NULL);
+						return false;
+					}
+					m_ShiftRegister.set_shift_right(source);
+
+				}
+				return true;
+			} else if (w.what == WHATS_AT::CLOCK) {
+				if (m_ShiftRegister.get_clock() == source) {
+					m_ShiftRegister.set_clock(NULL);
+					return false;
+				}
+				m_ShiftRegister.set_clock(source);
+				return true;
+			} else if (w.what == WHATS_AT::GATE) {
+				if (m_ShiftRegister.get_enable() == source) {
+					m_ShiftRegister.set_enable(NULL);
+					return false;
+				}
+				m_ShiftRegister.set_enable(source);
+				return true;
+			}
+			return false;
+		};
+
+		// Return the connection at the indicated location
+		virtual Connection *slot(const WHATS_AT &w) {
+			if (w.what == WHATS_AT::OUTPUT) {
+				return &m_ShiftRegister.bit(w.id);
+			}
+			else if (w.what == WHATS_AT::OVERFLOW) {
+				return &m_ShiftRegister.overflow();
+			}
+			return NULL;
+		};
+
+		// Context menu for m_symbol
+		virtual void context(const WHATS_AT &target_info) {
+			ContextDialogFactory().popup_context(m_symbol);
+			apply_config_changes();
+			Dispatcher().dispatcher(this, "refresh").emit();
+		};
+
+		virtual void apply_config_changes() {
+			m_ShiftRegister.name(m_symbol.name());
+			m_ShiftRegister.set_nbits(m_symbol.outputs());
+			m_ShiftRegister.set_rising(m_symbol.positive());
+			autosize();
+		}
+
+		virtual Configurable *context() { return &m_symbol; }
+
+		virtual void show_name(bool a_show) {
+			m_symbol.show_name(true);
+		}
+
+		void autosize() {
+			m_size = Point(m_ShiftRegister.nbits() * 10 + 30, 40);
+			m_symbol.width(m_size.x);
+			m_symbol.height(m_size.y);
+		}
+
+		ShiftRegisterDiagram(ShiftRegister &a_ShiftRegister, Glib::RefPtr<Gtk::DrawingArea>a_area, double x, double y):
+			CairoDrawing(a_area, Point(x,y)), m_ShiftRegister(a_ShiftRegister)
+		{
+			autosize();
+			m_symbol = ShiftRegisterSymbol(m_size.x/2, m_size.y/2, m_size.x, m_size.y);
+			Counters::rename(&m_symbol, &a_ShiftRegister);
+			a_ShiftRegister.set_name(a_ShiftRegister.name());
+			m_symbol.outputs(m_ShiftRegister.nbits());
+			m_symbol.positive(m_ShiftRegister.get_rising());
+		}
+	};
+
+
+	class LEDPanelDiagram: public CairoDrawing {
+		LEDPanel &m_LEDPanel;
+		Point m_size;
+		LEDPanelSymbol m_symbol;
+
+		virtual void refresh() {
+			Rect r = m_symbol.bounding_rect();
+			m_area->queue_draw_area(r.x, r.y, r.w, r.h);
+		}
+
+		virtual WHATS_AT location(Point p, bool for_input=false) {
+			return m_symbol.location(p);
+		}
+
+		virtual const Point *point_at(const WHATS_AT &w) const {
+			return m_symbol.hotspot_at(w);
+		}
+
+		virtual bool on_motion(double x, double y, guint state) {
+			Rect r = m_symbol.bounding_rect();
+			bool selected = m_symbol.selected();
+			m_symbol.selected() = r.inside(Point(x, y));
+			if (selected != m_symbol.selected()) {
+				Dispatcher().dispatcher(this, "refresh").emit();
+			}
+			return false;
+		}
+
+	  public:
+
+		virtual bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+
+			cr->save();
+			position().cairo_translate(cr);
+
+			m_symbol.set_bits(m_LEDPanel.databits());
+			m_symbol.inputs(m_LEDPanel.nbits());
+			m_symbol.draw_symbol(cr, m_dev_origin);
+
+			cr->restore();
+			return false;
+		}
+
+		// Attempt to slot output from source into input at target.
+		// If source is already connected, disconnect instead.
+		virtual bool slot(const WHATS_AT &w, Connection *source) {
+			if (w.what == WHATS_AT::INPUT) {   // serial input
+				if (m_LEDPanel.bit(w.id) == source) {
+					m_LEDPanel.disconnect(*source, w.id);
+					return false;
+				}
+				m_LEDPanel.connect(*source, w.id);
+				return true;
+			}
+			return false;
+		};
+
+		// Return the connection at the indicated location
+		virtual Connection *slot(const WHATS_AT &w) {
+			if (w.what == WHATS_AT::INPUT) {
+				return m_LEDPanel.bit(w.id);
+			}
+			return NULL;
+		};
+
+		// Context menu for m_symbol
+		virtual void context(const WHATS_AT &target_info) {
+			ContextDialogFactory().popup_context(m_symbol);
+			apply_config_changes();
+			Dispatcher().dispatcher(this, "refresh").emit();
+		};
+
+		virtual void apply_config_changes() {
+			m_LEDPanel.name(m_symbol.name());
+			m_LEDPanel.set_nbits(m_symbol.inputs());
+			autosize();
+		}
+
+		virtual Configurable *context() { return &m_symbol; }
+
+		virtual void show_name(bool a_show) {
+			m_symbol.show_name(true);
+		}
+
+		void autosize() {
+			m_size = Point(m_LEDPanel.nbits() * 10 + 20, 20);
+			m_symbol.width(m_size.x);
+			m_symbol.height(m_size.y);
+		}
+
+		LEDPanelDiagram(LEDPanel &a_LEDPanel, Glib::RefPtr<Gtk::DrawingArea>a_area, double x, double y):
+			CairoDrawing(a_area, Point(x,y)), m_LEDPanel(a_LEDPanel)
+		{
+			autosize();
+			m_symbol = LEDPanelSymbol(m_size.x/2, m_size.y/2, m_size.x, m_size.y);
+			m_symbol.set_scale(3);
+			Counters::rename(&m_symbol, &a_LEDPanel);
+			a_LEDPanel.set_name(a_LEDPanel.name());
+			m_symbol.inputs(m_LEDPanel.nbits());
+		}
+	};
+
+
 
 }

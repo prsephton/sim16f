@@ -1,6 +1,7 @@
 #pragma once
 
 #include "device_base.h"
+#include "simple_devices.h"
 #include "sram.h"
 #include "flags.h"
 #include "register.h"

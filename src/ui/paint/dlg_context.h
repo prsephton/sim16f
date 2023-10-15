@@ -49,6 +49,7 @@ namespace app {
 		virtual bool needs_resistance(double &R){ return false; }
 		virtual bool needs_capacitance(double &C){ return false; }
 		virtual bool needs_inductance(double &H){ return false; }
+		virtual bool needs_frequency(double &F){ return false; }
 		virtual bool needs_inverted(bool &inverted){ return false; }
 		virtual bool needs_gate_inverted(bool &inverted){ return false; }
 		virtual bool needs_orientation(double &orientation){ return false; }
@@ -60,8 +61,11 @@ namespace app {
 		virtual bool needs_trigger(bool &positive){ return false; }
 		virtual bool needs_position(double &x, double &y){ return false; }
 		virtual bool needs_size(double &w, double &h){ return false; }
+		virtual bool needs_width(double &w){ return false; }
+		virtual bool needs_duration(double &duration){ return false; }
 		virtual bool needs_rows(int &rows){ return false; }
 		virtual bool needs_inputs(int &inputs){ return false; }
+		virtual bool needs_outputs(int &inputs){ return false; }
 		virtual bool needs_selectors(int &selectors){ return false; }
 		virtual bool needs_ntype(bool &ntype){ return false; }
 		virtual bool needs_synchronous(bool &synchronous){ return false; }
@@ -75,13 +79,16 @@ namespace app {
 		virtual bool needs_font(std::string &font_face, float &font_size){ return false; }
 		virtual bool needs_fg_colour(double &r, double &g, double &b){ return false; }
 		virtual bool needs_xor(bool &a_xor){ return false; }
+		virtual bool needs_flipped(bool &a_flipped){ return false; }
 
+		virtual void set_flipped(int a_flipped){}
 		virtual void set_xor(int a_xor){}
 		virtual void set_name(const std::string &a_name){}
 		virtual void set_voltage(double V){}
 		virtual void set_resistance(double R){}
 		virtual void set_capacitance(double C){}
 		virtual void set_inductance(double H){}
+		virtual void set_frequency(double F){}
 		virtual void set_inverted(bool inverted){}
 		virtual void set_gate_inverted(bool inverted){}
 		virtual void set_orientation(double orientation){}
@@ -89,8 +96,11 @@ namespace app {
 		virtual void set_trigger(bool positive){}
 		virtual void set_position(double x, double y){}
 		virtual void set_size(double w, double h){}
+		virtual void set_width(double w){}
+		virtual void set_duration(double duration){}
 		virtual void set_rows(int rows){}
 		virtual void set_inputs(int inputs){}
+		virtual void set_outputs(int outputs){}
 		virtual void set_selectors(int selectors){}
 		virtual void set_ntype(bool ntype){}
 		virtual void set_synchronous(bool synchronous){}
@@ -124,6 +134,8 @@ namespace app {
 		Glib::RefPtr<Gtk::Label> m_lb_resistance;
 		Glib::RefPtr<Gtk::Label> m_lb_capacitance;
 		Glib::RefPtr<Gtk::Label> m_lb_inductance;
+		Glib::RefPtr<Gtk::Label> m_lb_frequency;
+		Glib::RefPtr<Gtk::Label> m_lb_duration;
 		Glib::RefPtr<Gtk::Label> m_lb_inverted;
 		Glib::RefPtr<Gtk::Label> m_lb_gate_invert;
 		Glib::RefPtr<Gtk::Label> m_lb_orientation;
@@ -132,6 +144,7 @@ namespace app {
 		Glib::RefPtr<Gtk::Label> m_lb_position;
 		Glib::RefPtr<Gtk::Label> m_lb_rows;
 		Glib::RefPtr<Gtk::Label> m_lb_inputs;
+		Glib::RefPtr<Gtk::Label> m_lb_outputs;
 		Glib::RefPtr<Gtk::Label> m_lb_selectors;
 		Glib::RefPtr<Gtk::Label> m_lb_attributes;
 		Glib::RefPtr<Gtk::Label> m_lb_switch;
@@ -143,10 +156,14 @@ namespace app {
 		Glib::RefPtr<Gtk::Entry> m_resistance;
 		Glib::RefPtr<Gtk::Entry> m_capacitance;
 		Glib::RefPtr<Gtk::Entry> m_inductance;
+		Glib::RefPtr<Gtk::Entry> m_duration;
+		Glib::RefPtr<Gtk::Entry> m_frequency;
 		Glib::RefPtr<Gtk::ComboBoxText> m_voltage_unit;
 		Glib::RefPtr<Gtk::ComboBoxText> m_resistance_unit;
 		Glib::RefPtr<Gtk::ComboBoxText> m_capacitance_unit;
 		Glib::RefPtr<Gtk::ComboBoxText> m_inductance_unit;
+		Glib::RefPtr<Gtk::ComboBoxText> m_frequency_unit;
+		Glib::RefPtr<Gtk::ComboBoxText> m_duration_unit;
 
 		Glib::RefPtr<Gtk::Box> m_box_inverted;
 		Glib::RefPtr<Gtk::RadioButton> m_rb_inverted;
@@ -175,6 +192,7 @@ namespace app {
 
 		Glib::RefPtr<Gtk::Entry> m_entry_rows;
 		Glib::RefPtr<Gtk::Entry> m_entry_inputs;
+		Glib::RefPtr<Gtk::Entry> m_entry_outputs;
 		Glib::RefPtr<Gtk::Entry> m_entry_selectors;
 
 		Glib::RefPtr<Gtk::Box> m_box_attributes;
@@ -187,9 +205,11 @@ namespace app {
 		Glib::RefPtr<Gtk::CheckButton> m_overscore;
 		Glib::RefPtr<Gtk::CheckButton> m_bold;
 		Glib::RefPtr<Gtk::CheckButton> m_is_xor;
+		Glib::RefPtr<Gtk::CheckButton> m_flipped;
 
 		Glib::RefPtr<Gtk::Box> m_box_switch;
 		Glib::RefPtr<Gtk::RadioButton> m_rb_switch_open;
+		Glib::RefPtr<Gtk::RadioButton> m_rb_switch_closed;
 
 		Glib::RefPtr<Gtk::FontButton> m_bn_font;
 		Glib::RefPtr<Gtk::ColorButton> m_bn_colour;

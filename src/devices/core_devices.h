@@ -1,12 +1,14 @@
 #pragma once
 
 #include "device_base.h"
+#include "device_queue.h"
 #include "sram.h"
 #include "flags.h"
 #include "../utils/utility.h"
 #include "register.h"
 #include "clock.h"
 #include "comparator.h"
+#include "simple_devices.h"
 #include "timers.h"
 #include "simulated_ports.h"
 

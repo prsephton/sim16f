@@ -1,20 +1,153 @@
+#include "simple_devices.h"
+
 #include <sstream>
 #include <deque>
 #include "device_base.h"
+#include "device_queue.h"
 #include "connection_node.h"
 #include "../utils/utility.h"
+
 //_______________________________________________________________________________________________
 //  Event queue static definitions
-bool DeviceEventQueue::debug = false;
-std::mutex DeviceEventQueue::mtx;
-std::queue< SmartPtr<QueueableEvent> >DeviceEventQueue::events;
 Connection Simulation::m_clock;
 double Simulation::m_speed = 1.0;
 
-LockUI DeviceEventQueue::m_ui_lock(false);
+std::queue< SmartPtr<QueueableEvent> >DeviceEventQueue::events;
+std::mutex DeviceEventQueue::mtx;
+LockUI DeviceEventQueue::m_ui_lock;
+bool DeviceEventQueue::m_paused;
+bool DeviceEventQueue::debug;
 
 template <class T> class
 	DeviceEvent<T>::registry  DeviceEvent<T>::subscribers;
+
+
+struct OutputSlots: public IConnectable<Device> { // @suppress("Class has a virtual method and non-virtual destructor")
+	std::set<Slot *> m_slots;     //  The set of target slots for this connection.
+
+	virtual Slot *slot(Device *d, Device *from) override {
+		for (auto slot: m_slots)
+			if (slot->dev == d)
+				return slot;
+		Slot *l_slot = new Slot(static_cast<Device *>(d), static_cast<Device *>(from));
+		m_slots.insert(l_slot);
+		return l_slot;
+	}
+
+	virtual bool unslot(Device *dev) override {
+		for (auto &slot: m_slots)
+			if (slot->dev == dev) {
+				m_slots.erase(slot);
+				delete slot;
+				return true;
+			}
+		return false;
+	}
+
+	virtual bool add_connection_slots(std::set<ISlot *> &slots) override {
+		bool added = false;
+		for (auto c: m_slots) {
+			if (slots.find(c) == slots.end()) {
+				slots.insert(c);
+				added = true;
+			}
+		}
+		return added;
+	}
+
+	virtual std::vector<Device *> targets() override {
+		std::vector<Device *>t;
+		for (auto c: m_slots) {
+			t.push_back(c->dev);
+		}
+		return t;
+	}
+
+	virtual std::vector<ISlot *> slots() override {
+		std::vector<ISlot *>t;
+		for (auto c: m_slots) {
+			t.push_back(c);
+		}
+		return t;
+	}
+
+	virtual void unslot_all_targets() override {
+		for (auto slot: m_slots)
+			delete slot;
+		m_slots.clear();
+	}
+
+};
+
+
+struct InputSlots: public ITargetable<Device> {
+	std::map<Device *, Slot *> m_connects;
+
+	bool add_slots(std::set<ISlot *> &slots) {
+		bool added = false;
+		for (auto &c : m_connects ) {
+			if (slots.find(c.second) == slots.end()) {
+				Device *dev = dynamic_cast<Device *>(c.first);
+				auto &l_slots = *reinterpret_cast<std::set<ISlot *> *>(&slots);
+				added = dev->connectable()->add_connection_slots(l_slots);
+			}
+		}
+		return added;
+	}
+
+	void on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+		if (D->debug()) std::cout << D->name() << " Default on_change: " << name << std::endl;
+
+		auto connection = m_connects.find(D);
+		if (connection != m_connects.end()) {
+			connection->second->dev->source_changed(D, name, data);
+		}
+	}
+
+	std::vector<Device *> sources() {
+		std::vector<Device *> s;
+		for (auto &c : m_connects ) {
+			s.push_back(c.first);
+		}
+		return s;
+	}
+
+	bool connect(Device &from, Device &to) {
+		if (m_connects.find(&from) == m_connects.end()) {
+			Device *dev = dynamic_cast<Device *>(&from);
+			if (dev->connectable()) {
+				m_connects[&from] = static_cast<Slot *>(dev->connectable()->slot(&to, &from));
+				Connection *from_connection = dynamic_cast<Connection *>(&from);
+				if (from_connection)
+					DeviceEvent<Connection>::subscribe<InputSlots>(this, &InputSlots::on_change, from_connection);
+				from.query_voltage();
+				return true;
+			}
+			return false;
+		} else {
+			disconnect(from);
+			return false;
+		}
+	}
+
+	void disconnect(Device &from) {
+		auto connection = m_connects.find(&from);
+		if (connection != m_connects.end()) {
+			Device *source = dynamic_cast<Device *>(&from);
+			Device *target = connection->second->dev;
+			if (source->connectable()->unslot(target)) {
+				m_connects.erase(&from);
+				from.query_voltage();
+				target->query_voltage();
+			}
+			Connection *from_connection = dynamic_cast<Connection *>(&from);
+			if (from_connection)
+				DeviceEvent<Connection>::unsubscribe<InputSlots>(this, &InputSlots::on_change, from_connection);
+//			from.source_changed(&from, "Disconnected", {});
+		}
+	}
+
+};
 
 
   // The hardware architecture uses several sequential logic components.  It would be
@@ -33,18 +166,18 @@ template <class T> class
 
 	Slot::Slot(Device *a_dev, Device *a_connection): dev(a_dev), connection(a_connection) {}
 
-	Slot *Connection::slot(Device *d){
-		for (auto slot: m_slots)
-			if (slot->dev == d)
-				return slot;
-		Slot *l_slot = new Slot(d, this);
-		m_slots.insert(l_slot);
-		query_voltage();
-		return l_slot;
-	}
+//	Slot *Connection::slot(Device *d){
+//		for (auto slot: m_slots)
+//			if (slot->dev == d)
+//				return slot;
+//		Slot *l_slot = new Slot(d, this);
+//		m_slots.insert(l_slot);
+//		query_voltage();
+//		return l_slot;
+//	}
 
 	// use a Connection_Node to determine I & voltage drops
-	void Connection::query_voltage() {
+	void Connection::query_voltage(int a_debug) {
 //		if (debug()) std::cout << name() << ": Top of chain\n";
 		Connection_Node node(this);            // @suppress("Type cannot be resolved")
 		node.process_model();                  // @suppress("Method cannot be resolved")
@@ -58,39 +191,40 @@ template <class T> class
 	void Connection::update_voltage(double v) {
 		m_V = v;
 		determinate(true);
-		if (m_slots.size()) {
-			for (auto slot: m_slots)
+		auto slots = connectable()->slots();
+		if (slots.size()) {
+			for (auto slot: slots)
 				slot->recalculate();
 		}
 	}
 
-	bool Connection::unslot(Device *dev){
-		for (auto &slot: m_slots)
-			if (slot->dev == dev) {
-				m_slots.erase(slot);
-				return true;
-			}
-		return false;
-	}
+//	bool Connection::unslot(Device *dev){
+//		for (auto &slot: m_slots)
+//			if (slot->dev == dev) {
+//				m_slots.erase(slot);
+//				return true;
+//			}
+//		return false;
+//	}
 
-	bool Connection::add_connection_slots(std::set<Slot *> &slots) {
-		bool added = false;
-		for (auto c: m_slots) {
-			if (slots.find(c) == slots.end()) {
-				slots.insert(c);
-				added = true;
-			}
-		}
-		return added;
-	}
+//	bool Connection::add_connection_slots(std::set<Slot *> &slots) {
+//		bool added = false;
+//		for (auto c: m_slots) {
+//			if (slots.find(c) == slots.end()) {
+//				slots.insert(c);
+//				added = true;
+//			}
+//		}
+//		return added;
+//	}
 
-	std::vector<Device *> Connection::targets() {
-		std::vector<Device *>t;
-		for (auto c: m_slots) {
-			t.push_back(c->dev);
-		}
-		return t;
-	}
+//	std::vector<Device *> Connection::targets() {
+//		std::vector<Device *>t;
+//		for (auto c: m_slots) {
+//			t.push_back(c->dev);
+//		}
+//		return t;
+//	}
 
 	// Add a voltage change event to the queue
 	void Connection::queue_change(bool process_q, const std::string &a_comment){
@@ -112,14 +246,16 @@ template <class T> class
 
 	Connection::Connection(const std::string &a_name):
 		Device(a_name), m_V(Vss), m_conductance(1.0e+4), m_impeded(true), m_determinate(false) {
+		connectable(new OutputSlots());
 	};
 
 	Connection::Connection(double V, bool impeded, const std::string &a_name):
 		Device(a_name), m_V(V), m_conductance(1.0e+4), m_impeded(impeded), m_determinate(true) {
+		connectable(new OutputSlots());
 	};
 
 	Connection::~Connection() {
-		unslot_all_slots();
+		unslot_all_targets();
 		eq.remove_events_for(this);
 	}
 
@@ -136,7 +272,7 @@ template <class T> class
 
 	bool Connection::signal() const { return rd(true) > Vdd/2.0; }
 	bool Connection::impeded() const {
-		return (m_slots.size() == 0 || m_impeded);
+		return (connectable()->slots().size() == 0 || m_impeded);
 	}
 	bool Connection::determinate() const { return m_determinate || !impeded(); }
 	double Connection::vDrop() const {
@@ -211,29 +347,12 @@ template <class T> class
 // it is also itself a "connection".
 //   A terminal without connections is always impeded (treated as an output).
 
-	bool Terminal::add_slots(std::set<Slot *> &slots) {
-		bool added = false;
-		for (auto &c : m_connects ) {
-			if (slots.find(c.second) == slots.end()) {
-				added = c.first->add_connection_slots(slots);
-			}
-		}
-		return added;
-	}
-
-	std::vector<Device *> Terminal::sources() {
-		std::vector<Device *> s;
-		for (auto &c : m_connects ) {
-			s.push_back(c.first);
-		}
-		return s;
-	}
-
-	void Terminal::query_voltage() {
-		if (not m_connects.size())
-			Connection::query_voltage();
-		else for (auto &c : m_connects ) {
-			c.first->query_voltage();
+	void Terminal::query_voltage(int debug) {
+		auto l_sources = sources();
+		if (not l_sources.size())
+			Connection::query_voltage(debug);
+		else for (auto &c : l_sources ) {
+			c->query_voltage(debug);
 			break;  // only one is needed
 		}
 	}
@@ -243,16 +362,22 @@ template <class T> class
 		m_terminal_impeded = false;
 	}
 
+	void Terminal::source_changed(Device *D, const std::string &name, const std::vector<BYTE> &data) {
+		if (debug()) std::cout << D->name() << " Terminal source_changed: " << name << std::endl;
+		input_changed();
+	}
+
 	void Terminal::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+		if (debug()) std::cout << D->name() << " Terminal on_change: " << name << std::endl;
 		input_changed();
 	}
 
 	void Terminal::calc_conductance_precedents(double &Gin, double &Iin, double &Idrop) {
 		Gin = 0;  Iin = 0; Idrop = 0;
-		for (auto &c : m_connects ) {
-			Gin += c.first->conductance();
-			Iin += c.first->rd(false) * c.first->conductance();
-			Idrop += c.first->vDrop() * c.first->conductance();
+		for (auto c : sources() ) {
+			Gin += c->conductance();
+			Iin += c->rd(false) * c->conductance();
+			Idrop += c->vDrop() * c->conductance();
 		}
 	}
 
@@ -260,44 +385,20 @@ template <class T> class
 		query_voltage();
 	}
 
-	Terminal::Terminal(const std::string &name): Connection(name), m_connects(),
+	Terminal::Terminal(const std::string &name): Connection(name), PossibleTarget(),
 			m_terminal_impeded(true) {
+		targetable(new InputSlots());
 	}
 
-	Terminal::Terminal(double V, const std::string &name): Connection(V, true, name), m_connects(),
+	Terminal::Terminal(double V, const std::string &name): Connection(V, true, name), PossibleTarget(),
 			m_terminal_impeded(true) {
+		targetable(new InputSlots());
 	}
 
-	Terminal::~Terminal() {
-		for (auto &c : m_connects ) {
-			DeviceEvent<Connection>::unsubscribe<Terminal>(this, &Terminal::on_change, c.first);
-			c.second->unslot();
-		}
-	}
-
-	bool Terminal::connect(Connection &c) {
-		if (m_connects.find(&c) == m_connects.end()) {
-			m_connects[&c] = c.slot(this);
-			DeviceEvent<Connection>::subscribe<Terminal>(this, &Terminal::on_change, &c);
-			query_voltage();
-			return true;
-		} else {
-			disconnect(c);
-			return false;
-		}
-	}
-
-	void Terminal::disconnect(Connection &c) {
-		if (m_connects.find(&c) != m_connects.end()) {
-			DeviceEvent<Connection>::unsubscribe<Terminal>(this, &Terminal::on_change, &c);
-			if (c.unslot(this))
-				m_connects.erase(&c);
-			query_voltage();
-		}
-	}
+	Terminal::~Terminal() {}
 
 	void Terminal::impeded(bool a_impeded) { Connection::impeded(a_impeded); }
-	bool Terminal::impeded() const { if (m_connects.size()) return m_terminal_impeded; return Connection::impeded(); }
+	bool Terminal::impeded() const { return (targetable()->sources().size() + connectable()->targets().size() < 2); }
 	double Terminal::rd(bool include_vdrop) const {
 		return Connection::rd(include_vdrop);
 	}
@@ -565,7 +666,7 @@ template <class T> class
 
 	void Gate::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
 		if (debug()) {
-			std::cout << "Gate " << this->name() << " received event " << name << std::endl;
+			std::cout << " Gate " << this->name() << " received event " << name << std::endl;
 		}
 		recalc();
 	}
@@ -706,126 +807,151 @@ template <class T> class
 //   If a wire has no unimpeded connections, the voltage on the wire is indeterminate.
 
 
-	double Wire::recalc() {
-		indeterminate = true;
-		if (debug()) std::cout << "read wire " << name() << ": [";
-		double sum_conductance = 0;
-		double sum_v_over_R = 0;
-		for (auto conn = connections.begin(); conn != connections.end(); ++conn) {
-			if (debug()) {
-				std::cout << (conn == connections.begin()?"":", ");
-				std::cout << conn->first->name();
-			}
-			double v = conn->first->rd(false);
-			if (conn->first->impeded())  {
-				if (debug()) std::cout << "[o]: ";
-			} else {
-				indeterminate = false;
-				double iR = conn->first->conductance();
-				if (debug()) std::cout << "[i]: ";
-				sum_conductance += iR;
-				sum_v_over_R += v * iR;
-			}
-		}
-		double V = Vss;
-		if (not indeterminate) {
-			m_sum_conductance = sum_conductance;
-			m_sum_v_over_R = sum_v_over_R;
-			V = sum_v_over_R/sum_conductance;
-		}
-		if (debug()) {
-			if (indeterminate) {
-				std::cout << "] is indeterminate" << std::endl;
-			} else {
-				std::cout << "] = " << V << "v" << std::endl;
-			}
-		}
-		return V;
-	}
-
-	bool Wire::assert_voltage() {  // fires signals to any impeded connections
-		double V = recalc();
-		bool changed = Voltage != V;
-		if (debug()) {
-			if (!indeterminate) {
-				std::cout << "Wire: " << name() << " is at " << (indeterminate?"unknown":"");
-				std::cout << V << "v";
-				std::cout << std::endl;
-			}
-			std::cout << name() << ": changing Voltage from " << Voltage << " to " << V << std::endl;
-		}
-		Voltage = V;
-		for (auto conn = connections.begin(); conn != connections.end(); ++conn) {
-			if (conn->first->impeded()) {
-				if (indeterminate)
-					conn->first->determinate(false);
-				else {
-					conn->first->set_value(V, true);
-				}
-			} else if (not indeterminate) {
-//				conn->second->set_vdrop(V);
-//				conn->second->calculate_vdrop(V);
-			}
-		}
-		return changed;
-	}
+//	double Wire::recalc() {
+//		indeterminate = true;
+//		if (debug()) std::cout << "read wire " << name() << ": [";
+//		double sum_conductance = 0;
+//		double sum_v_over_R = 0;
+//		for (auto conn = connections.begin(); conn != connections.end(); ++conn) {
+//			if (debug()) {
+//				std::cout << (conn == connections.begin()?"":", ");
+//				std::cout << conn->first->name();
+//			}
+//			double v = conn->first->rd(false);
+//			if (conn->first->impeded())  {
+//				if (debug()) std::cout << "[o]: ";
+//			} else {
+//				indeterminate = false;
+//				double iR = conn->first->conductance();
+//				if (debug()) std::cout << "[i]: ";
+//				sum_conductance += iR;
+//				sum_v_over_R += v * iR;
+//			}
+//		}
+//		double V = Vss;
+//		if (not indeterminate) {
+//			m_sum_conductance = sum_conductance;
+//			m_sum_v_over_R = sum_v_over_R;
+//			V = sum_v_over_R/sum_conductance;
+//		}
+//		if (debug()) {
+//			if (indeterminate) {
+//				std::cout << "] is indeterminate" << std::endl;
+//			} else {
+//				std::cout << "] = " << V << "v" << std::endl;
+//			}
+//		}
+//		return V;
+//	}
+//
+//	bool Wire::assert_voltage() {  // fires signals to any impeded connections
+//		double V = recalc();
+//		bool changed = Voltage != V;
+//		if (debug()) {
+//			if (!indeterminate) {
+//				std::cout << "Wire: " << name() << " is at " << (indeterminate?"unknown":"");
+//				std::cout << V << "v";
+//				std::cout << std::endl;
+//			}
+//			std::cout << name() << ": changing Voltage from " << Voltage << " to " << V << std::endl;
+//		}
+//		Voltage = V;
+//		for (auto conn = connections.begin(); conn != connections.end(); ++conn) {
+//			if (conn->first->impeded()) {
+//				if (indeterminate)
+//					conn->first->determinate(false);
+//				else {
+//					conn->first->set_value(V, true);
+//				}
+//			} else if (not indeterminate) {
+////				conn->second->set_vdrop(V);
+////				conn->second->calculate_vdrop(V);
+//			}
+//		}
+//		return changed;
+//	}
 
 	void Wire::queue_change(){  // Add a voltage change event to the queue
-		if (assert_voltage()) {        // determine wire voltage and update impeded connections
-			eq.queue_event(new DeviceEvent<Wire>(*this, "Wire Voltage Change"));
-			eq.process_events();
+
+		eq.queue_event(new DeviceEvent<Wire>(*this, "Wire Voltage Change"));
+		eq.process_events();
+	}
+
+	void Wire::query_voltage(int debug) {
+		auto l_sources = sources();
+		if (not l_sources.size()) {
+			std::cerr << "No Sources!" << std::endl;
+			I(0);   // set current to zero
+		} else for (auto &c : l_sources ) {
+			c->query_voltage(debug);  // one calculation is enough
+			break;
 		}
 	}
 
-	void Wire::on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data) {
-		if (debug()) {
-			const char *direction = " <-- ";
-			if (conn->impeded()) direction = " ->| ";
-			std::cout << "Wire " << this->name() << direction << "Event " << conn->name() << " changed to " << conn->rd() << "V [";
-			std::cout << (conn->impeded()?"o":"i") << "]" << std::endl;
-		}
-		queue_change();
+
+//	void Wire::on_connection_change(Connection *conn, const std::string &name, const std::vector<BYTE> &data) {
+//		if (debug()) {
+//			const char *direction = " <-- ";
+//			if (conn->impeded()) direction = " ->| ";
+//			std::cout << "Wire " << this->name() << direction << "Event " << conn->name() << " changed to " << conn->rd() << "V [";
+//			std::cout << (conn->impeded()?"o":"i") << "]" << std::endl;
+//		}
+//		queue_change();
+//	}
+
+	void Wire::source_changed(Device *D, const std::string &name, const std::vector<BYTE> &data) {
+//		std::cout << D->name() << ": Source changed" << std::endl;
+//		debug(true);
+		query_voltage();
 	}
 
-	Wire::Wire(const std::string &a_name): Device(a_name), indeterminate(true), Voltage(0), m_sum_conductance(0), m_sum_v_over_R(0) {}
+//	Wire::Wire(const std::string &a_name): Device(a_name), indeterminate(true), Voltage(0), m_sum_conductance(0), m_sum_v_over_R(0) {
+//	}
 
-	Wire::Wire(Connection &from, Connection &to, const std::string &a_name): Device(a_name), indeterminate(true), Voltage(0) {
+	Wire::Wire(const std::string &a_name): Device(a_name) {
+		targetable(new InputSlots());
+	}
+
+//	Wire::Wire(Connection &from, Connection &to, const std::string &a_name): Device(a_name), indeterminate(true), Voltage(0) {
+	Wire::Wire(Connection &from, Connection &to, const std::string &a_name): Device(a_name) {
+		targetable(new InputSlots());
 		connect(from); connect(to);
 	}
 
 	Wire::~Wire() {
-		eq.remove_events_for(this);
-		for (auto &conn: connections) {
-			DeviceEvent<Connection>::unsubscribe<Wire>(this, &Wire::on_connection_change, conn.first);
-		}
+//		eq.remove_events_for(this);
+//		for (auto &conn: connections) {
+//			DeviceEvent<Connection>::unsubscribe<Wire>(this, &Wire::on_connection_change, conn.first);
+//		}
 	}
 
-	bool Wire::connect(Connection &connection, const std::string &a_name) {
-		connections[&connection] = connection.slot(this);
-		if (a_name.length()) connection.name(a_name);
-		DeviceEvent<Connection>::subscribe<Wire>(this, &Wire::on_connection_change, &connection);
-		queue_change();
-		return true;
-	}
-	void Wire::disconnect(const Connection &connection) {
-		for (auto conn=connections.begin(); conn != connections.end(); ++conn) {
-			if (conn->first == &connection) {
-				DeviceEvent<Connection>::unsubscribe<Wire>(this, &Wire::on_connection_change,
-						const_cast<Connection *>(&connection));
-				if (conn->first->unslot(this))
-					connections.erase(conn);
-				break;
-			}
-		}
-		queue_change();
-	}
+//	bool Wire::connect(Connection &connection, const std::string &a_name) {
+//		connections[&connection] = static_cast<Slot *>(connection.slot(this));
+//		if (a_name.length()) connection.name(a_name);
+//		DeviceEvent<Connection>::subscribe<Wire>(this, &Wire::on_connection_change, &connection);
+//		queue_change();
+//		return true;
+//	}
+//
+//	void Wire::disconnect(const Connection &connection) {
+//		for (auto conn=connections.begin(); conn != connections.end(); ++conn) {
+//			if (conn->first == &connection) {
+//				DeviceEvent<Connection>::unsubscribe<Wire>(this, &Wire::on_connection_change,
+//						const_cast<Connection *>(&connection));
+//				if (conn->first->unslot(this))
+//					connections.erase(conn);
+//				break;
+//			}
+//		}
+//		queue_change();
+//	}
 
 	double Wire::rd(bool include_vdrop) {
-		if (debug()) std::cout << name() << ": rd() = " << Voltage << std::endl;
-		return Voltage;
+		if (debug()) std::cout << name() << ": rd() = " << -I() * R() << std::endl;
+		return -I() * R();
 	}
 
-	bool Wire::determinate() { return !indeterminate; }
+	bool Wire::determinate() { return true; }
 	bool Wire::signal() {
 		double V = rd();
 		return V > Vdd/2.0;
@@ -1013,6 +1139,7 @@ template <class T> class
 	}
 
 	void ToggleSwitch::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+		if (debug()) std::cout << D->name() << " ToggleSwitch on_change: " << name << std::endl;
 		recalc_output();
 	}
 
@@ -1027,7 +1154,7 @@ template <class T> class
 	ToggleSwitch::~ToggleSwitch() {
 		if (m_in) {
 			DeviceEvent<Connection>::unsubscribe<ToggleSwitch>(this, &ToggleSwitch::on_change, m_in);
-			m_in->unslot(this);
+//			m_in->unslot(this);
 		}
 		DeviceEvent<Connection>::unsubscribe<ToggleSwitch>(this, &ToggleSwitch::on_change, &m_out);
 	}
@@ -1241,7 +1368,7 @@ template <class T> class
 
 	FET::FET(Connection &in, Connection &gate, bool is_nType, bool dbg):
 	m_in(in), m_gate(gate), m_is_nType(is_nType) {
-		m_in_slot = m_in.slot(this);
+		m_slot = static_cast<Slot *>(m_in.slot(this));
 		debug(dbg);
 		DeviceEvent<Connection>::subscribe<FET>(this, &FET::on_change, &m_in);
 		DeviceEvent<Connection>::subscribe<FET>(this, &FET::on_change, &m_gate);
@@ -1258,6 +1385,42 @@ template <class T> class
 	const Connection& FET::gate() const { return m_gate; }
 	Connection& FET::rd() { return m_out; }
 
+//______________________________________________________________
+// A Diode approximation
+	void Diode::recalc() {
+		m_out.impeded(true);
+		m_out.query_voltage();
+		double in = m_in.rd(), out = m_out.rd();
+
+		if (out < in - 0.7 ) {
+			out = in - 0.7;
+			m_out.set_value(out, false);
+		}
+		if (out < 0) out = 0;
+
+		if (debug()) {
+			std::cout << "Diode: " << name() << "; in=" << in << "; out=" << out;
+			std::cout << std::endl;
+		}
+	}
+
+	void Diode::on_change(Connection *D, const std::string &name, const std::vector<BYTE> &data) {
+		recalc();
+	}
+
+	Diode::Diode(Connection &in, Connection &gate, bool is_nType, bool dbg):
+			m_in(in) {
+		m_in_slot = static_cast<Slot *>(m_in.slot(this));
+		debug(dbg);
+		DeviceEvent<Connection>::subscribe<Diode>(this, &Diode::on_change, &m_in);
+		recalc();
+	}
+	Diode::~Diode() {
+//		if (m_in_slot) m_in.unslot(m_in_slot);
+		DeviceEvent<Connection>::unsubscribe<Diode>(this, &Diode::on_change, &m_in);
+	}
+	const Connection& Diode::in() const { return m_in; }
+	Connection& Diode::rd() { return m_out; }
 
 //___________________________________________________________________________________
 // Prevents a jittering signal from toggling between high/low states.
@@ -1384,7 +1547,7 @@ template <class T> class
 		return a_id;
 	}
 
-	bool SignalTrace::unslot(void *slot_id) {
+	bool SignalTrace::unslot(Device *dev) {
 		return false;
 	}
 
@@ -1404,7 +1567,7 @@ template <class T> class
 	}
 
 	SignalTrace::SignalTrace(const std::vector<Connection *> &in, const std::string &a_name) : Device(a_name), m_values(in) {
-		duration_us(20000000);        // 20s (real time seconds)
+		set_duration(20000000);        // 20s (real time seconds)
 		for (auto &v: m_values) {
 			m_initial[v] = v->rd();
 			DeviceEvent<Connection>::subscribe<SignalTrace>(this, &SignalTrace::on_connection_change, v);
@@ -1472,7 +1635,7 @@ template <class T> class
 		return ts;
 	}
 
-	void SignalTrace::duration_us(long a_duration_us) {
+	void SignalTrace::set_duration(long a_duration_us) {
 		m_duration_us = std::chrono::duration<long, std::micro>(a_duration_us);
 	}
 
@@ -1482,20 +1645,32 @@ template <class T> class
 //___________________________________________________________________________________
 // A binary counter.  If clock is set, it is synchronous, otherwise a ripple.
 	void Counter::on_signal(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
-		if (not m_clock) {            // enabled
-			m_overflow = false;
-			if (m_ripple) {
-				m_value = m_value + 1;     // asynchronous ripple counter
-			} else if (c->signal() ^ (not m_rising)) {
-				m_value = m_value + 1;     // synchronous ripple counter
-			}
-			if (m_value & (1 << m_bits.size())) {
-				m_value = 0;
-				m_overflow = true;
-			}
-			set_value(m_value);
-		} else {
+		if (m_signal != c->signal()) {
 			m_signal = c->signal();
+
+			if (not m_clock) {            // enabled
+				if (m_ripple && (m_signal ^ (not m_rising)) ) {
+					m_value = m_value + 1;     // asynchronous ripple counter
+					if (m_overflow.signal()) m_overflow.set_value(Vss, false);
+				} else if (m_signal ^ (not m_rising)) {
+					m_value = m_value + 1;     // synchronous ripple counter
+					if (m_overflow.signal()) m_overflow.set_value(Vss, false);
+				}
+				if (m_value & (1 << m_bits.size())) {
+					m_value = 0;
+					m_overflow.set_value(Vdd, false);
+				}
+				set_value(m_value);
+			}
+//			if (c->name() == "S1.out") {
+//				c->debug(true);
+//				std::cout << "Counter signal "<< (c->signal()?"on":"off");
+//				std::cout << " (V = " << c->rd() << ")";
+//				std::cout << "; rising = " << (m_rising?"true":"false");
+//				std::cout << "; ripple = " << (m_ripple?"true":"false");
+//				std::cout << "; value = " << m_value;
+//				std::cout << std::endl;
+//			}
 		}
 	}
 
@@ -1503,30 +1678,28 @@ template <class T> class
 	void Counter::on_clock(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
 		eq.process_events();
 		if (c->signal() ^ (not m_rising)) {   // rising clock
-			m_overflow = false;
+			if (m_overflow.signal()) m_overflow.set_value(Vss, false);
 			m_value = m_value + (m_signal?1:0);   // clock current input signal into the bus
 			if (m_value & (1 << m_bits.size())) {
 				m_value = 0;
-				m_overflow = true;
+				m_overflow.set_value(Vdd, false);
 			}
-			m_signal = false;       // triggered
+//			m_signal = false;       // triggered
 			set_value(m_value);
 		}
 	}
 
 	Counter::Counter(unsigned int nbits, unsigned long a_value): Device(),
 			m_in(NULL), m_clock(NULL), m_rising(true), m_ripple(true), m_signal(true) {
-		if (m_rising) m_ripple = false;
 		assert(nbits < sizeof(a_value) * 8);
-		m_bits.resize(nbits);
+		set_nbits(nbits);
 		set_value(a_value);
 	}
 
 	Counter::Counter(Connection &a_in, bool rising, size_t nbits, unsigned long a_value, Connection *a_clock):
 		Device(), m_in(&a_in), m_clock(a_clock), m_rising(rising), m_ripple(true), m_signal(true) {
-		if (m_rising) m_ripple = false;
 		assert(nbits < sizeof(a_value) * 8);
-		m_bits.resize(nbits);
+		set_nbits(nbits);
 		set_value(a_value);
 
 		DeviceEvent<Connection>::subscribe<Counter>(this, &Counter::on_signal, m_in);
@@ -1540,14 +1713,22 @@ template <class T> class
 		if (m_clock) DeviceEvent<Connection>::unsubscribe<Counter>(this, &Counter::on_clock, m_clock);
 	}
 
+	void Counter::set_nbits(int nbits) {
+		if (nbits < 1) nbits = 1;
+		if ((unsigned)nbits > MAX_BITS) nbits = MAX_BITS;
+		m_bits.resize(nbits);
+	}
+
 	void Counter::set_input(Connection *c) {
 		if (m_in) {
 			DeviceEvent<Connection>::unsubscribe<Counter>(this, &Counter::on_signal, m_in);
 //			m_in->unslot(this);
 		}
 		m_in = c;
-		if (m_in) DeviceEvent<Connection>::subscribe<Counter>(this, &Counter::on_signal, m_in);
-//		m_in->slot(this);
+		if (m_in) {
+			DeviceEvent<Connection>::subscribe<Counter>(this, &Counter::on_signal, m_in);
+//			m_in->slot(this);
+		}
 	}
 
 	void Counter::set_clock(Connection *c) {
@@ -1580,6 +1761,176 @@ template <class T> class
 		std::vector<Connection *> l_bits;  // we use "pointer to connection" so we can easily plug into other components
 		for (auto &bit: m_bits) {
 			l_bits.push_back(&bit);
+		}
+		return l_bits;
+	}
+
+
+	//___________________________________________________________________________________
+	//   Looks like a shift register.
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	ShiftRegister::ShiftRegister(unsigned int nbits, unsigned long a_value) : m_rising(true), m_value(a_value) {
+		m_high.set_value(Vdd, false);
+		m_low.set_value(Vss, false);
+		set_nbits(8);
+		m_in = NULL;
+		m_clock = NULL;
+		m_enable = &m_high;
+		m_shift_right = &m_low;
+		set_value(m_value);
+	}
+
+	ShiftRegister::ShiftRegister(Connection &a_in, bool rising, size_t nbits, unsigned long a_value, Connection *a_clock)
+		 : m_in(&a_in), m_rising(rising), m_value(a_value) {
+		m_high.set_value(Vdd, false);
+		m_low.set_value(Vss, false);
+		set_nbits(nbits);
+
+		m_clock = a_clock;
+		m_enable = &m_high;
+		m_shift_right = &m_low;
+		set_value(m_value);
+	}
+
+	ShiftRegister::~ShiftRegister() {}
+
+	// synchronous ShiftRegister on clock signal
+	void ShiftRegister::on_clock(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
+		if (!m_enable->signal()) return;
+		if (!(m_in)) return;
+
+		if (c->signal() ^ (not m_rising)) {   // rising or falling clock edge
+			bool signal = m_in->signal();
+			bool overflow = false;
+			if (m_shift_right->signal()) {
+				overflow = (m_value & 1);
+				set_value(m_max_val & ((m_value >> 1) + (signal?(1<<(m_bits.size()-1)):0)));
+			} else {
+				overflow = (m_value & (1<<(m_bits.size()-1)));
+				set_value(m_max_val & ((m_value << 1) + (signal?1:0)));
+			}
+			m_overflow.set_value(overflow * Vdd, false);
+		}
+	}
+
+	Connection &ShiftRegister::bit(size_t n) {
+		assert(n < m_bits.size());
+		return m_bits[n];
+	}
+
+	std::vector<Connection *> ShiftRegister::databits() {
+		std::vector<Connection *> l_bits;
+		for (auto &bit: m_bits) {
+			l_bits.push_back(&bit);
+		}
+		return l_bits;
+	}
+
+	void ShiftRegister::set_nbits(int nbits) {
+		if (nbits < 1) nbits = 1;
+		if ((unsigned)nbits > MAX_BITS) nbits = MAX_BITS;
+		m_bits.resize(nbits);
+		m_max_val = (1 << nbits) - 1;
+	}
+
+	void ShiftRegister::set_input(Connection *c) {
+		if (m_in) m_in->unslot(this);
+		m_in = c;
+		m_in->slot(this);
+	}
+
+	void ShiftRegister::set_clock(Connection *c) {
+		if (m_clock) DeviceEvent<Connection>::unsubscribe<ShiftRegister>(this, &ShiftRegister::on_clock, m_clock);
+		m_clock = c;
+		if (m_clock) DeviceEvent<Connection>::subscribe<ShiftRegister>(this, &ShiftRegister::on_clock, m_clock);
+	}
+
+	void ShiftRegister::set_shift_right(Connection *c) {
+		if (!c) m_shift_right = &m_low;
+		else m_shift_right = c;
+	}
+	void ShiftRegister::set_enable(Connection *c) {
+		if (!c) m_enable = &m_high;
+		else m_enable = c;
+	}
+	void ShiftRegister::set_name(const std::string &a_name) {
+		name(a_name);
+		for (size_t n = 0; n < m_bits.size(); ++n) {
+			m_bits[n].name(a_name + int_to_hex(n, "."));
+		}
+	}
+	void ShiftRegister::set_value(unsigned long long a_value) {
+		m_value = a_value;
+		for (size_t n = 0; n < m_bits.size(); ++n) {
+			m_bits[n].set_value(((a_value & 1) != 0) * Vdd, false);
+			a_value >>= 1;
+		}
+	}
+	void ShiftRegister::set_rising(bool a_rising) { m_rising = a_rising; }
+	bool ShiftRegister::get_rising() { return m_rising; }
+
+	Connection *ShiftRegister::get_input() { return m_in; }
+	Connection *ShiftRegister::get_clock() { return m_clock; }
+	Connection *ShiftRegister::get_shift_right() { return m_shift_right; }
+	Connection *ShiftRegister::get_enable() { return m_enable; }
+	Connection &ShiftRegister::overflow() { return m_overflow; }
+	size_t ShiftRegister::nbits() const { return m_bits.size(); }
+	unsigned long long ShiftRegister::get() const { return m_value; }
+
+	//___________________________________________________________________________________
+	// An LED panel.  Das Blinkinlights.
+	LEDPanel::LEDPanel(unsigned int nbits) {
+		set_nbits(nbits);
+	};
+
+	LEDPanel::~LEDPanel() {}
+
+	void LEDPanel::on_changed(Connection *D, const std::string &name, const std::vector<BYTE> &data) {}
+
+	bool LEDPanel::connect(Connection &from, int a_slot) {
+		if ((unsigned)a_slot >= m_bits.size()) return false;
+		if (m_bits[a_slot]) return false;
+		m_bits[a_slot] = &from;
+		DeviceEvent<Connection>::subscribe<LEDPanel>(this, &LEDPanel::on_changed, &from);
+		return true;
+	}
+
+	void LEDPanel::disconnect(Connection &from, int a_slot) {
+		if ((unsigned)a_slot >= m_bits.size()) return;
+		if (m_bits[a_slot] != &from) return;
+		DeviceEvent<Connection>::unsubscribe<LEDPanel>(this, &LEDPanel::on_changed, &from);
+		m_bits[a_slot] = NULL;
+	}
+
+	Connection *LEDPanel::bit(size_t n) {
+		assert(n < m_bits.size());
+		return m_bits[n];
+	}
+
+	std::vector<Connection *> LEDPanel::databits(){
+		std::vector<Connection *> l_bits;
+		for (auto &bit: m_bits) {
+			l_bits.push_back(bit);
+		}
+		return l_bits;
+	}
+
+	void LEDPanel::set_nbits(int nbits) {
+		if (nbits < 1) nbits = 1;
+		if ((unsigned)nbits > MAX_BITS) nbits = MAX_BITS;
+		m_bits.resize(nbits);
+	}
+
+	void LEDPanel::set_name(const std::string &a_name) { name(a_name); }
+
+	size_t LEDPanel::nbits() const { return m_bits.size(); }
+	unsigned long long LEDPanel::get() const {
+		unsigned long long l_bits = 0;
+		for (size_t n = 0; n < m_bits.size(); ++n) {
+			l_bits = l_bits << 1;
+			if (m_bits[n]) {
+				l_bits += m_bits[n]->signal()?1:0;
+			}
 		}
 		return l_bits;
 	}

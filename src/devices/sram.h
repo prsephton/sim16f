@@ -5,6 +5,7 @@
 #include <queue>
 #include "constants.h"
 #include "device_base.h"
+#include "device_queue.h"
 
 class SRAM: public Device{
 	BYTE m_bank[4][0x80];

@@ -1,6 +1,6 @@
 #include <iostream>
-#include "dlg_context.h"
 #include "../../utils/utility.h"
+#include "dlg_context.h"
 
 namespace app {
 	SmartPtr<ContextDialogFactory> ContextDialogFactory::factory;
@@ -71,14 +71,15 @@ namespace app {
 
 		std::string l_name="";
 		double l_voltage=0, l_capacitance=0, l_resistance=0, l_inductance=0;
+		double l_frequency=0, l_duration=0;
 		bool l_inverted=false, l_gate_invert=false;
 		double l_orientation=0, l_scale=1;
 		bool l_trigger=false;
 		double l_xpos=0, l_ypos=0, l_width=100, l_height=100;
-		int l_rows=1, l_inputs=1, l_selectors=1;
+		int l_rows=1, l_inputs=1, l_outputs=1, l_selectors=1;
 		bool l_attr_ntype=false, l_attr_synchronous=false, l_attr_first=false, l_attr_join=false;
 		bool l_attr_invert=false, l_attr_underscore=false, l_attr_overscore=false, l_attr_bold=false;
-		bool l_switch_open=false, l_attr_xor=false;
+		bool l_switch_closed=false, l_attr_xor=false, l_attr_flipped=false;
 		std::string l_font_face="Sans";
 		float l_font_size=10;
 		double l_red=0, l_green=0, l_blue=0;
@@ -116,6 +117,20 @@ namespace app {
 		m_lb_inductance->set_visible(need_inductance);
 		if (need_inductance) {
 			scaled_value(m_inductance, m_inductance_unit, 0).set_from_value(l_inductance);
+		}
+
+		bool need_frequency = component.needs_frequency(l_frequency);
+		m_frequency->get_parent()->set_visible(need_frequency);
+		m_lb_frequency->set_visible(need_frequency);
+		if (need_frequency) {
+			scaled_value(m_frequency, m_frequency_unit, 0).set_from_value(l_frequency);
+		}
+
+		bool need_duration = component.needs_duration(l_duration);
+		m_duration->get_parent()->set_visible(need_duration);
+		m_lb_duration->set_visible(need_duration);
+		if (need_duration) {
+			scaled_value(m_duration, m_duration_unit, 0).set_from_value(l_duration);
 		}
 
 		bool need_inverted = component.needs_inverted(l_inverted);
@@ -192,6 +207,12 @@ namespace app {
 		if (need_inputs)
 			m_entry_inputs->set_text(as_text(l_inputs));
 
+		bool need_outputs = component.needs_outputs(l_outputs);
+		m_lb_outputs->set_visible(need_outputs);
+		m_entry_outputs->set_visible(need_outputs);
+		if (need_outputs)
+			m_entry_outputs->set_text(as_text(l_outputs));
+
 		bool need_selectors = component.needs_selectors(l_selectors);
 		m_lb_selectors->set_visible(need_selectors);
 		m_entry_selectors->set_visible(need_selectors);
@@ -207,6 +228,7 @@ namespace app {
 		bool need_overscore = component.needs_overscore(l_attr_overscore);
 		bool need_bold = component.needs_bold(l_attr_bold);
 		bool need_xor = component.needs_xor(l_attr_xor);
+		bool need_flipped = component.needs_flipped(l_attr_flipped);
 		m_ntype->set_visible(need_ntype);
 		m_synchronous->set_visible(need_synchronous);
 		m_first->set_visible(need_first);
@@ -216,6 +238,7 @@ namespace app {
 		m_overscore->set_visible(need_overscore);
 		m_bold->set_visible(need_bold);
 		m_is_xor->set_visible(need_xor);
+		m_flipped->set_visible(need_flipped);
 		if (need_ntype) m_ntype->set_active(l_attr_ntype);
 		if (need_synchronous) m_synchronous->set_active(l_attr_synchronous);
 		if (need_first) m_first->set_active(l_attr_first);
@@ -225,20 +248,24 @@ namespace app {
 		if (need_overscore) m_overscore->set_active(l_attr_overscore);
 		if (need_bold) m_bold->set_active(l_attr_bold);
 		if (need_xor) m_is_xor->set_active(l_attr_xor);
+		if (need_flipped) m_flipped->set_active(l_attr_flipped);
 
 		bool need_attributes = (
 				need_ntype || need_synchronous || need_first ||
 				need_join || need_invert || need_underscore ||
-				need_overscore || need_bold || need_xor);
+				need_overscore || need_bold || need_xor || need_flipped);
 
 		m_lb_attributes->set_visible(need_attributes);
 		m_box_attributes->set_visible(need_attributes);
 
-		bool need_switch = component.needs_switch(l_switch_open);
+		bool need_switch = component.needs_switch(l_switch_closed);
 		m_lb_switch->set_visible(need_switch);
 		m_box_switch->set_visible(need_switch);
 
-		if (need_switch) m_rb_switch_open->set_active(l_switch_open);
+		if (need_switch) {
+			m_rb_switch_open->set_active(not l_switch_closed);
+			m_rb_switch_closed->set_active(l_switch_closed);
+		}
 
 		bool need_font = component.needs_font(l_font_face, l_font_size);
 		m_lb_font->set_visible(need_font);
@@ -268,6 +295,8 @@ namespace app {
 			if (need_resistance) component.set_resistance(scaled_value(m_resistance, m_resistance_unit, 2).value());
 			if (need_capacitance) component.set_capacitance(scaled_value(m_capacitance, m_capacitance_unit, 0).value());
 			if (need_inductance) component.set_inductance(scaled_value(m_inductance, m_inductance_unit, 0).value());
+			if (need_duration) component.set_duration(scaled_value(m_duration, m_duration_unit, 0).value());
+			if (need_frequency) component.set_frequency(scaled_value(m_frequency, m_frequency_unit, 0).value());
 			if (need_inverted) component.set_inverted(m_rb_inverted->get_active());
 			if (need_gate_inverted) component.set_gate_inverted(m_rb_gate_inverted->get_active());
 //			std::cout << "Gate invert [dlg]=" << (m_rb_gate_inverted->get_active()?"true":"false") << std::endl;
@@ -295,6 +324,7 @@ namespace app {
 
 			if (need_rows) component.set_rows(as_int(m_entry_rows->get_text()));
 			if (need_inputs) component.set_inputs(as_int(m_entry_inputs->get_text()));
+			if (need_outputs) component.set_outputs(as_int(m_entry_outputs->get_text()));
 			if (need_selectors) component.set_selectors(as_int(m_entry_selectors->get_text()));
 
 			if (need_ntype) component.set_ntype(m_ntype->get_active());
@@ -306,8 +336,9 @@ namespace app {
 			if (need_overscore) component.set_overscore(m_overscore->get_active());
 			if (need_bold) component.set_bold(m_bold->get_active());
 			if (need_xor) component.set_xor(m_is_xor->get_active());
+			if (need_flipped) component.set_flipped(m_flipped->get_active());
 
-			if (need_switch) component.set_switch(m_rb_switch_open->get_active());
+			if (need_switch) component.set_switch(m_rb_switch_closed->get_active());
 			if (need_font) {
 				std::string l_fontname = m_bn_font->get_font_name();
 				size_t n = l_fontname.find_last_of(" ");
@@ -340,6 +371,8 @@ namespace app {
 		m_lb_resistance = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_builder->get_object("ctx_lb_resistance"));
 		m_lb_capacitance = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_builder->get_object("ctx_lb_capacitance"));
 		m_lb_inductance = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_builder->get_object("ctx_lb_inductance"));
+		m_lb_frequency = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_builder->get_object("ctx_lb_frequency"));
+		m_lb_duration = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_builder->get_object("ctx_lb_duration"));
 		m_lb_inverted = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_builder->get_object("ctx_lb_invert"));
 		m_lb_gate_invert = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_builder->get_object("ctx_lb_gate_invert"));
 		m_lb_orientation = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_builder->get_object("ctx_lb_orientation"));
@@ -348,6 +381,7 @@ namespace app {
 		m_lb_position = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_builder->get_object("ctx_lb_position"));
 		m_lb_rows = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_builder->get_object("ctx_lb_rows"));
 		m_lb_inputs = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_builder->get_object("ctx_lb_inputs"));
+		m_lb_outputs = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_builder->get_object("ctx_lb_outputs"));
 		m_lb_selectors = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_builder->get_object("ctx_lb_selectors"));
 		m_lb_attributes = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_builder->get_object("ctx_lb_attributes"));
 		m_lb_switch = Glib::RefPtr<Gtk::Label>::cast_dynamic(m_builder->get_object("ctx_lb_switch"));
@@ -359,10 +393,14 @@ namespace app {
 		m_resistance = Glib::RefPtr<Gtk::Entry>::cast_dynamic(m_builder->get_object("ctx_ohm"));
 		m_capacitance = Glib::RefPtr<Gtk::Entry>::cast_dynamic(m_builder->get_object("ctx_farad"));
 		m_inductance = Glib::RefPtr<Gtk::Entry>::cast_dynamic(m_builder->get_object("ctx_henry"));
+		m_frequency = Glib::RefPtr<Gtk::Entry>::cast_dynamic(m_builder->get_object("ctx_frequency"));
+		m_duration = Glib::RefPtr<Gtk::Entry>::cast_dynamic(m_builder->get_object("ctx_duration"));
 		m_voltage_unit = Glib::RefPtr<Gtk::ComboBoxText>::cast_dynamic(m_builder->get_object("ctx_p_unit"));
 		m_resistance_unit = Glib::RefPtr<Gtk::ComboBoxText>::cast_dynamic(m_builder->get_object("ctx_r_unit"));
 		m_capacitance_unit = Glib::RefPtr<Gtk::ComboBoxText>::cast_dynamic(m_builder->get_object("ctx_f_unit"));
 		m_inductance_unit = Glib::RefPtr<Gtk::ComboBoxText>::cast_dynamic(m_builder->get_object("ctx_h_unit"));
+		m_frequency_unit = Glib::RefPtr<Gtk::ComboBoxText>::cast_dynamic(m_builder->get_object("ctx_frequency_unit"));
+		m_duration_unit = Glib::RefPtr<Gtk::ComboBoxText>::cast_dynamic(m_builder->get_object("ctx_duration_unit"));
 
 		m_box_inverted = Glib::RefPtr<Gtk::Box>::cast_dynamic(m_builder->get_object("ctx_box_inverted"));
 		m_rb_inverted = Glib::RefPtr<Gtk::RadioButton>::cast_dynamic(m_builder->get_object("ctx_inverted"));
@@ -391,6 +429,7 @@ namespace app {
 
 		m_entry_rows = Glib::RefPtr<Gtk::Entry>::cast_dynamic(m_builder->get_object("ctx_rows"));
 		m_entry_inputs = Glib::RefPtr<Gtk::Entry>::cast_dynamic(m_builder->get_object("ctx_inputs"));
+		m_entry_outputs = Glib::RefPtr<Gtk::Entry>::cast_dynamic(m_builder->get_object("ctx_outputs"));
 		m_entry_selectors = Glib::RefPtr<Gtk::Entry>::cast_dynamic(m_builder->get_object("ctx_selectors"));
 
 		m_box_attributes = Glib::RefPtr<Gtk::Box>::cast_dynamic(m_builder->get_object("ctx_box_attributes"));
@@ -403,9 +442,11 @@ namespace app {
 		m_overscore = Glib::RefPtr<Gtk::CheckButton>::cast_dynamic(m_builder->get_object("ctx_overscore"));
 		m_bold = Glib::RefPtr<Gtk::CheckButton>::cast_dynamic(m_builder->get_object("ctx_bold"));
 		m_is_xor = Glib::RefPtr<Gtk::CheckButton>::cast_dynamic(m_builder->get_object("ctx_xor"));
+		m_flipped = Glib::RefPtr<Gtk::CheckButton>::cast_dynamic(m_builder->get_object("ctx_flipped"));
 
 		m_box_switch = Glib::RefPtr<Gtk::Box>::cast_dynamic(m_builder->get_object("ctx_box_switch"));
 		m_rb_switch_open = Glib::RefPtr<Gtk::RadioButton>::cast_dynamic(m_builder->get_object("ctx_switch_open"));
+		m_rb_switch_closed = Glib::RefPtr<Gtk::RadioButton>::cast_dynamic(m_builder->get_object("ctx_switch_closed"));
 
 		m_bn_font = Glib::RefPtr<Gtk::FontButton>::cast_dynamic(m_builder->get_object("ctx_font"));
 		m_bn_colour = Glib::RefPtr<Gtk::ColorButton>::cast_dynamic(m_builder->get_object("ctx_colour"));

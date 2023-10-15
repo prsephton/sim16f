@@ -45,6 +45,7 @@
 #include "devices/constants.h"
 #include "devices/flags.h"
 
+
 std::string pad(const std::string &payload) {
 	std::string padded = std::string("\t") + payload + "                        ";
 	padded.resize(14);

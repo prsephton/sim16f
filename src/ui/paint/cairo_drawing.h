@@ -171,7 +171,7 @@ namespace app {
 	// Describe something that a mouse pointer points at
 	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
 	struct WHATS_AT {
-		typedef enum {NOTHING, INPUT, OUTPUT, GATE, IN_OUT, CLOCK, CLICK, START, END, SYMBOL, LINE, POINT, TEXT} ELEMENT;
+		typedef enum {NOTHING, INPUT, OUTPUT, GATE, IN_OUT, CLOCK, CLICK, START, END, SYMBOL, LINE, POINT, TEXT, OVERFLOW} ELEMENT;
 		typedef enum {EAST, SOUTH, WEST, NORTH} AFFINITY;
 
 		Configurable *pt;

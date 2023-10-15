@@ -253,7 +253,7 @@ namespace app {
 				std::string dtype = "analog";
 				if (a_label == "Resistor") {
 					Terminal *l_dev = new Terminal();
-					l_dev->debug(true);
+//					l_dev->debug(true);
 					auto dia = new ResistorDiagram(scratch->area(), *l_dev, 0, 0);
 					return scratch->add_diagram(dtype, a_label, dia, l_dev, a_cname);
 				} else if (a_label == "Capacitor") {
@@ -266,6 +266,9 @@ namespace app {
 //					l_dev->debug(true);
 					auto dia = new InductorDiagram(scratch->area(), *l_dev, 0, 0);
 					return scratch->add_diagram(dtype, a_label, dia, l_dev, a_cname);
+				} else if (a_label == "Diode") {
+				} else if (a_label == "FET") {
+				} else if (a_label == "BJT") {
 				}
 				return NULL;
 			}
@@ -301,8 +304,11 @@ namespace app {
 					auto dia = new CounterDiagram(*l_dev, scratch->area(), 0, 0);
 					return scratch->add_diagram(dtype, a_label, dia, l_dev, a_cname);
 				} else if (a_label == "Shift Register") {
-
+					ShiftRegister *l_dev = new ShiftRegister(8);
+					auto dia = new ShiftRegisterDiagram(*l_dev, scratch->area(), 0, 0);
+					return scratch->add_diagram(dtype, a_label, dia, l_dev, a_cname);
 				} else if (a_label == "Clock") {
+				} else if (a_label == "Noise") {
 
 				}
 				return NULL;
@@ -314,11 +320,17 @@ namespace app {
 				if (a_label == "Switch") {
 					ToggleSwitch *l_dev = new ToggleSwitch({});
 					l_dev->debug(true);
+					l_dev->rd().debug(true);
 					auto dia = new ToggleSwitchDiagram(*l_dev, 0, 0, scratch->area());
 					return scratch->add_diagram(dtype, a_label, dia, l_dev, a_cname);
 				} else if (a_label == "Relay") {
 					Relay *l_dev = new Relay({});
 					auto dia = new RelayDiagram(*l_dev, 0, 0, scratch->area());
+					return scratch->add_diagram(dtype, a_label, dia, l_dev, a_cname);
+				} else if (a_label == "Crystal") {
+				} else if (a_label == "LED") {
+					LEDPanel *l_dev = new LEDPanel(8);
+					auto dia = new LEDPanelDiagram(*l_dev, scratch->area(), 0, 0);
 					return scratch->add_diagram(dtype, a_label, dia, l_dev, a_cname);
 				}
 				return NULL;
@@ -336,7 +348,7 @@ namespace app {
 					return scratch->add_diagram(dtype, a_label, dia, l_dev, a_cname);
 				} else if (a_label == "And") {
 					AndGate *l_dev = new AndGate(std::vector<Connection *>({NULL, NULL}));
-					l_dev->debug(true);
+//					l_dev->debug(true);
 					auto dia = new AndDiagram(*l_dev, 0, 0, 0, scratch->area());
 					return scratch->add_diagram(dtype, a_label, dia, l_dev, a_cname);
 				} else if (a_label == "Nand") {
@@ -349,6 +361,7 @@ namespace app {
 					return scratch->add_diagram(dtype, a_label, dia, l_dev, a_cname);
 				} else if (a_label == "Nor") {
 					OrGate *l_dev = new OrGate(std::vector<Connection *>({NULL, NULL}), true);
+					l_dev->rd().debug(true);
 					auto dia = new NorDiagram(*l_dev, 0, 0, 0, scratch->area());
 					return scratch->add_diagram(dtype, a_label, dia, l_dev, a_cname);
 				} else if (a_label == "Xor") {
@@ -501,10 +514,13 @@ namespace app {
 			try {
 				std::string l_filename = m_file_chooser->load_scratch_file();
 				ScratchXML xml(l_filename);
+				DeviceEventQueue::pause(true);
 				clear();
 				xml.load(*this);
+				DeviceEventQueue::pause(false);
 				m_saved = true;
 			} catch (std::string &err) {
+				DeviceEventQueue::pause(false);
 				auto dialog = Gtk::MessageDialog(
 						err, false,
 						Gtk::MESSAGE_INFO,
@@ -626,6 +642,7 @@ namespace app {
 				if (cfg->needs_size(w, h)){ attrs["size"] = as_text(w, h); }
 				if (cfg->needs_rows(i)){ attrs["rows"] = as_text(i); }
 				if (cfg->needs_inputs(i)){ attrs["inputs"] = as_text(i); }
+				if (cfg->needs_outputs(i)){ attrs["outputs"] = as_text(i); }
 				if (cfg->needs_selectors(i)){ attrs["selectors"] = as_text(i); }
 				if (cfg->needs_ntype(b)){ attrs["ntype"] = as_text(b); }
 				if (cfg->needs_synchronous(b)){ attrs["synchronous"] = as_text(b); }
@@ -658,7 +675,7 @@ namespace app {
 			if (std::string("first, join, invert, underscore, overscore, bold, switch, xor").find(attr) != std::string::npos)
 				return ScratchConverter::boolean;
 
-			if (std::string("rows, inputs, selectors").find(attr) != std::string::npos)
+			if (std::string("rows, inputs, outputs, selectors").find(attr) != std::string::npos)
 				return ScratchConverter::integer;
 
 			return ScratchConverter::str;
@@ -708,6 +725,10 @@ namespace app {
 						cfg->set_voltage(attr.data.fp);
 					} else if (attr.name == "resistance") {
 						cfg->set_resistance(attr.data.fp);
+					} else if (attr.name == "inputs") {
+						cfg->set_inputs(attr.data.integer);
+					} else if (attr.name == "outputs") {
+						cfg->set_outputs(attr.data.integer);
 					}
 				}
 				dia->drawing->apply_config_changes();
@@ -729,10 +750,10 @@ namespace app {
 		}
 
 		virtual void connect(std::map<std::string, std::string>from_attrs, std::map<std::string, std::string>to_attrs) {
-			std::cout << "Connect " << from_attrs["id"] << " to " << to_attrs["id"] << std::endl;
 			CairoDrawingBase *source, *target;
 			auto source_info = get_info(from_attrs, source);
 			auto target_info = get_info(to_attrs, target);
+			std::cout << "Connect " << m_devices[source]->dev->name() << " to " << m_devices[target]->dev->name() << std::endl;
 			if (m_devices.find(target) != m_devices.end()) {
 				auto dia = m_devices[target];
 				target_info.id = dia->dev->slot_id(target_info.id);

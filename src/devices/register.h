@@ -1,6 +1,7 @@
 #pragma once
 
 #include "device_base.h"
+#include "device_queue.h"
 #include "sram.h"
 #include "clock.h"
 #include "flags.h"

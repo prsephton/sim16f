@@ -1,7 +1,6 @@
 #include "cpu.h"
 #include "ui/application.h"
 
-
 //___________________________________________________________________________________
 // Some runtime parameters
 struct RunParams {
@@ -22,7 +21,7 @@ void *run_machine(void *a_params) {
 			try {
 				if (not cpu.process_queue())
 //					std::this_thread::yield();
-					sleep_for_us(100);
+					sleep_for_us(5);
 			} catch (std::string &error) {
 				std::cerr << error << "\n";
 			}

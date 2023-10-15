@@ -1,5 +1,7 @@
 #include <queue>
 #include "device_base.h"
+#include "simple_devices.h"
+#include "device_queue.h"
 #include "register.h"
 #include "sram.h"
 #include "flags.h"

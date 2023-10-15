@@ -14,7 +14,7 @@ struct MeshItem {
 	double Itotal = 0;
 	const std::string id();
 	double R();
-	double V();
+	double V(bool calc = false);
 	bool is_voltage();
 
 	MeshItem(Device *d, bool reversed=false);
@@ -32,6 +32,7 @@ struct Mesh {
 };
 
 struct Connection_Data {
+	int m_debug = 0;
 	std::map<Device *, SmartPtr<Node>> targets;
 	std::map<Device *, SmartPtr<Node>> all_nodes;
 	std::set<Device *> loop_start;
@@ -40,6 +41,86 @@ struct Connection_Data {
 	std::map<Device *, double> amps;
 	std::vector<SmartPtr<Mesh>> meshes;
 };
+
+class Nexus {
+
+	void nexus_targets(Device *D) {
+		if (sources.count(D)) return;
+		sources.insert(D);
+		for (auto S: D->targets())
+			nexus_sources(S);
+	}
+
+	void nexus_sources(Device *D) {
+		if (targets.count(D)) return;
+		targets.insert(D);
+		for (auto T: D->sources())
+			nexus_targets(T);
+	}
+
+  public:
+	std::set<Device *> sources={};
+	std::set<Device *> targets={};
+
+	const std::string name() {
+		if (sources.size() == 0 and targets.size() == 0) return "empty";
+		std::string l_name;
+		std::vector<Device *>s(sources.begin(), sources.end());
+		std::vector<Device *>t(targets.begin(), targets.end());
+		std::sort(s.begin(), s.end());
+		std::sort(t.begin(), t.end());
+		l_name = "S";
+		for (auto item: s) l_name = l_name + ":" + as_text(item);
+		l_name += "T";
+		for (auto item: s) l_name = l_name + ":" + as_text(item);
+		return l_name;
+	}
+
+	Nexus() {}
+	Nexus(const Nexus &other) {
+		sources = other.sources;
+		targets = other.targets;
+	}
+
+	Nexus(Device *D, bool input) {
+		if (input)
+			nexus_sources(D);
+		else
+			nexus_targets(D);
+	}
+};
+
+
+class NexusMap {
+	std::map<std::string, Nexus> m_map;
+
+  protected:
+	void build_map(Device *D) {
+		auto s = Nexus(D, true);
+		auto l_name = s.name();
+		if (m_map.find(l_name) == m_map.end()) {
+			m_map[l_name] = s;
+			for (auto item: s.sources)
+				build_map(item);
+		}
+
+		auto t = Nexus(D, false);
+		l_name = t.name();
+		if (m_map.find(l_name) == m_map.end()) {
+			m_map[l_name] = t;
+			for (auto item: t.targets)
+				build_map(item);
+		}
+	}
+
+  public:
+	NexusMap(Device *D) {
+		build_map(D);
+	}
+
+	const std::map<std::string, Nexus> &map() const { return m_map; }
+};
+
 
 class Connection_Node: public Node {
 //      Make a 'node' containing slots for each of the source connections.  Note
@@ -57,14 +138,15 @@ class Connection_Node: public Node {
 //      We represent the node voltage value as a "voltage drop" defined in each of
 //  the source components.
 
-	int m_debug = 0;
-
 	Device *m_current;
 	SmartPtr<Connection_Node> m_parent;
 	SmartPtr<Connection_Data> m_cdata;
 
 	std::vector<Device *> m_sources;
 	std::vector<Device *> m_targets;
+
+	int debug() { return m_cdata->m_debug; }
+	void debug(int a_level) { m_cdata->m_debug = a_level; }
 
 protected:
 	std::vector<Device *> sources() const { return m_sources; }
@@ -79,11 +161,12 @@ protected:
 	Node *get_parent();
 	Device *device() { return m_current; }
 
+	void set_node_nexus();
 	// build a node map recursively
 	//   produces m_devicelist, m_loop_start and m_loop_term in the first node
 	void get_sources(SmartPtr<Connection_Node> a_node);
 	void get_targets(SmartPtr<Connection_Node> a_node);
-	bool add_shared(Mesh &prev, Mesh &mesh, Connection_Node *start, const std::set<Device *>&finish);
+	bool add_shared(Mesh &mesh, Connection_Node *start, std::set<Device *>finish);
 	std::vector<Device *> shortest_path(std::vector<Device *>a_targets);
 	int find_shortest_path(Device *dev);
 

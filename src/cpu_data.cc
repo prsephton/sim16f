@@ -3,8 +3,8 @@
 #include "utils/smart_ptr.cc"
 
 
-template <class Register> class
-	DeviceEvent<Register>::registry  DeviceEvent<Register>::subscribers;
+template <class T> class
+	DeviceEvent<T>::registry  DeviceEvent<T>::subscribers;
 
 CpuEvent::registry CpuEvent::subscribers;
 

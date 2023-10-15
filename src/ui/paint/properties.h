@@ -15,7 +15,6 @@
 namespace app {
 	namespace prop {
 
-
 		class Rotation : virtual public Configurable{
 			double m_rotation = 0;
 			virtual bool needs_orientation(double &r) { r = get_rotation(); return true; }
@@ -40,6 +39,16 @@ namespace app {
 			void height(double h) { m_h = h; }
 		};
 
+		class Width : virtual public Configurable{
+			double m_w;
+			virtual bool needs_width(double &w) { w = width(); return true; }
+			virtual void set_width(double w) { width(w); }
+		  public:
+
+			double width() { return m_w; }
+			void width(double h) { m_w = h; }
+		};
+
 		class Scale : virtual public Configurable{
 			double m_scale = 0;
 			virtual bool needs_scale(double &s) { s = get_scale(); return true; }
@@ -57,6 +66,24 @@ namespace app {
 			bool inverted() const { return m_inverted; }
 		};
 
+		class Synchronous : virtual public Configurable{
+			bool m_synchronous = false;
+			virtual bool needs_synchronous(bool &a_synchronous){ a_synchronous = synchronous(); return true; }
+			virtual void set_synchronous(bool a_synchronous){ synchronous(a_synchronous); }
+		  public:
+			void synchronous(bool a_invert) { m_synchronous = a_invert; }
+			bool synchronous() const { return m_synchronous; }
+		};
+
+		class Trigger : virtual public Configurable{
+			bool m_positive = false;
+			virtual bool needs_trigger(bool &a_positive){ a_positive = positive(); return true; }
+			virtual void set_trigger(bool a_positive){ positive(a_positive); }
+		  public:
+			void positive(bool a_positive) { m_positive = a_positive; }
+			bool positive() const { return m_positive; }
+		};
+
 		class Inputs: virtual public Configurable {
 			int m_inputs = 0;
 			virtual bool needs_inputs(int &a_inputs){a_inputs = inputs(); return true; }
@@ -64,6 +91,15 @@ namespace app {
 		  public:
 			int inputs() const { return m_inputs; }
 			void inputs(int a_inputs) { m_inputs = a_inputs; }
+		};
+
+		class Outputs: virtual public Configurable {
+			int m_outputs = 0;
+			virtual bool needs_outputs(int &a_outputs){a_outputs = outputs(); return true; }
+			virtual void set_outputs(int a_outputs){ outputs(a_outputs); }
+		  public:
+			int outputs() const { return m_outputs; }
+			void outputs(int a_outputs) { m_outputs = a_outputs; }
 		};
 
 //		class Gates: virtual public Configurable {
@@ -83,6 +119,17 @@ namespace app {
 		  public:
 			virtual void set_xor(int a_xor){ m_xor = a_xor; }
 			bool is_xor() const { return m_xor; }
+		};
+
+		class Flipped: virtual public Configurable {
+			bool m_flipped = false;
+
+			virtual bool needs_flipped(bool &a_flipped){a_flipped = flipped(); return true; }
+			virtual void set_flipped(int a_flipped){ flipped(a_flipped); }
+
+		  public:
+			bool flipped() const { return m_flipped; }
+			void flipped(bool a_flipped) { m_flipped = a_flipped; }
 		};
 
 		class Voltage : virtual public Configurable {
@@ -130,6 +177,28 @@ namespace app {
 			void inductance(double a_inductance){ m_inductance = a_inductance; }
 		};
 
+		class Duration : virtual public Configurable {
+			double m_duration = 10000;
+
+			// context menu integration
+			virtual bool needs_duration(double &a_duration){ a_duration = duration(); return true; }
+			virtual void set_duration(double a_duration) { duration(a_duration); }
+		  public:
+			double duration() const { return m_duration; }
+			void duration(double a_duration){ m_duration = a_duration; }
+		};
+
+		class Frequency : virtual public Configurable {
+			double m_frequency = 10000;
+
+			// context menu integration
+			virtual bool needs_frequency(double &a_frequency){ a_frequency = frequency(); return true; }
+			virtual void set_frequency(double a_frequency) { frequency(a_frequency); }
+		  public:
+			double frequency() const { return m_frequency; }
+			void frequency(double a_frequency){ m_frequency = a_frequency; }
+		};
+
 		class Gate_Inverted : virtual public Configurable {
 			bool m_gate_inverted=false;
 			// context menu integration
@@ -148,6 +217,34 @@ namespace app {
 		  public:
 			void closed(bool a_closed) { m_closed = a_closed; }
 			bool closed() const { return m_closed; }
+		};
+
+		struct RGB {
+			double m_red;
+			double m_green;
+			double m_blue;
+
+			RGB(double r, double g, double b) {
+				m_red = r; m_green = g; m_blue = b;
+			}
+			double red() { return m_red; }
+			double blue() { return m_blue; }
+			double green() { return m_green; }
+		};
+
+		class Colour : virtual public Configurable {
+			RGB m_fg = RGB(0,0,0);
+			// context menu integration
+			virtual bool needs_fg_colour(double &r, double &g, double &b){
+				r = m_fg.red(); g = m_fg.green(); b = m_fg.blue();
+				return true;
+			}
+			virtual void set_fg_colour(double r, double g, double b){
+				m_fg = RGB(r,g,b);
+			}
+		  public:
+			const RGB &foreground() const { return m_fg; }
+			void foreground(double r, double g, double b) { m_fg = RGB(r,g,b); }
 		};
 	}
 }

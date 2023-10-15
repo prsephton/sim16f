@@ -2,8 +2,8 @@
 #include <fcntl.h>
 #include <iostream>
 #include <cassert>
-#include "devices.h"
 #include "../utils/smart_ptr.cc"
+#include "core_devices.h"
 
 template <class T> class
 	DeviceEvent<T>::registry  DeviceEvent<T>::subscribers;
@@ -135,7 +135,7 @@ template <class T> class
 	}
 
 	void Timer1::on_tmr1(Connection *c, const std::string &name, const std::vector<BYTE> &data) {
-		if (m_tmr1.overflow()) {  // check overflow
+		if (m_tmr1.overflow().signal()) {  // check overflow
 			eq.queue_event(new DeviceEvent<Timer1>(*this, "Overflow", {}));
 		} else if (m_tmr1on.signal()) {
 			unsigned long val = m_tmr1.get();

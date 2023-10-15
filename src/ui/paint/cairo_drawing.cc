@@ -236,10 +236,13 @@ namespace app{
 		: from(source), to(target), src_index(source_info), dst_index(target_info),
 		  connection(NULL)
 	{
-		if (not (source_info.what == WHATS_AT::OUTPUT || source_info.what == WHATS_AT::IN_OUT))
+		if (not (source_info.what == WHATS_AT::OUTPUT ||
+				 source_info.what == WHATS_AT::OVERFLOW ||
+				 source_info.what == WHATS_AT::IN_OUT))
 			return;
 		if (not (target_info.what == WHATS_AT::INPUT ||
 				 target_info.what == WHATS_AT::GATE ||
+				 target_info.what == WHATS_AT::CLOCK ||
 				 target_info.what == WHATS_AT::IN_OUT))
 			return;
 
@@ -248,7 +251,7 @@ namespace app{
 			if (connection)
 				connected = to->slot(dst_index, connection);
 			if (connected) {
-				std::cout << "Connected from " << source_info.asText("") << " to " << target_info.asText("") << std::endl;
+//				std::cout << "Connected from " << source_info.asText("") << " to " << target_info.asText("") << std::endl;
 				connection->queue_change(true, ":  Connect");
 			}
 		}
@@ -259,6 +262,8 @@ namespace app{
 		if (what==WHATS_AT::IN_OUT) {
 			win->set_cursor(m_cursor_in_out);
 		} else if (what==WHATS_AT::OUTPUT) {
+			win->set_cursor(m_cursor_output);
+		} else if (what==WHATS_AT::OVERFLOW) {
 			win->set_cursor(m_cursor_output);
 		} else if (what==WHATS_AT::START) {
 			win->set_cursor(m_cursor_start);
@@ -281,6 +286,8 @@ namespace app{
 		} else if (what==WHATS_AT::END) {
 			win->set_cursor(m_cursor_end);
 		} else if (what==WHATS_AT::INPUT) {
+			win->set_cursor(m_cursor_input);
+		} else if (what==WHATS_AT::CLOCK) {
 			win->set_cursor(m_cursor_input);
 		} else if (what==WHATS_AT::GATE) {
 			win->set_cursor(m_cursor_input);

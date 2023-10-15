@@ -26,11 +26,11 @@
 #include <queue>
 
 #include "devices/constants.h"
-#include "devices/devices.h"
 #include "utils/hex.h"
 #include "utils/assembler.h"
 #include "utils/utility.h"
 #include "cpu_data.h"
+#include "devices/core_devices.h"
 #include "instructions.h"
 
 //___________________________________________________________________________________
@@ -128,6 +128,8 @@ class CPU {
 		data.sram.reset();
 		interrupt_pending = false;
 
+		data.reset_registers();
+
 		data.sram.write(SRAM::STATUS, 0b00011000, false);
 		data.sram.write(SRAM::OPTION, 0b11111111, false);
 		data.sram.write(SRAM::TRISA,  0b11111111, false);
@@ -135,8 +137,6 @@ class CPU {
 		data.sram.write(SRAM::PCON,   0b00001000, false);
 		data.sram.write(SRAM::PR2,    0b11111111, false);
 		data.sram.write(SRAM::TXSTA,  0b00000010, false);
-
-		data.reset_registers();
 
 		nsteps = 2;        // fetch & execute the first instruction
 		data.clock.start();

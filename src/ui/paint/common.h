@@ -7,7 +7,7 @@
 #include <cmath>
 #include "cairo_drawing.h"
 #include "properties.h"
-#include "../../devices/devices.h"
+#include "../../devices/core_devices.h"
 
 namespace app {
 
@@ -1476,7 +1476,7 @@ namespace app {
 		}
 	};
 
-	class RelaySymbol: public Symbol  {
+	class RelaySymbol: public Symbol, public prop::Switch, public prop::Flipped  {
 		bool m_flipped;
 		bool m_closed;
 	  public:
@@ -1500,9 +1500,6 @@ namespace app {
 				return &hotspot(2);
 			return NULL;
 		}
-
-		void closed(bool a_closed) { m_closed = a_closed; }
-		void flipped(bool a_flipped) { m_flipped = a_flipped; }
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			double sz = 20.0;
@@ -1564,9 +1561,7 @@ namespace app {
 		}
 	};
 
-	class ToggleSwitchSymbol: public Symbol  {
-		bool m_flipped;
-		bool m_closed;
+	class ToggleSwitchSymbol: public Symbol, public prop::Switch, public prop::Flipped {
 	  public:
 		virtual WHATS_AT location(Point p) {
 			if (hotspot(0).close_to(p))
@@ -1589,22 +1584,19 @@ namespace app {
 			return NULL;
 		}
 
-		void closed(bool a_closed) { m_closed = a_closed; }
-		void flipped(bool a_flipped) { m_flipped = a_flipped; }
-
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			double sz = 20.0;
 
 			cr->save();
+			if (flipped()) {
+				Cairo::Matrix x_reflection_matrix;
+				cr->get_matrix(x_reflection_matrix);
+				x_reflection_matrix.xx = -1.0;
+				cr->set_matrix(x_reflection_matrix);
+			}
 			cr->translate(m_x, m_y);
 			cr->rotate(get_rotation());
-			if (m_flipped) {
-				cairo_matrix_t x_reflection_matrix;
-				cairo_matrix_init_identity(&x_reflection_matrix);
-				x_reflection_matrix.yy = -1.0;
-				cr->set_matrix(x_reflection_matrix);
-//				cr->translate(0, ?);
-			}
+			cr->scale(get_scale(), get_scale());
  			bounding_rect(cr, Rect(0, 0, sz*4, -sz));
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
@@ -1619,7 +1611,7 @@ namespace app {
 
 			cr->save();
 			cr->set_source_rgba(0.0, 0.0, 0.0, 1.0);
-			if (m_closed) {
+			if (closed()) {
 				cr->set_line_width(0.8);
 				cr->move_to(sz, 0); cr->line_to(sz*3, 0);
 			} else {
@@ -1639,8 +1631,10 @@ namespace app {
 			cr->restore();
 		}
 
-		ToggleSwitchSymbol(double x=0, double y=0, double rotation=0, bool closed=false, bool flipped=false):
-			Symbol(x, y, rotation), m_flipped(flipped), m_closed(closed) {
+		ToggleSwitchSymbol(double x=0, double y=0, double rotation=0, bool a_closed=false, bool a_flipped=false):
+			Symbol(x, y, rotation) {
+			flipped(a_flipped);
+			closed(a_closed);
 			name("S");
 		}
 	};
@@ -1652,6 +1646,7 @@ namespace app {
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			cr->save();
 			cr->translate(m_x, m_y);
+			cr->scale(get_scale(), get_scale());
 			bounding_rect(cr, Rect(-width()/2, -height()/2, width(), height()));
 			cr->set_line_width(1.2);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
@@ -1777,10 +1772,8 @@ namespace app {
 	};
 
 
-	class CounterSymbol: public BlockSymbol {
+	class CounterSymbol: public BlockSymbol, public prop::Outputs, public prop::Synchronous, public prop::Trigger {
 		unsigned long m_value = 0;
-		int m_nBits = 8;
-		bool m_is_sync = false;
 
 	  public:
 
@@ -1789,8 +1782,10 @@ namespace app {
 				return WHATS_AT(this, WHATS_AT::INPUT, 0, WHATS_AT::WEST);
 			if (hotspot(1).close_to(p))
 				return WHATS_AT(this, WHATS_AT::CLOCK, 0, WHATS_AT::NORTH);
-			for (int n = 0; n < m_nBits; ++n) {
-				if (hotspot(2+n).close_to(p))
+			if (hotspot(2).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OVERFLOW, 0, WHATS_AT::EAST);
+			for (int n = 0; n < outputs(); ++n) {
+				if (hotspot(3+n).close_to(p))
 					return WHATS_AT(this, WHATS_AT::OUTPUT, n, WHATS_AT::SOUTH);
 			}
 			return Symbol::location(p);
@@ -1801,53 +1796,65 @@ namespace app {
 				return &hotspot(0);
 			if (what.match((void *)this, WHATS_AT::CLOCK, 0))
 				return &hotspot(1);
-			for (int n = 0; n < m_nBits; ++n) {
+			if (what.match((void *)this, WHATS_AT::OVERFLOW, 0))
+				return &hotspot(2);
+			for (int n = 0; n < outputs(); ++n) {
 				if (what.match((void *)this, WHATS_AT::OUTPUT, n))
-					return &hotspot(2+n);
+					return &hotspot(3+n);
 			}
 			return NULL;
 		}
 
 		void set_value(unsigned long v) { m_value = v; }
-		void set_synch(bool synch) { m_is_sync = synch; }
-		void set_nbits(int nbits) { m_nBits = nbits; }
+		void set_synch(bool synch) { synchronous(synch); }
 
 	  protected:
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			BlockSymbol::draw(cr);
 			cr->save();
-			cr->translate(2+m_x-width()/2, m_y-height()/2);
+			cr->translate(m_x, m_y);
+			cr->scale(get_scale(), get_scale());
+			cr->translate(-width()/2, -height()/2);
+
+			cr->set_font_size(7);
 			hotspot(cr, 0, Point(0, height()/2));         // input
+			cr->move_to(3, height()/2+4); cr->show_text("D");
 			hotspot(cr, 1, Point(width()/2, 0));          // clock
+			cr->move_to(width()/2-4, 8); cr->show_text("Ck");
+			hotspot(cr, 2, Point(width(), height()/2));   // overflow
+			cr->move_to(width()-8, height()/2+4); cr->show_text("Q");
 
 			cr->set_line_width(0.8);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 
 			std::string bits="";
-			for (int n=0; n < m_nBits; ++n){
+			for (int n=0; n < outputs(); ++n){
 				bits.insert(0, (m_value & 1 << n)?"1":"0");
 			}
 			bits += " [" + int_to_hex(m_value, "0x") + "]";
 
-			cr->move_to(10, height() - 14);
-			CairoDrawing::black(cr);
-			cr->show_text(bits);
+			cr->set_font_size(8);
+			Cairo::TextExtents tx;
+			cr->get_text_extents(bits, tx);
+			cr->move_to(width()/2 - tx.width/2, height()/2 + tx.height/2);
+			cr->text_path(bits);
+			cr->set_line_width(0.6);
 
-			if (showing_name()) {
-				cr->save();
-				cr->set_font_size(7);
-				for (int n = 0; n < m_nBits; ++n) {           // outputs
-					double x = (n+1) * width()/(m_nBits+2);
-					int bit_no = (m_nBits-1-n);
-					hotspot(cr, 2+bit_no, Point(x, height()));
-					cr->move_to(x, height()-2);
-					cr->show_text(int_to_string(bit_no));
-				}
-				cr->restore();
+			CairoDrawing::black(cr); cr->fill_preserve(); cr->stroke();
+
+			cr->save();
+			cr->set_font_size(7);
+			for (int n = 0; n < outputs(); ++n) {           // outputs
+				double x = (n+2) * width()/(outputs()+2);
+				int bit_no = (outputs()-1-n);
+				hotspot(cr, 3+bit_no, Point(x, height()));
+				cr->move_to(x-3, height()-3);
+				cr->show_text(int_to_string(bit_no));
 			}
+			cr->restore();
 
-			if (m_is_sync) {
+			if (synchronous()) {
 				auto mid = width() / 2;
 				cr->move_to(mid - 10, 0);
 				cr->line_to(mid, 15);
@@ -1862,14 +1869,14 @@ namespace app {
 		CounterSymbol(double x=0, double y=0, double w=100, double row_height=20) :
 			BlockSymbol(x, y, w, row_height){
 			name("Counter");
+			outputs(8);
 		}
 
 	};
 
 
-	class ShiftRegisterSymbol: public BlockSymbol {
+	class ShiftRegisterSymbol: public BlockSymbol, public prop::Outputs, public prop::Trigger {
 		unsigned long m_value = 0;
-		int m_nBits = 8;
 
 	  public:
 
@@ -1882,8 +1889,10 @@ namespace app {
 				return WHATS_AT(this, WHATS_AT::GATE, 0, WHATS_AT::WEST);
 			if (hotspot(3).close_to(p))
 				return WHATS_AT(this, WHATS_AT::INPUT, 1, WHATS_AT::WEST);
-			for (int n = 0; n < m_nBits; ++n) {
-				if (hotspot(4+n).close_to(p))
+			if (hotspot(4).close_to(p))
+				return WHATS_AT(this, WHATS_AT::OVERFLOW, 0, WHATS_AT::EAST);
+			for (int n = 0; n < outputs(); ++n) {
+				if (hotspot(5+n).close_to(p))
 					return WHATS_AT(this, WHATS_AT::OUTPUT, n, WHATS_AT::SOUTH);
 			}
 			return Symbol::location(p);
@@ -1898,37 +1907,51 @@ namespace app {
 				return &hotspot(2);
 			if (what.match((void *)this, WHATS_AT::INPUT, 1))
 				return &hotspot(3);
-			for (int n = 0; n < m_nBits; ++n) {
+			if (what.match((void *)this, WHATS_AT::OVERFLOW, 0))
+				return &hotspot(4);
+			for (int n = 0; n < outputs(); ++n) {
 				if (what.match((void *)this, WHATS_AT::OUTPUT, n))
-					return &hotspot(4+n);
+					return &hotspot(5+n);
 			}
 			return NULL;
 		}
 
 		void set_value(unsigned long v) { m_value = v; }
-		void set_nbits(int nbits) { m_nBits = nbits; }
 
 	  protected:
 
 		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
 			BlockSymbol::draw(cr);
 			cr->save();
-			cr->translate(2+m_x-width()/2, m_y-height()/2);
+			cr->translate(m_x, m_y);
+			cr->scale(get_scale(), get_scale());
+			cr->translate(-width()/2, -height()/2);
+
+			cr->set_font_size(7);
 			hotspot(cr, 0, Point(0, height()/2));         // input
+			cr->move_to(3, height()/2+4); cr->show_text("D");
 			hotspot(cr, 1, Point(width()/2, 0));          // clock
+			cr->move_to(width()/2-4, 8); cr->show_text("Ck");
 			hotspot(cr, 2, Point(0, 5));                  // enable
+			cr->move_to(3, 8); cr->show_text("en");
 			hotspot(cr, 3, Point(0, height()-5));         // shift right
+			cr->move_to(3, height()-2); cr->show_text("X");
+			hotspot(cr, 4, Point(width(), height()/2));   // overflow
+			cr->move_to(width()-8, height()/2+4); cr->show_text("Q");
 
 			cr->set_line_width(0.8);
 			cr->set_line_cap(Cairo::LineCap::LINE_CAP_ROUND);
 
 			std::string bits="";
-			for (int n=0; n < m_nBits; ++n){
+			for (int n=0; n < outputs(); ++n){
 				bits.insert(0, (m_value & 1 << n)?"1":"0");
 			}
 			bits += " [" + int_to_hex(m_value, "0x") + "]";
 
-			cr->move_to(10, height() - 10);
+			cr->set_font_size(10);
+			Cairo::TextExtents tx;
+			cr->get_text_extents(bits, tx);
+			cr->move_to(width()/2 - tx.width/2, height()*2/3 + tx.height/4);
 			cr->text_path(bits);
 			cr->set_line_width(0.6);
 
@@ -1936,11 +1959,11 @@ namespace app {
 
 			cr->save();
 			cr->set_font_size(7);
-			for (int n = 0; n < m_nBits; ++n) {           // outputs
-				double x = (n+1) * width()/(m_nBits+2);
-				int bit_no = (m_nBits-1-n);
-				hotspot(cr, 4+bit_no, Point(x, height()));
-				cr->move_to(x, height()-2);
+			for (int n = 0; n < outputs(); ++n) {           // outputs
+				double x = (n+2) * width()/(outputs()+2);
+				int bit_no = (outputs()-1-n);
+				hotspot(cr, 5+bit_no, Point(x, height()));
+				cr->move_to(x-3, height()-3);
 				cr->show_text(int_to_string(bit_no));
 			}
 			cr->restore();
@@ -1956,9 +1979,81 @@ namespace app {
 		}
 
 	  public:
-		ShiftRegisterSymbol(double x=0, double y=0, double w=100, double row_height=20) :
-			BlockSymbol(x, y, w, row_height){
+		ShiftRegisterSymbol(double x=0, double y=0, double w=100, double height=30) :
+			BlockSymbol(x, y, w, height){
 			name("Shift");
+			outputs(8);
+		}
+
+	};
+
+
+	class LEDPanelSymbol: public BlockSymbol, public prop::Inputs, public prop::Colour {
+		std::vector<Connection *> m_bits;
+
+	  public:
+
+		virtual WHATS_AT location(Point p) {
+			for (int n = 0; n < inputs(); ++n) {
+				if (hotspot(n).close_to(p))
+					return WHATS_AT(this, WHATS_AT::INPUT, n, WHATS_AT::NORTH);
+			}
+			return Symbol::location(p);
+		}
+
+		virtual const Point *hotspot_at(const WHATS_AT &what) const {
+			for (int n = 0; n < inputs(); ++n) {
+				if (what.match((void *)this, WHATS_AT::INPUT, n))
+					return &hotspot(n);
+			}
+			return NULL;
+		}
+
+		void set_bits(std::vector<Connection *> a_bits) { m_bits = a_bits; }
+
+	  protected:
+
+		virtual void draw(const Cairo::RefPtr<Cairo::Context>& cr) {
+			BlockSymbol::draw(cr);
+			cr->save();
+
+			cr->translate(m_x, m_y);
+			cr->scale(get_scale(), get_scale());
+			cr->translate(-width()/2, -height()/2);
+			cr->set_line_width(0.01);
+			cr->set_font_size(7);
+			for (int n = 0; n < inputs(); ++n) {           // outputs
+				double x = (n+2) * width()/(inputs()+2);
+				int bit_no = (inputs()-1-n);
+				hotspot(cr, bit_no, Point(x, 0));
+				cr->move_to(x-3, 8);
+				cr->show_text(int_to_string(bit_no));
+				cr->arc(x, height()-6, 5, 0, M_PI*2);
+
+				CairoDrawing::black(cr);
+				cr->stroke_preserve();
+				auto rgb = foreground();
+				cr->set_source_rgb(rgb.red(), rgb.green(), rgb.blue());
+				cr->fill_preserve();
+				double val = m_bits[bit_no]?(m_bits[bit_no]->rd() / m_bits[bit_no]->Vdd):0;
+				val = (1 - val) * 0.7 + 0.02;
+				auto grad = Cairo::RadialGradient::create(x, height()-6, 0.025, x, height()-6, 5);
+				grad->add_color_stop_rgba(0.0, 0, 0, 0, val);
+				grad->add_color_stop_rgba(0.85, 0, 0, 0, 0.90);
+				grad->add_color_stop_rgba(1.0, 0, 0, 0, 0.95);
+				cr->set_source(grad);
+				cr->fill();
+			}
+
+			cr->restore();
+		}
+
+	  public:
+		LEDPanelSymbol(double x=0, double y=0, double w=100, double height=30) :
+			BlockSymbol(x, y, w, height){
+			name("LED");
+			inputs(8);
+			foreground(1, 1, 0.5);  // default LED colour
 		}
 
 	};

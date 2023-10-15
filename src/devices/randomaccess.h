@@ -2,7 +2,8 @@
 
 #include <typeindex>
 #include <cstring>
-#include "devices.h"
+
+#include "core_devices.h"
 
 
 class RandomAccess {

@@ -367,7 +367,7 @@ namespace app {
 			draw_PSA_Mux2();
 			draw_TimerSync();
 			m_Sync.name("sync");
-			m_trace.duration_us(10000000);  // 10s
+			m_trace.set_duration(10000000);  // 10s
 			draw_trace();
 			draw_TMR0();
 		}

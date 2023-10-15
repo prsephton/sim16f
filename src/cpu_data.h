@@ -40,8 +40,8 @@
 #include <map>
 
 #include "devices/constants.h"
+#include "devices/core_devices.h"
 #include "devices/flags.h"
-#include "devices/devices.h"
 #include "devices/sram.h"
 #include "utils/smart_ptr.h"
 #include "utils/utility.h"
