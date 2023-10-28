@@ -12,6 +12,9 @@ bool load_hex(const std::string &a_filename, CPU_DATA &cpu) {
 	FILE *f = fopen(a_filename.c_str(), "r");
 	char buf[256];
 
+	if (not f) {
+		throw(std::string("Cannot open .hex file: ") + a_filename);
+	}
 	cpu.eeprom.clear();
 	cpu.flash.clear();
 	while (fgets(buf, sizeof(buf), f)) {
