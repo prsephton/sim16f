@@ -493,7 +493,13 @@ namespace app {
 			cr->user_to_device(m_dev_origin.x, m_dev_origin.y);
 			for (auto &component: m_components) {
 				InterConnection *ic = dynamic_cast<InterConnection *>(component.second.operator ->());
-				if (ic) ic->draw(cr);
+				if (ic) {
+					try {
+						ic->draw(cr);
+					} catch (...) {
+						std::cout << "Cannot draw component" << std::endl;
+					}
+				}
 			}
 			double l_scale = m_interactions.produce(m_area)->get_scale();
 			cr->scale(l_scale, l_scale);
